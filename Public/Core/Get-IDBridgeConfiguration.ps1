@@ -31,7 +31,7 @@ function Get-IDBridgeConfiguration {
             Write-Host "Imported Active Directory Module"
         }
         catch {
-            Write-Log -Message "AD Powershell Module does not exit on the local machine: $_" -Path $logFile -Level Error
+            Write-Log -Message "AD Powershell Module does not exit on the local machine: $_" -Path $logFile
             if ($IDBridgeConfig.Debug.SkipADCHeck -ne $true) {
                 Throw "AD Powershell Module does not exit on the local machine: $_"
             }

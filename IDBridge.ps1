@@ -11,30 +11,20 @@ catch {
 #endregion Import Modules
 
 #region Set Logging
-#Creates the log variables and file locations
-Initialize-Logging -LogFileLocation "C:\IDBridge\Logs\IDBridge.log"
+#Checks the log file size and renames it if it is larger than 1MB
+Initialize-Logging
 #endregion Set Logging
 
 #region Import Configuration
-#Test the configuration at C:\IDBridge - Returns True if tests pass
 try {
-    Test-IDBridgeConfiguration
-}
-catch {
-    Throw (Start-ScriptEnd -Message $_ -WriteError)
-}
+    #Test the configuration at C:\IDBridge - Returns True if tests pass
+    Test-IDBridgeConfiguration -ErrorAction Stop
 
-#Import the configuration
-try {
-    $IDConfig = Get-IDBridgeConfiguration
-}
-catch {
-    Throw (Start-ScriptEnd -Message $_ -WriteError)
-}
+    #Import the configuration
+    $IDConfig = Get-IDBridgeConfiguration -ErrorAction Stop
 
-#Import the Google Authentication File
-try {
-    $googleJSONPath = Get-IDBridgeGoogleAuthFile
+    #Import the Google Authentication File
+    $googleJSONPath = Get-IDBridgeGoogleAuthFile -ErrorAction Stop
 }
 catch {
     Throw (Start-ScriptEnd -Message $_ -WriteError)
@@ -45,8 +35,7 @@ catch {
 
 #region Google Authorization Token
 try {
-    $googleAuthScope = "https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.orgunit https://www.googleapis.com/auth/admin.directory.group https://www.googleapis.com/auth/spreadsheets" # Google API Token and Scope Information
-    $headers = Get-GoogleApiAccessToken -ServiceAccountKeyPath $googleJSONPath -Scope $googleAuthScope -TargetUserEmail $IDConfig.GoogleToken.adminEmail
+    $headers = Get-GoogleApiAccessToken -ServiceAccountKeyPath $googleJSONPath -Scope $IDConfig.GoogleToken.googleAuthScope -TargetUserEmail $IDConfig.GoogleToken.adminEmail
 }
 catch {
     Throw (Start-ScriptEnd -Message $_ -WriteError)
@@ -55,96 +44,27 @@ catch {
 
 #region Gather Data
 #region Spreadsheet Data Staff
-#Get Data from Spreadsheet
 try {
-    $data = Get-GoogleSheetData -GoogleSheetID $IDConfig.GoogleSheet.sheetID -GoogleSheetRange $IDConfig.GoogleSheet.sheetRange -tokenInformation $headers
-    Write-Log -Path $logFile -Message "Source Data Staff: Successfully retrieved Google Sheet data"
+    $data = Get-SourceDataGSheet -IDConfig $IDConfig -logFile $logFile -headers $headers
 }
 catch {
-    Write-Log -Path $logFile -Message "Source Data Staff: Failed to Retrieve Google Sheet Data" -Level Error
     Throw (Start-ScriptEnd -Message $_ -WriteError)
-}
-
-#Check data fetched count for safety
-if ($data.count -gt ([int]$IDConfig.General.staffCount * ([int]$IDConfig.General.safetyPercentage / 100))) {
-    Write-Log -Path $logFile -Message "Source Data Staff: Successfully retrieved $($data.count) Users"
-} else {
-    Throw (Start-ScriptEnd -Message "Source Data Staff: $($data.count) retrieved but does not meet the threshold of $([int]$IDConfig.General.safetyPercentage / 100)" -WriteError)
-}
-
-#Limit data to 10 objects if Test Run is active
-if ($IDConfig.Debug.testRun -eq $true) {
-    $data = $data | Select-Object -first 10
-    Write-Log -Path $logFile -Message "TEST RUN: LIMITING DATA SOURCE TO TEN USERS - $($data.PersonID)"
-}
-
-#Check to see if there is actually any data to process
-if ($data.Process -notcontains "TRUE") {
-    Throw (Start-ScriptEnd -Message "Source Data: Data fetched but no users are set to process" -WriteError)
 }
 #endregion Spreadsheet Data Staff
 
 #region Get Google Data
 if ($IDConfig.Google.enabled -eq $true) {
-    #region Get Google Users
     try {
-        $googleUsers = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500" -ErrorAction Stop
+        $googleData = Get-TargetDataGoogle -IDConfig $IDConfig -logFile $logFile -headers $headers
     }
     catch {
         Throw (Start-ScriptEnd -Message $_ -WriteError)
     }
-    #endregion Get Google Users
-
-    #region Google Groups and Memberships
-    #Get Google Groups - Stores data in $googleGroups
-    try {
-        $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer&maxResults=500" -ErrorAction Stop
-
-        #Remove Classroom Teachers Group
-        $googleGroups = $googleGroups | Where-Object {$_.email -notlike "classroom_teachers@*"}
-    }
-    catch {
-        Throw (Start-ScriptEnd -Message $_ -WriteError)
-    }
-
-    #Get Google Group Memberships - Stores memberships in $userGoogleGroupsCurrent
-    #Hashtable to store users and their groups
-    $userGoogleGroupsCurrent = @{}
-
-    #Loop through each group and retrieve its members
-    foreach ($item in $googleGroups | Where-Object {$_.directMembersCount -ne 0}) {
-        Write-Host "Google: Getting Group Members: $($item.email)"
-        try {
-            #Get group Memebers
-            $groupMemberResults = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://admin.googleapis.com/admin/directory/v1/groups/" + $item.email + "/members?customer=my_customer&maxResults=500") -ErrorAction Stop
-            
-            foreach ($member in $groupMemberResults) {
-                #Add user to hashtable, create entry if it doesn't exist
-                if (-not $userGoogleGroupsCurrent.ContainsKey($member.email)) {
-                    $userGoogleGroupsCurrent[$member.email] = @()
-                }
-
-                #Add the group to the user's list
-                $userGoogleGroupsCurrent[$member.email] += $item.email
-            }
-
-            if ($groupMemberResults) {Remove-Variable groupMemberResults}
-        }
-        catch {
-            Write-Log -Path $logFile -Message ("Google: No users retrieved for Group: " + $item.email) -Level Error
-            Throw (Start-ScriptEnd -Message $_ -WriteError)
-        }
-    }
-    #endregion Google Groups and Memberships
-
-    #region Get Google Org Units
-    try {
-        $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all&maxResults=500" -ErrorAction Stop
-    }
-    catch {
-        Throw (Start-ScriptEnd -Message $_ -WriteError)
-    }
-    #endregion Get Google Org Units
+    
+    $googleUsers = $googleData.GoogleUsers
+    $googleGroups = $googleData.GoogleGroups
+    $userGoogleGroupsCurrent = $googleData.UserGoogleGroupsCurrent
+    $googleOrgUnits = $googleData.GoogleOrgUnits
 }
 #endregion Get Google Data
 
@@ -153,75 +73,16 @@ if ($IDConfig.Google.enabled -eq $true) {
 
 #region Get Data AD
 if ($IDConfig.AD.enabled -eq $true) {
-    #User Properties to load
-    $userPropertyAD = @(
-        "UserPrincipalName"
-        "Title"
-        "Surname"
-        "SamAccountName"
-        "physicalDeliveryOfficeName"
-        "Name"
-        "GivenName"
-        "employeeType"
-        "EmployeeID"
-        "DisplayName"
-        "DistinguishedName"
-        "Company"
-        "CN"
-        "CanonicalName"
-        "MemberOf"
-        "objectGUID"
-        "extensionAttribute1"
-        "extensionAttribute2"
-        "extensionAttribute3"
-        "extensionAttribute4"
-        "extensionAttribute5"
-    )
-
-    #Get all OUs from AD
     try {
-        $ADOrgUnits = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' -SearchBase $IDConfig.AD.userRootOU | Select-Object -ExpandProperty DistinguishedName
-
-        if ($ADOrgUnits) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Org Units"
-        } else {
-            Throw "AD: Connected to AD but no org units fetched"
-        }
+        $adData = Get-TargetDataAD -IDConfig $IDConfig -logFile $logFile
     }
     catch {
-        Write-Log -Path $logFile -Message "AD: No org units fetched" -Level Error
         Throw (Start-ScriptEnd -Message $_ -WriteError)
     }
 
-    #Get all Groups from AD
-    try {
-        $ADGroups = Get-ADGroup -Filter * | Select-Object -ExpandProperty Name
-
-        if ($ADGroups) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Groups"
-        } else {
-            Throw "AD: Connected to AD but no groups fetched"
-        }
-    }
-    catch {
-        Write-Log -Path $logFile -Message "AD: No groups fetched" -Level Error
-        Throw (Start-ScriptEnd -Message $_ -WriteError)
-    }
-
-    #Get all Users from AD
-    try {
-        $ADUsers = Get-ADUser -Filter * -Properties $userPropertyAD
-
-        if ($ADUsers) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Users"
-        } else {
-            Throw "AD: Connected to AD but no users fetched"
-        }
-    }
-    catch {
-        Write-Log -Path $logFile -Message "AD: No users fetched" -Level Error
-        Throw (Start-ScriptEnd -Message $_ -WriteError)
-    }
+    $ADOrgUnits = $adData.ADOrgUnits
+    $ADGroups = $adData.ADGroups
+    $ADUsers = $adData.ADUsers
 }
 #endregion Get Data AD
 

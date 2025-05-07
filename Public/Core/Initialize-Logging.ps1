@@ -1,13 +1,8 @@
 function Initialize-Logging {
     [cmdletbinding()]
-    Param(
-        [parameter(Mandatory=$true)]
-        $LogFileLocation
-    )
+    Param()
 
-    Set-Variable -Name "logDate" -Value (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") -Scope global
-
-    Set-Variable -Name "logFile" -Value $LogFileLocation -Scope global
+    $logFile = "C:\IDBridge\Logs\IDBridge.log"
 
     if ((Get-Item $logFile).Length -gt 1000000) {
         Rename-Item $logFile ((Get-Item $logfile).BaseName + "_" + $logDate + ".log")

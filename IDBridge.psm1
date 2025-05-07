@@ -19,3 +19,7 @@ if ($FoundErrors.Count -gt 0) {
 }
 
 Export-ModuleMember -Function '*' -Alias '*' -Cmdlet '*'
+
+Set-Variable -Name "logDate" -Value (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") -Scope global
+
+Set-Variable -Name "logFile" -Value "C:\IDBridge\Logs\IDBridge.log" -Scope global
