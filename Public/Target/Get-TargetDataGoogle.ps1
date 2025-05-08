@@ -5,28 +5,31 @@
 .DESCRIPTION
     Connects to Google Workspace using the provided authentication headers and configuration.
     Returns a single object containing:
-      - All users
+      - All users (with a CurrentGroups property listing their group memberships)
       - All groups (excluding "classroom_teachers")
-      - A hashtable mapping user emails to their group memberships
       - All organizational units
 
-.PARAMETER IDConfig
-    The configuration object containing Google Workspace and script settings.
+    For each group, retrieves its members and builds a hashtable mapping user emails to their group memberships.
+    Each user object in the returned collection has a CurrentGroups property containing the list of groups they belong to.
 
 .PARAMETER logFile
-    The path to the log file for error and process logging.
+    (Required) The path to the log file for error and process logging.
 
 .PARAMETER headers
-    The authentication headers for Google API requests.
+    (Required) The authentication headers for Google API requests.
 
 .OUTPUTS
     PSCustomObject
-    An object with properties: GoogleUsers, GoogleGroups, UserGoogleGroupsCurrent, GoogleOrgUnits.
+    An object with properties:
+        - Users: Array of user objects, each with a CurrentGroups property.
+        - Groups: Array of group objects (excluding "classroom_teachers").
+        - OrgUnits: Array of organizational unit objects.
 
 .EXAMPLE
-    $googleData = Get-TargetDataGoogle -IDConfig $IDConfig -logFile $logFile -headers $headers
-    $googleData.GoogleUsers
-    $googleData.GoogleGroups
+    $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headers
+    $googleData.Users
+    $googleData.Groups
+    $googleData.OrgUnits
 
 .NOTES
     Author: Sam Cattanach
@@ -36,9 +39,6 @@
 function Get-TargetDataGoogle {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [PSObject]$IDConfig,
-
         [Parameter(Mandatory = $true)]
         [string]$logFile,
 
@@ -94,6 +94,16 @@ function Get-TargetDataGoogle {
             Throw (Write-Log -Path $logFile -Message ("Google: No users retrieved for Group: " + $item.email) -Level Error)
         }
     }
+
+    #Add Groups to User Object
+    foreach ($user in $googleUsers) {
+        #Check if the user is in the hashtable and add groups if they exist
+        if ($userGoogleGroupsCurrent.ContainsKey($user.primaryEmail)) {
+            $user | Add-Member -MemberType NoteProperty -Name CurrentGroups -Value $userGoogleGroupsCurrent[$user.primaryEmail]
+        } else {
+            $user | Add-Member -MemberType NoteProperty -Name CurrentGroups -Value @()
+        }
+    }
     #endregion Google Groups and Memberships
 
     #region Get Google Org Units
@@ -107,9 +117,8 @@ function Get-TargetDataGoogle {
 
     #Return a single object with all data
     return [PSCustomObject]@{
-        GoogleUsers             = $googleUsers
-        GoogleGroups            = $googleGroups
-        UserGoogleGroupsCurrent = $userGoogleGroupsCurrent
-        GoogleOrgUnits          = $googleOrgUnits
+        Users             = $googleUsers
+        Groups            = $googleGroups
+        OrgUnits          = $googleOrgUnits
     }
 }

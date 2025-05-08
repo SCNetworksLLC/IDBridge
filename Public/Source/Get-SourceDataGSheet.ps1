@@ -1,19 +1,4 @@
 function Get-SourceDataGSheet {
-    <#
-    .SYNOPSIS
-        Get Source Data from Google Sheet
-    .DESCRIPTION
-        This function retrieves data from a Google Sheet and processes it for further use.
-    .PARAMETER IDConfig
-        Configuration object containing Google Sheet ID and range.
-    .PARAMETER logFile
-        Path to the log file for logging messages.
-    .PARAMETER headers
-        Authentication headers for accessing the Google Sheet.
-    .EXAMPLE
-        Get-SourceDataGSheet -IDConfig $IDConfig -logFile $logFile -headers $headers
-    #>
-
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]

@@ -10,20 +10,20 @@
       - All users with specified properties
 
 .PARAMETER IDConfig
-    The configuration object containing Active Directory and script settings.
+    (Required) The configuration object containing Active Directory and script settings.
 
 .PARAMETER logFile
-    The path to the log file for error and process logging.
+    (Required) The path to the log file for error and process logging.
 
 .OUTPUTS
     PSCustomObject
-    An object with properties: ADOrgUnits, ADGroups, ADUsers.
+    An object with properties: OrgUnits, Groups, Users.
 
 .EXAMPLE
-    $adData = Get-TargetDataAD -IDConfig $IDConfig -logFile $logFile
-    $adData.ADOrgUnits
-    $adData.ADGroups
-    $adData.ADUsers
+    $adData = Get-TargetDataAD -logFile $logFile
+    $adData.Users
+    $adData.Groups
+    $adData.OrgUnits
 
 .NOTES
     Author: Sam Cattanach
@@ -33,9 +33,6 @@
 function Get-TargetDataAD {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [PSObject]$IDConfig,
-
         [Parameter(Mandatory = $true)]
         [string]$logFile
     )
@@ -65,18 +62,18 @@ function Get-TargetDataAD {
         "extensionAttribute5"
     )
 
-    #Get all OUs from AD
+    #Get all Users from AD
     try {
-        $ADOrgUnits = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' -SearchBase $IDConfig.AD.userRootOU | Select-Object -ExpandProperty DistinguishedName
+        $ADUsers = Get-ADUser -Filter * -Properties $userPropertyAD
 
-        if ($ADOrgUnits) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Org Units"
+        if ($ADUsers) {
+            Write-Log -Path $logFile -Message "AD: Successfully fetched Users"
         } else {
-            Throw "AD: Connected to AD but no org units fetched"
+            Throw "AD: Connected to AD but no users fetched"
         }
     }
     catch {
-        Write-Log -Path $logFile -Message "AD: No org units fetched" -Level Error
+        Write-Log -Path $logFile -Message "AD: No users fetched" -Level Error
         Throw $_
     }
 
@@ -95,25 +92,35 @@ function Get-TargetDataAD {
         Throw $_
     }
 
-    #Get all Users from AD
-    try {
-        $ADUsers = Get-ADUser -Filter * -Properties $userPropertyAD
-
-        if ($ADUsers) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Users"
+    #Add the groups to the users
+    foreach ($user in $ADUsers) {
+        #Add groups if they exist
+        if ($user.MemberOf) {
+            $user | Add-Member -MemberType NoteProperty -Name CurrentGroups -Value ($user.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
         } else {
-            Throw "AD: Connected to AD but no users fetched"
+            $user | Add-Member -MemberType NoteProperty -Name CurrentGroups -Value $null
+        }
+    }
+
+    #Get all OUs from AD
+    try {
+        $ADOrgUnits = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' | Select-Object -ExpandProperty DistinguishedName
+
+        if ($ADOrgUnits) {
+            Write-Log -Path $logFile -Message "AD: Successfully fetched Org Units"
+        } else {
+            Throw "AD: Connected to AD but no org units fetched"
         }
     }
     catch {
-        Write-Log -Path $logFile -Message "AD: No users fetched" -Level Error
+        Write-Log -Path $logFile -Message "AD: No org units fetched" -Level Error
         Throw $_
     }
 
     #Return a single object with all data
     return [PSCustomObject]@{
-        ADOrgUnits = $ADOrgUnits
-        ADGroups = $ADGroups
-        ADUsers = $ADUsers
+        Users = $ADUsers
+        Groups = $ADGroups
+        OrgUnits = $ADOrgUnits
     }
 }

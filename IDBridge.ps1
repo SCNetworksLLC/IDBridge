@@ -46,6 +46,10 @@ catch {
 #region Spreadsheet Data Staff
 try {
     $data = Get-SourceDataGSheet -IDConfig $IDConfig -logFile $logFile -headers $headers
+
+    foreach ($item in $data) {
+        $item | Add-Member -MemberType NoteProperty -Name PersonTypeGeneric -Value "Staff"
+    }
 }
 catch {
     Throw (Start-ScriptEnd -Message $_ -WriteError)
@@ -55,182 +59,66 @@ catch {
 #region Get Google Data
 if ($IDConfig.Google.enabled -eq $true) {
     try {
-        $googleData = Get-TargetDataGoogle -IDConfig $IDConfig -logFile $logFile -headers $headers
+        $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headers -ErrorAction Stop
+
+        $googleUsers = $googleData.Users
+        $googleGroups = $googleData.Groups
+        $googleOrgUnits = $googleData.OrgUnits
     }
     catch {
         Throw (Start-ScriptEnd -Message $_ -WriteError)
     }
-    
-    $googleUsers = $googleData.GoogleUsers
-    $googleGroups = $googleData.GoogleGroups
-    $userGoogleGroupsCurrent = $googleData.UserGoogleGroupsCurrent
-    $googleOrgUnits = $googleData.GoogleOrgUnits
 }
 #endregion Get Google Data
-
-
-
 
 #region Get Data AD
 if ($IDConfig.AD.enabled -eq $true) {
     try {
-        $adData = Get-TargetDataAD -IDConfig $IDConfig -logFile $logFile
+        $adData = Get-TargetDataAD -logFile $logFile -ErrorAction Stop
+
+        $ADUsers = $adData.Users
+        $ADGroups = $adData.Groups
+        $ADOrgUnits = $adData.OrgUnits
     }
     catch {
         Throw (Start-ScriptEnd -Message $_ -WriteError)
     }
-
-    $ADOrgUnits = $adData.ADOrgUnits
-    $ADGroups = $adData.ADGroups
-    $ADUsers = $adData.ADUsers
 }
 #endregion Get Data AD
+#endregion Gather Data
 
 #region Validate Data
 #region Test Source Data
 #Check to make sure required columns exist in the data
 #Remove Users who do not have data in all required fields except for terminationDate
 #Remove Users where the process field is false
-$filteredData = Test-SourceData -SourceData $data
+try {
+    $filteredData = Test-SourceData -SourceData $data
+}
+catch {
+    Throw (Start-ScriptEnd -Message $_ -WriteError)
+}
+
 #endregion Test Source Data
 
-#region Get Google Duplicate IDs
+#region Get Duplicate IDs
 if ($IDConfig.Google.enabled -eq $true) {
     $duplicateGoogleUsers = Get-DuplicateIDsGoogle -SourceData $googleUsers
 }
-#endregion Get Google Duplicate IDs
 
-#region Get AD Duplicate IDs
 if ($IDConfig.AD.enabled -eq $true) {
     $duplicateADUsers = Get-DuplicateIDsAD -SourceData $ADUsers
 }
-#endregion Get AD Duplicate IDs
+#endregion Get Duplicate IDs
 #endregion Validate Data
 
 #region Data Modifcation
-#region Add Additional Data
 foreach ($item in $filteredData) {
-    #Check if persontype starts with a number - if so, assign them student - everyone else gets staff
-    if ($item.PersonType -match '^\d') {
-        #Student Data
-        $item | Add-Member -MemberType NoteProperty -Name grade -Value (Get-StudentGrade -gradYear $item.PersonType -gradeAdvanceDate $IDConfig.General.studentGradeAdvanceDate)
-        $item | Add-Member -MemberType NoteProperty -Name PersonTypeGeneric -Value "Student"
-        $item | Add-Member -MemberType NoteProperty -Name PersonDomain -Value $IDConfig.General.studentDomainName
-        $item | Add-Member -MemberType NoteProperty -Name PersonTypeID -Value "1"
-        $item | Add-Member -MemberType NoteProperty -Name UPN -Value ($item.Username + "@" + $item.PersonDomain)
-        $item | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStudent -building $item.Building -grade $item.PersonType)
-        $item | Add-Member -MemberType NoteProperty -Name Company -Value $IDConfig.General.company
-
-        #AD Specific Data
-        if ($IDConfig.AD.enabled -eq $true) {
-            $item | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnit -Value ('OU=Grade-' + $item.grade + ',OU=' + $item.PersonTypeGeneric + "," + $IDConfig.AD.userRootOU)
-            $item | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnitTrash -Value ("OU=" + $item.PersonType + ",OU=" + $item.PersonTypeGeneric + ",OU=Trash," + $IDConfig.AD.userRootOU)
-            $item | Add-Member -MemberType NoteProperty -Name ADPassPrefix -Value $IDConfig.AD.passPrefix
-            $item | Add-Member -MemberType NoteProperty -Name ADChangePasswordAtLogon -Value $IDConfig.AD.studentChangePasswordAtLogon
-        }
-        
-        #Google Specific Data
-        if ($IDConfig.Google.enabled -eq $true) {
-            $item | Add-Member -MemberType NoteProperty -Name GoogleOrganizationalUnit -Value ($IDConfig.Google.userRootOU + "/" + $item.PersonTypeGeneric + '/Grade-' + $item.grade)
-            $item | Add-Member -MemberType NoteProperty -Name GoogleOrganizationalUnitTrash -Value ("/Trash/" + $item.PersonTypeGeneric + "/" + $item.PersonType)
-            $item | Add-Member -MemberType NoteProperty -Name GooglePassPrefix -Value $IDConfig.Google.passPrefix
-            $item | Add-Member -MemberType NoteProperty -Name GoogleChangeAtNextLogin -Value $IDConfig.Google.studentChangePasswordAtLogon
-        }
-                
-    } else {
-        #Staff Data
-        $item | Add-Member -MemberType NoteProperty -Name PersonTypeGeneric -Value "Staff"
-        $item | Add-Member -MemberType NoteProperty -Name PersonDomain -Value $IDConfig.General.staffDomainName
-        $item | Add-Member -MemberType NoteProperty -Name UPN -Value ($item.Username + "@" + $item.PersonDomain)
-        $item | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStaff -building $item.Building -personType $item.PersonType)
-        $item | Add-Member -MemberType NoteProperty -Name Company -Value $IDConfig.General.company
-        if ($IDConfig.PersonTypeThree) {
-            if ($item.PersonType -in $IDConfig.PersonTypeThree) {
-                $item | Add-Member -MemberType NoteProperty -Name PersonTypeID -Value "3"
-            } else {
-                $item | Add-Member -MemberType NoteProperty -Name PersonTypeID -Value "2"
-            }
-        }
-
-        #AD Specific Data
-        if ($IDConfig.AD.enabled -eq $true) {
-            $item | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnit -Value ('OU=' + $item.PersonType + ',OU=' + $item.PersonTypeGeneric + "," + $IDConfig.AD.userRootOU)
-            $item | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnitTrash -Value ("OU=" + (Get-Date -Format yyyy) + ",OU=" + $item.PersonTypeGeneric + ",OU=Trash," + $IDConfig.AD.userRootOU)
-            $item | Add-Member -MemberType NoteProperty -Name ADPassPrefix -Value $IDConfig.AD.passPrefix
-            $item | Add-Member -MemberType NoteProperty -Name ADChangePasswordAtLogon -Value $IDConfig.AD.staffChangePasswordAtLogon
-        }
-
-        #Google Specific Data
-        if ($IDConfig.Google.enabled -eq $true) {
-            $item | Add-Member -MemberType NoteProperty -Name GoogleOrganizationalUnit -Value ($IDConfig.Google.userRootOU + "/" + $item.PersonTypeGeneric + '/' + $item.PersonType)
-            $item | Add-Member -MemberType NoteProperty -Name GoogleOrganizationalUnitTrash -Value ("/Trash/" + $item.PersonTypeGeneric + "/" + (Get-Date -Format yyyy))
-            $item | Add-Member -MemberType NoteProperty -Name GooglePassPrefix -Value $IDConfig.Google.passPrefix
-            $item | Add-Member -MemberType NoteProperty -Name GoogleChangeAtNextLogin -Value $IDConfig.Google.staffChangePasswordAtLogon
-        }
-    }
-
-    #Add identifier if duplicate users exist in AD with the same employeeID
-    if ($IDConfig.AD.enabled -eq $true) {
-        if ($item.UPN -in $duplicateADUsers.UserPrincipalName) {
-            Write-Log -Path $logFile -Message ("AD: User with UPN: " + $item.UPN + " has a duplicate employeeID with another user.") -Level Error
-            $item | Add-Member -MemberType NoteProperty -Name ADDuplicateIDStatus -Value "DUPLICATE_ID"
-        }
-    }
-
-    #Add AD User GUID, Enabled Status, and Current Groups if available - skip duplicate IDs
-    if ($IDConfig.AD.enabled -eq $true) {
-        if (!($item.ADDuplicateIDStatus)) {
-            $adUser = $ADUsers | Where-Object {$_.EmployeeID -eq $item.personID}
-
-            if ($adUser) {
-                $item | Add-Member -MemberType NoteProperty -Name ADCurrentUserID -Value $adUser.ObjectGUID
-                $item | Add-Member -MemberType NoteProperty -Name ADCurrentUserEnabledStatus -Value $adUser.Enabled
-                $item | Add-Member -MemberType NoteProperty -Name ADCurrentGroups -Value ($adUser.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
-            } else {
-                $item | Add-Member -MemberType NoteProperty -Name ADCurrentUserID -Value $null
-                $item | Add-Member -MemberType NoteProperty -Name ADCurrentUserEnabledStatus -Value $null
-                $item | Add-Member -MemberType NoteProperty -Name ADCurrentGroups -Value $null
-            }
-        }
-    }
-
-    #Add identifier if duplicate users exist in Google with the same externalID
-    if ($IDConfig.Google.enabled -eq $true) {
-        if ($item.UPN -in $duplicateGoogleUsers.UPN) {
-            Write-Log -Path $logFile -Message ("Google: User with UPN: " + $item.UPN + " has a duplicate externalID with another user.") -Level Error
-            $item | Add-Member -MemberType NoteProperty -Name GoogleDuplicateIDStatus -Value "DUPLICATE_ID"
-        }
-    }
-
-    #Add Google User ID and Google User Suspended Status if available - skip duplicate IDs
-    if ($IDConfig.Google.enabled -eq $true) {
-        if (!($item.GoogleDuplicateIDStatus)) {
-            $googleUser = $googleUsers | Where-Object {$_.externalIDs.value -eq $item.personID}
-
-            if ($googleUser) {
-                $item | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserID -Value $googleUser.id
-                $item | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserSuspendedStatus -Value $googleUser.suspended
-                $item | Add-Member -MemberType NoteProperty -Name GoogleCurrentGroups -Value $userGoogleGroupsCurrent.($item.upn)
-            } else {
-                $item | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserID -Value $null
-                $item | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserSuspendedStatus -Value $null
-                $item | Add-Member -MemberType NoteProperty -Name GoogleCurrentGroups -Value $null
-            }
-        }
-    }
-
-    #Add Active Status
-    if ($item.TerminationDate -and (Get-Date $item.TerminationDate -format "yyyy-MM-dd") -lt (Get-Date -format "yyyy-MM-dd")) {
-        $item | Add-Member -MemberType NoteProperty -Name IDBActive -Value $false
-    } else {
-        $item | Add-Member -MemberType NoteProperty -Name IDBActive -Value $true
-    }
-
-    #Remove Variables from loop
-    if ($googleUser) {Remove-Variable googleUser}
-    if ($adUser) {Remove-Variable adUser}
+    $item = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $item -logFile $logFile
+    $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleUsers -duplicateGoogleUsers $duplicateGoogleUsers -logFile $logFile
+    $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $ADUsers -duplicateADUsers $duplicateADUsers -logFile $logFile
 }
-#endregion Add Additional Data
+
 #endregion Data Modifcation
 
 #region Groups Not Processed
@@ -277,7 +165,7 @@ if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enable
 }
 
 #endregion Groups Not Processed
-#endregion Gather Data
+
 
 
 
@@ -684,7 +572,7 @@ foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not
                 $item.GoogleCurrentUserID = $googleUser.ID
 
                 #Add the Current Google Groups to the data object
-                $item.GoogleCurrentGroups = $userGoogleGroupsCurrent.($item.UPN)
+                $item.GoogleCurrentGroups = $googleUser.CurrentGroups
             }
         } else {
             Write-Log -Path $logFile -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " is already taken with a different name of " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName) -Level Error
