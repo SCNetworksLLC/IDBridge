@@ -11,7 +11,7 @@
     (Required) The user object to which Google Workspace properties will be added or updated.
 
 .PARAMETER googleUsers
-    (Required) The collection of Google Workspace user objects for lookup.
+    (Required) [hashtable] The collection of Google Workspace user objects for lookup.  Key must be the external ID.
 
 .PARAMETER duplicateGoogleUsers
     The collection of Google users identified as having duplicate UPNs.
@@ -36,7 +36,7 @@ function Set-AdditionalUserDataGoogle {
         [Parameter(Mandatory = $true)]
         $userObject,
         [Parameter(Mandatory = $true)]
-        $googleUsers,
+        [hashtable]$googleUsers,
         $duplicateGoogleUsers,
         [Parameter(Mandatory = $true)]
         $logFile
@@ -45,21 +45,21 @@ function Set-AdditionalUserDataGoogle {
     #Add identifier if duplicate users exist in Google with the same externalID
     if ($userObject.UPN -in $duplicateGoogleUsers.UPN) {
         Write-Log -Path $logFile -Message ("Google: User with UPN: " + $userObject.UPN + " has a duplicate externalID with another user.") -Level Error
-        $userObject | Add-Member -MemberType NoteProperty -Name GoogleDuplicateIDStatus -Value "DUPLICATE_ID" -Force
+        $userObject.GoogleDuplicateIDStatus = "DUPLICATE_ID"
     }
 
     #Add Google User ID and Google User Suspended Status if available - skip duplicate IDs
     if (!($userObject.GoogleDuplicateIDStatus)) {
-        $googleUser = $googleUsers | Where-Object {$_.externalIDs.value -eq $userObject.personID}
+        $googleUser = $googleUsers[$userObject.personID]
 
         if ($googleUser) {
-            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserID -Value $googleUser.id -Force
-            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserSuspendedStatus -Value $googleUser.suspended -Force
-            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentGroups -Value $googleUser.CurrentGroups -Force
+            $userObject.GoogleCurrentUserID = $googleUser.id
+            $userObject.GoogleCurrentUserSuspendedStatus = $googleUser.suspended
+            $userObject.GoogleCurrentGroups = $googleUser.CurrentGroups
         } else {
-            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserID -Value $null -Force
-            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserSuspendedStatus -Value $null -Force
-            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentGroups -Value $null -Force
+            $userObject.GoogleCurrentUserID = $null
+            $userObject.GoogleCurrentUserSuspendedStatus = $null
+            $userObject.GoogleCurrentGroups = $null
         }
     }
 

@@ -11,7 +11,7 @@
     (Required) The user object to which Active Directory properties will be added or updated.
 
 .PARAMETER ADUsers
-    (Required) The collection of Active Directory user objects for lookup.
+    (Required) [hashtable] The collection of Active Directory user objects for lookup. Key must be the Employee ID.
 
 .PARAMETER duplicateADUsers
     The collection of AD users identified as having duplicate UPNs.
@@ -36,7 +36,7 @@ function Set-AdditionalUserDataAD {
         [Parameter(Mandatory = $true)]
         $userObject,
         [Parameter(Mandatory = $true)]
-        $ADUsers,
+        [hashtable]$ADUsers,
         $duplicateADUsers,
         [Parameter(Mandatory = $true)]
         $logFile
@@ -45,21 +45,21 @@ function Set-AdditionalUserDataAD {
     #Add identifier if duplicate users exist in AD with the same employeeID
     if ($userObject.UPN -in $duplicateADUsers.UserPrincipalName) {
         Write-Log -Path $logFile -Message ("AD: User with UPN: " + $userObject.UPN + " has a duplicate employeeID with another user.") -Level Error
-        $userObject | Add-Member -MemberType NoteProperty -Name ADDuplicateIDStatus -Value "DUPLICATE_ID"
+        $userObject.ADDuplicateIDStatus = "DUPLICATE_ID"
     }
 
     #Add AD User GUID, Enabled Status, and Current Groups if available - skip duplicate IDs
     if (!($userObject.ADDuplicateIDStatus)) {
-        $adUser = $ADUsers | Where-Object {$_.EmployeeID -eq $userObject.personID}
+        $adUser = $ADUsers[$userObject.personID]
 
         if ($adUser) {
-            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserID -Value $adUser.ObjectGUID
-            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserEnabledStatus -Value $adUser.Enabled
-            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentGroups -Value $adUser.CurrentGroups
+            $userObject.ADCurrentUserID = $adUser.ObjectGUID
+            $userObject.ADCurrentUserEnabledStatus = $adUser.Enabled
+            $userObject.ADCurrentGroups = $adUser.CurrentGroups
         } else {
-            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserID -Value $null
-            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserEnabledStatus -Value $null
-            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentGroups -Value $null
+            $userObject.ADCurrentUserID = $null
+            $userObject.ADCurrentUserEnabledStatus = $null
+            $userObject.ADCurrentGroups = $null
         }
     }
 

@@ -48,7 +48,7 @@ try {
     $data = Get-SourceDataGSheet -IDConfig $IDConfig -logFile $logFile -headers $headers
 
     foreach ($item in $data) {
-        $item | Add-Member -MemberType NoteProperty -Name PersonTypeGeneric -Value "Staff"
+        $item.PersonTypeGeneric = "Staff"
     }
 }
 catch {
@@ -113,12 +113,34 @@ if ($IDConfig.AD.enabled -eq $true) {
 #endregion Validate Data
 
 #region Data Modifcation
-foreach ($item in $filteredData) {
-    $item = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $item -logFile $logFile
-    $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleUsers -duplicateGoogleUsers $duplicateGoogleUsers -logFile $logFile
-    $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $ADUsers -duplicateADUsers $duplicateADUsers -logFile $logFile
+# Build the lookup tables once to make the search faster
+if ($IDConfig.Google.enabled -eq $true) {
+    $googleUsersLookupByID = @{}
+    foreach ($gUser in $googleUsers) {
+        foreach ($extId in $gUser.externalIDs) {
+            $googleUsersLookupByID[$extId.value] = $gUser
+        }
+    }
 }
 
+if ($IDConfig.AD.enabled -eq $true) {
+    $adUsersLookupByID = @{}
+    foreach ($adUser in $ADUsers) {
+        $adUsersLookupByID[$adUser.EmployeeID] = $adUser
+    }
+}
+
+#Add additional data to the user objects
+foreach ($item in $filteredData) {
+    $item = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $item -logFile $logFile
+
+    if ($IDConfig.Google.enabled -eq $true) {
+        $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleUsersLookupByID -duplicateGoogleUsers $duplicateGoogleUsers -logFile $logFile
+    }
+    if ($IDConfig.AD.enabled -eq $true) {
+        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adUsersLookupByID -duplicateADUsers $duplicateADUsers -logFile $logFile
+    }
+}
 #endregion Data Modifcation
 
 #region Groups Not Processed
