@@ -747,7 +747,4 @@ if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enable
 #endregion Processing Google
 
 
-
-#endregion Reset Process Flag
-
 Write-Log -Message "######## End of Script Run: $logDate ########" -Path $logFile
