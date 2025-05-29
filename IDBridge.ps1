@@ -145,43 +145,47 @@ foreach ($item in $filteredData) {
 
 #region Groups Not Processed
 #AD Checks
-if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
-    $checkGroupsListAD = @()
+if ($IDConfig.AD.enabled -eq $true) {
+    if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
+        $checkGroupsListAD = @()
 
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
-        $checkGroupsListAD += $item.GroupsAutomatic
+        foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
+            $checkGroupsListAD += $item.GroupsAutomatic
 
-        if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {
-            $checkGroupsListAD += ($item.ApplicationGroups -split ",").trim()
+            if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {
+                $checkGroupsListAD += ($item.ApplicationGroups -split ",").trim()
+            }
+            
+            if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
+                $checkGroupsListAD += ($item.EmailGroups -split ",").trim()
+            }  
         }
-        
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
-            $checkGroupsListAD += ($item.EmailGroups -split ",").trim()
-        }  
-    }
 
-    foreach ($item in $checkGroupsListAD | Select-Object -Unique | Sort-Object) {
-        if ($item -notin $ADGroups) {
-            Write-Log -Path $logFile -Message ("AD: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
+        foreach ($item in $checkGroupsListAD | Select-Object -Unique | Sort-Object) {
+            if ($item -notin $ADGroups) {
+                Write-Log -Path $logFile -Message ("AD: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
+            }
         }
     }
 }
 
 #Google Checks
-if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
-    $checkGroupsListGoogle = @()
+if ($IDConfig.Google.enabled -eq $true) {
+    if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
+        $checkGroupsListGoogle = @()
 
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
-        $checkGroupsListGoogle += $item.GroupsAutomatic
+        foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
+            $checkGroupsListGoogle += $item.GroupsAutomatic
 
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
-            $checkGroupsListGoogle += ($item.EmailGroups -split ",").trim()
+            if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
+                $checkGroupsListGoogle += ($item.EmailGroups -split ",").trim()
+            }
         }
-    }
 
-    foreach ($item in $checkGroupsListGoogle | Select-Object -Unique | Sort-Object) {
-        if ($item -notin $googleGroups.name) {
-            Write-Log -Path $logFile -Message ("Google: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
+        foreach ($item in $checkGroupsListGoogle | Select-Object -Unique | Sort-Object) {
+            if ($item -notin $googleGroups.name) {
+                Write-Log -Path $logFile -Message ("Google: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
+            }
         }
     }
 }
@@ -447,46 +451,48 @@ if ($IDConfig.AD.enabled -eq $true) {
 #endregion Create AD Users
 
 #region Process AD Groups
-if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
-        $proposedGroupList = @()
+if ($IDConfig.AD.enabled -eq $true) {
+    if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
+        foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
+            $proposedGroupList = @()
 
-        if ($item.GroupsAutomatic) {
-            $proposedGroupList += $item.GroupsAutomatic
-        }
+            if ($item.GroupsAutomatic) {
+                $proposedGroupList += $item.GroupsAutomatic
+            }
 
-        if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {
-            $proposedGroupList += ($item.ApplicationGroups -split ",").trim()
-        }
+            if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {
+                $proposedGroupList += ($item.ApplicationGroups -split ",").trim()
+            }
 
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
-            $proposedGroupList += ($item.EmailGroups -split ",").trim()
-        }
+            if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
+                $proposedGroupList += ($item.EmailGroups -split ",").trim()
+            }
 
-        #Filter out duplicates
-        $proposedGroupList = $proposedGroupList | Select-Object -Unique
+            #Filter out duplicates
+            $proposedGroupList = $proposedGroupList | Select-Object -Unique
 
-        #Add groups from Users - Only run if enableGroupProcessing is Enabled
-        foreach ($groupAdd in $proposedGroupList | Where-Object {$_ -in $ADGroups}) {
-            if ($groupAdd -notin $item.ADCurrentGroups) {
-                Write-Log -Path $logFile -Message "AD: Adding Group: $groupAdd to $($item.personID) $($item.NameFirst) $($item.NameLast)" -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
+            #Add groups from Users - Only run if enableGroupProcessing is Enabled
+            foreach ($groupAdd in $proposedGroupList | Where-Object {$_ -in $ADGroups}) {
+                if ($groupAdd -notin $item.ADCurrentGroups) {
+                    Write-Log -Path $logFile -Message "AD: Adding Group: $groupAdd to $($item.personID) $($item.NameFirst) $($item.NameLast)" -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
 
-                if ($IDConfig.AD.enableGroupProcessing -eq $true) {
-                    if ($IDConfig.Debug.readOnly -eq $false) {
-                        Add-ADPrincipalGroupMembership -Identity $item.ADCurrentUserID -MemberOf $groupAdd
+                    if ($IDConfig.AD.enableGroupProcessing -eq $true) {
+                        if ($IDConfig.Debug.readOnly -eq $false) {
+                            Add-ADPrincipalGroupMembership -Identity $item.ADCurrentUserID -MemberOf $groupAdd
+                        }
                     }
                 }
             }
-        }
 
-        #Remove groups from Users - Only run if enableGroupProcessingRemove is Enabled
-        foreach ($groupCurrent in $item.ADCurrentGroups) {
-            if ($groupCurrent -notin $proposedGroupList) {
-                Write-Log -Path $logFile -Message "AD: Removing Extra Group: $groupCurrent from $($item.personID) $($item.NameFirst) $($item.NameLast)" -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
+            #Remove groups from Users - Only run if enableGroupProcessingRemove is Enabled
+            foreach ($groupCurrent in $item.ADCurrentGroups) {
+                if ($groupCurrent -notin $proposedGroupList) {
+                    Write-Log -Path $logFile -Message "AD: Removing Extra Group: $groupCurrent from $($item.personID) $($item.NameFirst) $($item.NameLast)" -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
 
-                if ($IDConfig.AD.enableGroupProcessingRemove -eq $true) {
-                    if ($IDConfig.Debug.readOnly -eq $false) {
-                        Remove-ADGroupMember -Identity $groupCurrent -Members $item.ADCurrentUserID -Confirm:$false
+                    if ($IDConfig.AD.enableGroupProcessingRemove -eq $true) {
+                        if ($IDConfig.Debug.readOnly -eq $false) {
+                            Remove-ADGroupMember -Identity $groupCurrent -Members $item.ADCurrentUserID -Confirm:$false
+                        }
                     }
                 }
             }
@@ -519,228 +525,240 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 #region Processing Google
 #region Google OUs
-#Manual and Top Level OUs to Check
-$OUCheckGoogle = @(
-    $IDConfig.Google.userRootOU
-    ($IDConfig.Google.userRootOU + "/Student")
-    ($IDConfig.Google.userRootOU + "/Staff")
-    ("/Trash")
-    ("/Trash/Student")
-    ("/Trash/Staff")
-)
+if ($IDConfig.Google.enabled -eq $true) {
+    #Manual and Top Level OUs to Check
+    $OUCheckGoogle = @(
+        $IDConfig.Google.userRootOU
+        ($IDConfig.Google.userRootOU + "/Student")
+        ($IDConfig.Google.userRootOU + "/Staff")
+        ("/Trash")
+        ("/Trash/Student")
+        ("/Trash/Staff")
+    )
 
-#Create the OUs to check
-foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true} | Select-Object -ExpandProperty GoogleOrganizationalUnit | Sort-Object -Unique) {
-    $OUCheckGoogle += $item
-}
+    #Create the OUs to check
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true} | Select-Object -ExpandProperty GoogleOrganizationalUnit | Sort-Object -Unique) {
+        $OUCheckGoogle += $item
+    }
 
-#Create the OUs to check
-foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true} | Select-Object -ExpandProperty GoogleOrganizationalUnitTrash | Sort-Object -Unique) {
-    $OUCheckGoogle += $item
-}
+    #Create the OUs to check
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true} | Select-Object -ExpandProperty GoogleOrganizationalUnitTrash | Sort-Object -Unique) {
+        $OUCheckGoogle += $item
+    }
 
-#Create Org Units that do not exist
-foreach ($item in $OUCheckGoogle | Where-Object {$_ -notin $googleOrgUnits.orgUnitPath}) {
-    Write-Log -Path $logFile -Message "Google: Creating org unit: $($item)"
-    if ($IDConfig.Debug.readOnly -eq $false) {
-        New-GoogleOrganizationalUnit -NewOrgUnitFullPath $item -tokenInformation $headers
+    #Create Org Units that do not exist
+    foreach ($item in $OUCheckGoogle | Where-Object {$_ -notin $googleOrgUnits.orgUnitPath}) {
+        Write-Log -Path $logFile -Message "Google: Creating org unit: $($item)"
+        if ($IDConfig.Debug.readOnly -eq $false) {
+            New-GoogleOrganizationalUnit -NewOrgUnitFullPath $item -tokenInformation $headers
+        }
     }
 }
 #endregion Google OUs
 
 #region Deactive Google Users
-foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $false -and $_.GoogleCurrentUserSuspendedStatus -eq $false}) {
-    if (-not [string]::IsNullOrEmpty($item.GoogleCurrentGroups)) {
-        Write-Log -Path $logFile -Message "Google: Current Groups for $($item.UPN): $($item.GoogleCurrentGroups -join ",")"
-        Write-Log -Path $logFile -Message ($item.GoogleCurrentGroups -join ",")
+if ($IDConfig.Google.enabled -eq $true) {
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $false -and $_.GoogleCurrentUserSuspendedStatus -eq $false}) {
+        if (-not [string]::IsNullOrEmpty($item.GoogleCurrentGroups)) {
+            Write-Log -Path $logFile -Message "Google: Current Groups for $($item.UPN): $($item.GoogleCurrentGroups -join ",")"
+            Write-Log -Path $logFile -Message ($item.GoogleCurrentGroups -join ",")
 
-        if ($IDConfig.Google.enableGroupProcessingTrash -eq $true) {
-            foreach ($group in $item.GoogleCurrentGroups) {
-                Write-Log -Path $logFile -Message ("Google: Removing Group: $group from " + $item.personID)
-                if ($IDConfig.Debug.readOnly -eq $false) {
-                    Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers
-                }
-            }
-        }
-    } else {
-        Write-Log -Path $logFile -Message ("Google: Current groups for " + $item.UPN + " : NONE")
-    }
-
-    Write-Log -Path $logFile -Message ("Google: Disabling account for " + $item.UPN)
-    Write-Log -Path $logFile -Message  ("Google: Moving account to trash: " + $item.UPN)
-    if ($IDConfig.Debug.readOnly -eq $false) {
-        Update-GoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true' -tokenInformation $headers
-    }
-}
-#endregion Deactive Google Users
-
-#region Set Google EmployeeID
-# Set Users employeeID if not set in Google based on UPN
-# UPN has to pair with the first name and last name
-foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and -not $_.GoogleDuplicateIDStatus}) {
-    Write-Log -Path $logFile -Message ("Google: No user found with EmployeeID: " + $item.personID)
-    
-    if ($item.UPN -in $googleUsers.primaryEmail) {
-        $googleUser = ($googleUsers | Where-Object {$_.primaryEmail -eq $item.UPN})
-
-        if ($googleUser.Name.familyName -eq $item.NameLast -and $googleUser.Name.givenName -eq $item.NameFirst) {
-            #Update the user account employeeID with the personID
-            Write-Log -Path $logFile -Message ("Google: Setting ExternalID field for: " + $item.UPN + " - " + $item.personID)
-
-            if ($IDConfig.Debug.readOnly -eq $false) {
-                Update-GoogleUser -GoogleUserID $googleUser.ID -PersonID $item.personID -tokenInformation $headers
-
-                #Add the Google ID to the data object
-                $item.GoogleCurrentUserID = $googleUser.ID
-
-                #Add the Current Google Groups to the data object
-                $item.GoogleCurrentGroups = $googleUser.CurrentGroups
-            }
-        } else {
-            Write-Log -Path $logFile -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " is already taken with a different name of " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName) -Level Error
-        }
-    }
-
-    if ($googleUser) {Remove-Variable googleUser}
-}
-#endregion Set Google EmployeeID
-
-#region Update Google Users
-foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
-    $googleUser = $googleUsers | Where-Object {$_.externalIDs.value -eq $item.personID}
-
-    $itemUpdateSplat = @{}
-
-    if ($googleUser.primaryEmail -ne $item.UPN) {
-        if ($item.UPN -notin ($googleUsers.emails | Select-Object -ExpandProperty address)) {
-            $itemUpdateSplat["PrimaryEmail"] = $item.UPN
-        } else {
-            Write-Log -Path $logFile -Message ("Google: Failed to Update User: " + $item.personID + " with new UPN: " + $item.UPN + ". New UPN already in use.") -Level Error
-            continue
-        }
-    }
-
-    if ($googleUser.Name.givenName -ne $item.NameFirst -or $googleUser.Name.familyName -ne $item.NameLast) {
-        $itemUpdateSplat["FirstName"] = $item.NameFirst
-        $itemUpdateSplat["LastName"] = $item.NameLast
-    }
-
-    if ($googleUser.organizations.department -ne $item.Building -or $googleUser.organizations.title -ne $item.JobTitle) {
-        $itemUpdateSplat["Building"] = $item.Building
-        $itemUpdateSplat["JobTitle"] = $item.JobTitle
-    }
-
-    if ($googleUser.suspended -ne $false) {
-        $itemUpdateSplat["Suspended"] = 'false'
-    }
-
-    if ($googleUser.orgUnitPath -ne $item.GoogleOrganizationalUnit) {
-        $itemUpdateSplat["OrgUnitPath"] = $item.GoogleOrganizationalUnit
-    }
-
-    #Update the user account information if needed
-    if ($itemUpdateSplat.Count -gt 0) {
-        $itemUpdateSplat["GoogleUserID"] = $item.GoogleCurrentUserID
-
-        Write-Log -Path $logFile -Message ("Google: Updating Information for: " + $item.UPN + " - " + $item.personID)
-        Write-Log -Path $logFile -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
-
-        $itemUpdateSplat["tokenInformation"] = $headers
-
-        if ($IDConfig.Debug.readOnly -eq $false) {
-            Update-GoogleUser @itemUpdateSplat
-        }
-    }
-
-    if ($googleUser) {Remove-Variable googleUser}
-}
-#endregion Update Google Users
-
-#region Create Google Users
-foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and $_.UPN -notin $googleUsers.primaryEmail}) {
-    $itemCreateSplat = @{
-        "PrimaryEmail" = $item.UPN
-        "PersonID" = $item.personID
-        "FirstName" = $item.NameFirst
-        "LastName" = $item.NameLast
-        "Building" = $item.Building
-        "JobTitle" = $item.JobTitle
-        "OrgUnitPath" = $item.GoogleOrganizationalUnit
-    }
-
-    if ($item.GoogleChangeAtNextLogin) {
-        $itemCreateSplat["ChangeAtNextLogin"] = 'true'
-    } else {
-        $itemCreateSplat["ChangeAtNextLogin"] = 'false'
-    }
-    
-    Write-Log -Path $logFile -Message ("Google: Creating User: " + $item.UPN + " - " + $item.personID)
-    Write-Log -Path $logFile -Message ($itemCreateSplat | ConvertTo-Json -Compress)
-
-    if ($IDConfig.Google.randomPassword) {
-        $itemCreateSplat["Password"] = Get-RandomPassword -PasswordLength 20 | ConvertTo-SecureString -AsPlainText -Force
-    } else {
-        $itemCreateSplat["Password"] = ($item.GooglePassPrefix + $item.word) | ConvertTo-SecureString -AsPlainText -Force
-    }
-    
-    $itemCreateSplat["tokenInformation"] = $headers
-
-    if ($IDConfig.Debug.readOnly -eq $false) {
-        $newUserResponse = New-GoogleUser @itemCreateSplat
-
-        #Add the Google ID to the data object
-        if ($newUserResponse.ID) {
-            $item.GoogleCurrentUserID = $newUserResponse.ID
-        }
-    }
-
-    if ($itemCreateSplat) {Remove-Variable itemCreateSplat}
-}
-#endregion Create Google Users
-
-#region Process Google Groups
-if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
-        $proposedGroupList = @()
-
-        if (-not [string]::IsNullOrEmpty($item.GroupsAutomatic)) {
-            $proposedGroupList += $item.GroupsAutomatic
-        }
-
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
-            $proposedGroupList += ($item.EmailGroups -split ",").trim()
-        }
-
-        #Filter out duplicates
-        $proposedGroupList = $proposedGroupList | Select-Object -Unique
-
-        #Add groups from Users - Only run if enableGroupProcessing is Enabled
-        foreach ($group in $proposedGroupList | Where-Object {$_ -in $googleGroups.name}) {
-            if (("$group@$($IDConfig.Google.GroupPrimaryDomainName)") -notin $item.GoogleCurrentGroups) {
-                Write-Log -Path $logFile -Message ("Google: Adding Group: $group to " + $item.personID) -WhatIfLogging $IDConfig.Google.enableGroupProcessingWhatIf
-
-                if ($IDConfig.Google.enableGroupProcessing -eq $true) {
-                    if ($IDConfig.Debug.readOnly -eq $false) {
-                        Update-GoogleGroupMembers -GroupEmail ($googleGroups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headers
-                    }
-                }
-            }
-        }
-
-        #Remove groups from Users - Only run if enableGroupProcessingRemove is Enabled
-        foreach ($group in $item.GoogleCurrentGroups) {
-            if ($group.Split("@")[0] -notin $proposedGroupList) {
-                Write-Log -Path $logFile -Message ("Google: Removing Extra Group: $group from " + $item.personID) -WhatIfLogging $IDConfig.Google.enableGroupProcessingWhatIf
-
-                if ($IDConfig.Google.enableGroupProcessingRemove -eq $true) {
+            if ($IDConfig.Google.enableGroupProcessingTrash -eq $true) {
+                foreach ($group in $item.GoogleCurrentGroups) {
+                    Write-Log -Path $logFile -Message ("Google: Removing Group: $group from " + $item.personID)
                     if ($IDConfig.Debug.readOnly -eq $false) {
                         Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers
                     }
                 }
             }
+        } else {
+            Write-Log -Path $logFile -Message ("Google: Current groups for " + $item.UPN + " : NONE")
         }
 
-        if ($proposedGroupList) {Remove-Variable proposedGroupList}
+        Write-Log -Path $logFile -Message ("Google: Disabling account for " + $item.UPN)
+        Write-Log -Path $logFile -Message  ("Google: Moving account to trash: " + $item.UPN)
+        if ($IDConfig.Debug.readOnly -eq $false) {
+            Update-GoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true' -tokenInformation $headers
+        }
+    }
+}
+#endregion Deactive Google Users
+
+#region Set Google EmployeeID
+if ($IDConfig.Google.enabled -eq $true) {
+    # Set Users employeeID if not set in Google based on UPN
+    # UPN has to pair with the first name and last name
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and -not $_.GoogleDuplicateIDStatus}) {
+        Write-Log -Path $logFile -Message ("Google: No user found with EmployeeID: " + $item.personID)
+        
+        if ($item.UPN -in $googleUsers.primaryEmail) {
+            $googleUser = ($googleUsers | Where-Object {$_.primaryEmail -eq $item.UPN})
+
+            if ($googleUser.Name.familyName -eq $item.NameLast -and $googleUser.Name.givenName -eq $item.NameFirst) {
+                #Update the user account employeeID with the personID
+                Write-Log -Path $logFile -Message ("Google: Setting ExternalID field for: " + $item.UPN + " - " + $item.personID)
+
+                if ($IDConfig.Debug.readOnly -eq $false) {
+                    Update-GoogleUser -GoogleUserID $googleUser.ID -PersonID $item.personID -tokenInformation $headers
+
+                    #Add the Google ID to the data object
+                    $item.GoogleCurrentUserID = $googleUser.ID
+
+                    #Add the Current Google Groups to the data object
+                    $item.GoogleCurrentGroups = $googleUser.CurrentGroups
+                }
+            } else {
+                Write-Log -Path $logFile -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " is already taken with a different name of " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName) -Level Error
+            }
+        }
+
+        if ($googleUser) {Remove-Variable googleUser}
+    }
+}
+#endregion Set Google EmployeeID
+
+#region Update Google Users
+if ($IDConfig.Google.enabled -eq $true) {
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
+        $googleUser = $googleUsers | Where-Object {$_.externalIDs.value -eq $item.personID}
+
+        $itemUpdateSplat = @{}
+
+        if ($googleUser.primaryEmail -ne $item.UPN) {
+            if ($item.UPN -notin ($googleUsers.emails | Select-Object -ExpandProperty address)) {
+                $itemUpdateSplat["PrimaryEmail"] = $item.UPN
+            } else {
+                Write-Log -Path $logFile -Message ("Google: Failed to Update User: " + $item.personID + " with new UPN: " + $item.UPN + ". New UPN already in use.") -Level Error
+                continue
+            }
+        }
+
+        if ($googleUser.Name.givenName -ne $item.NameFirst -or $googleUser.Name.familyName -ne $item.NameLast) {
+            $itemUpdateSplat["FirstName"] = $item.NameFirst
+            $itemUpdateSplat["LastName"] = $item.NameLast
+        }
+
+        if ($googleUser.organizations.department -ne $item.Building -or $googleUser.organizations.title -ne $item.JobTitle) {
+            $itemUpdateSplat["Building"] = $item.Building
+            $itemUpdateSplat["JobTitle"] = $item.JobTitle
+        }
+
+        if ($googleUser.suspended -ne $false) {
+            $itemUpdateSplat["Suspended"] = 'false'
+        }
+
+        if ($googleUser.orgUnitPath -ne $item.GoogleOrganizationalUnit) {
+            $itemUpdateSplat["OrgUnitPath"] = $item.GoogleOrganizationalUnit
+        }
+
+        #Update the user account information if needed
+        if ($itemUpdateSplat.Count -gt 0) {
+            $itemUpdateSplat["GoogleUserID"] = $item.GoogleCurrentUserID
+
+            Write-Log -Path $logFile -Message ("Google: Updating Information for: " + $item.UPN + " - " + $item.personID)
+            Write-Log -Path $logFile -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
+
+            $itemUpdateSplat["tokenInformation"] = $headers
+
+            if ($IDConfig.Debug.readOnly -eq $false) {
+                Update-GoogleUser @itemUpdateSplat
+            }
+        }
+
+        if ($googleUser) {Remove-Variable googleUser}
+    }
+}
+#endregion Update Google Users
+
+#region Create Google Users
+if ($IDConfig.Google.enabled -eq $true) {
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and $_.UPN -notin $googleUsers.primaryEmail}) {
+        $itemCreateSplat = @{
+            "PrimaryEmail" = $item.UPN
+            "PersonID" = $item.personID
+            "FirstName" = $item.NameFirst
+            "LastName" = $item.NameLast
+            "Building" = $item.Building
+            "JobTitle" = $item.JobTitle
+            "OrgUnitPath" = $item.GoogleOrganizationalUnit
+        }
+
+        if ($item.GoogleChangeAtNextLogin) {
+            $itemCreateSplat["ChangeAtNextLogin"] = 'true'
+        } else {
+            $itemCreateSplat["ChangeAtNextLogin"] = 'false'
+        }
+        
+        Write-Log -Path $logFile -Message ("Google: Creating User: " + $item.UPN + " - " + $item.personID)
+        Write-Log -Path $logFile -Message ($itemCreateSplat | ConvertTo-Json -Compress)
+
+        if ($IDConfig.Google.randomPassword) {
+            $itemCreateSplat["Password"] = Get-RandomPassword -PasswordLength 20 | ConvertTo-SecureString -AsPlainText -Force
+        } else {
+            $itemCreateSplat["Password"] = ($item.GooglePassPrefix + $item.word) | ConvertTo-SecureString -AsPlainText -Force
+        }
+        
+        $itemCreateSplat["tokenInformation"] = $headers
+
+        if ($IDConfig.Debug.readOnly -eq $false) {
+            $newUserResponse = New-GoogleUser @itemCreateSplat
+
+            #Add the Google ID to the data object
+            if ($newUserResponse.ID) {
+                $item.GoogleCurrentUserID = $newUserResponse.ID
+            }
+        }
+
+        if ($itemCreateSplat) {Remove-Variable itemCreateSplat}
+    }
+}
+#endregion Create Google Users
+
+#region Process Google Groups
+if ($IDConfig.Google.enabled -eq $true) {
+    if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
+        foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
+            $proposedGroupList = @()
+
+            if (-not [string]::IsNullOrEmpty($item.GroupsAutomatic)) {
+                $proposedGroupList += $item.GroupsAutomatic
+            }
+
+            if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
+                $proposedGroupList += ($item.EmailGroups -split ",").trim()
+            }
+
+            #Filter out duplicates
+            $proposedGroupList = $proposedGroupList | Select-Object -Unique
+
+            #Add groups from Users - Only run if enableGroupProcessing is Enabled
+            foreach ($group in $proposedGroupList | Where-Object {$_ -in $googleGroups.name}) {
+                if (("$group@$($IDConfig.Google.GroupPrimaryDomainName)") -notin $item.GoogleCurrentGroups) {
+                    Write-Log -Path $logFile -Message ("Google: Adding Group: $group to " + $item.personID) -WhatIfLogging $IDConfig.Google.enableGroupProcessingWhatIf
+
+                    if ($IDConfig.Google.enableGroupProcessing -eq $true) {
+                        if ($IDConfig.Debug.readOnly -eq $false) {
+                            Update-GoogleGroupMembers -GroupEmail ($googleGroups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headers
+                        }
+                    }
+                }
+            }
+
+            #Remove groups from Users - Only run if enableGroupProcessingRemove is Enabled
+            foreach ($group in $item.GoogleCurrentGroups) {
+                if ($group.Split("@")[0] -notin $proposedGroupList) {
+                    Write-Log -Path $logFile -Message ("Google: Removing Extra Group: $group from " + $item.personID) -WhatIfLogging $IDConfig.Google.enableGroupProcessingWhatIf
+
+                    if ($IDConfig.Google.enableGroupProcessingRemove -eq $true) {
+                        if ($IDConfig.Debug.readOnly -eq $false) {
+                            Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers
+                        }
+                    }
+                }
+            }
+
+            if ($proposedGroupList) {Remove-Variable proposedGroupList}
+        }
     }
 }
 #endregion Process Google Groups
