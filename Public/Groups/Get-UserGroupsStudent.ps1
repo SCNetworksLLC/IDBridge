@@ -1,49 +1,47 @@
-function Get-UserGroupsStudent() {
-    [cmdletbinding()]
-    Param(
-        [parameter(Mandatory=$true)]
+function Get-UserGroupsStudent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
         $building,
-        [parameter(Mandatory=$true)]
-        $grade
+        [Parameter(Mandatory = $true)]
+        $grade,
+        [Parameter(Mandatory = $false)]
+        $config
     )
 
-    #Groups Included
-    # - All Students (Students)
-    # - Building Students (ex. HS_Students)
-    # - Student Grade Level (ex. Grade-01)
-
-    #Initialize Group Variable
     $groups = @()
+    $buildingShortName = $config.buildingShortName
 
-    #Building Short Name for Groups
-    $buildingShortName = @{
-        "Grant Elementary" = "GE"
-        "Lincoln Elementary" = "LE"
-        "Madison Elementary" = "ME"
-        "Nasonville Elementary" = "NE"
-        "Washington Elementary" = "WE"
-        "High School" = "HS"
-        "Middle School" = "MS"
-    }
+    foreach ($groupRule in $config.groups) {
+        $addGroup = $true
 
-    #All Students
-    ######------------######
-    $groups += ("Students")
-    ######------------######
-    
-    #All Building Students
-    ######------------######
-    if ($building -in $groupBuildingStudent) {
-        if ($buildingShortName.$building) {
-            $groups += ($buildingShortName.$building + "_Students")
+        # If the group rule has a 'buildings' property, only add the group if the current building matches.
+        # If not, $addGroup remains $true and the group will be added for all buildings.
+        if ($groupRule.PSObject.Properties.Name -contains 'buildings') {
+            $addGroup = $groupRule.buildings -contains $building
+        }
+
+        # For the "Grade Level" group, the JSON rule does NOT have a 'buildings' property.
+        # So, $addGroup stays $true and the group is always added, regardless of building.
+        # For other groups with a 'buildings' property, $addGroup may be false if the building doesn't match.
+
+        if ($addGroup) {
+            $label = $groupRule.label
+
+            if ($label -like "*{buildingShortName}*") {
+                $short = $buildingShortName.$building
+                if ($short) {
+                    $label = $label -replace "{buildingShortName}", $short
+                } else {
+                    $label = $label -replace "{buildingShortName}", $building
+                }
+            }
+            if ($label -like "*{grade}*") {
+                $label = $label -replace "{grade}", $grade
+            }
+            $groups += $label
         }
     }
-    ######------------######
 
-    #Grade Level Groups
-    ######------------######
-    $groups += ("Grade-" + $grade)
-    ######------------######
-
-    $groups
+    return $groups
 }

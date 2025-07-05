@@ -693,7 +693,7 @@ if ($IDConfig.Google.enabled -eq $true) {
         Write-Log -Path $logFile -Message ($itemCreateSplat | ConvertTo-Json -Compress)
 
         if ($IDConfig.Google.randomPassword) {
-            $itemCreateSplat["Password"] = Get-RandomPassword -PasswordLength 20 | ConvertTo-SecureString -AsPlainText -Force
+            $itemCreateSplat["Password"] = (New-Guid).Guid | ConvertTo-SecureString -AsPlainText -Force
         } else {
             $itemCreateSplat["Password"] = ($item.GooglePassPrefix + $item.word) | ConvertTo-SecureString -AsPlainText -Force
         }

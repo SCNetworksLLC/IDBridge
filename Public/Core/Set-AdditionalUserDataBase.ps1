@@ -42,7 +42,7 @@ function Set-AdditionalUserDataBase {
     if ($userObject.PersonTypeGeneric -eq "Staff") {
         $userObject | Add-Member -MemberType NoteProperty -Name PersonDomain -Value $IDConfig.General.staffDomainName -Force
         $userObject | Add-Member -MemberType NoteProperty -Name UPN -Value ($userObject.Username + "@" + $userObject.PersonDomain) -Force
-        $userObject | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStaff -building $userObject.Building -personType $userObject.PersonType) -Force
+        $userObject | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStaff -building $userObject.Building -personType $userObject.PersonType -config $IDConfig.GroupsStaff) -Force
         $userObject | Add-Member -MemberType NoteProperty -Name Company -Value $IDConfig.General.company -Force
         if ($IDConfig.PersonTypeThree) {
             if ($userObject.PersonType -in $IDConfig.PersonTypeThree) {
@@ -77,7 +77,7 @@ function Set-AdditionalUserDataBase {
         $userObject | Add-Member -MemberType NoteProperty -Name PersonDomain -Value $IDConfig.General.studentDomainName -Force
         $userObject | Add-Member -MemberType NoteProperty -Name PersonTypeID -Value "1" -Force
         $userObject | Add-Member -MemberType NoteProperty -Name UPN -Value ($userObject.Username + "@" + $userObject.PersonDomain) -Force
-        $userObject | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStudent -building $userObject.Building -grade $userObject.PersonType) -Force
+        $userObject | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStudent -building $userObject.Building -grade $userObject.PersonType -config $IDConfig.GroupsStudent) -Force
         $userObject | Add-Member -MemberType NoteProperty -Name Company -Value $IDConfig.General.company -Force
 
         #AD Specific Data
