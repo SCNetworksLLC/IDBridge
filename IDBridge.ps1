@@ -337,11 +337,11 @@ if ($IDConfig.AD.enabled -eq $true) {
         }
 
         if ($ADUser.Surname -ne $item.NameLast) {
-            $itemUpdateSplat["Surname"] = $item.NameLast
+            $itemUpdateSplat["Surname"] = $item.NameLast.trim()
         }
 
         if ($ADUser.GivenName -ne $item.NameFirst) {
-            $itemUpdateSplat["GivenName"] = $item.NameFirst
+            $itemUpdateSplat["GivenName"] = $item.NameFirst.trim()
         }
 
         if ($ADUser.DisplayName -ne ($item.NameFirst + " " + $item.NameLast)) {
@@ -408,12 +408,12 @@ if ($IDConfig.AD.enabled -eq $true) {
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and $_.UPN -notin $ADUsers.UserPrincipalName}) {
         $NewUserParams = @{
             Path                  = $item.ADorganizationalUnit
-            Name                  = ($item.NameFirst + " " + $item.NameLast + " " + $item.PersonID)
-            DisplayName           = ($item.NameFirst + " " + $item.NameLast)
+            Name                  = ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)
+            DisplayName           = ($item.NameFirst.trim() + " " + $item.NameLast.trim())
             SamAccountName        = $item.Username
             UserPrincipalName     = $item.UPN
-            GivenName             = $item.NameFirst
-            Surname               = $item.NameLast
+            GivenName             = $item.NameFirst.trim()
+            Surname               = $item.NameLast.trim()
             EmployeeID            = $item.PersonID
             Title                 = $item.JobTitle
             Office                = $item.Building
@@ -634,8 +634,8 @@ if ($IDConfig.Google.enabled -eq $true) {
         }
 
         if ($googleUser.Name.givenName -ne $item.NameFirst -or $googleUser.Name.familyName -ne $item.NameLast) {
-            $itemUpdateSplat["FirstName"] = $item.NameFirst
-            $itemUpdateSplat["LastName"] = $item.NameLast
+            $itemUpdateSplat["FirstName"] = $item.NameFirst.trim()
+            $itemUpdateSplat["LastName"] = $item.NameLast.trim()
         }
 
         if ($googleUser.organizations.department -ne $item.Building -or $googleUser.organizations.title -ne $item.JobTitle) {
@@ -676,8 +676,8 @@ if ($IDConfig.Google.enabled -eq $true) {
         $itemCreateSplat = @{
             "PrimaryEmail" = $item.UPN
             "PersonID" = $item.personID
-            "FirstName" = $item.NameFirst
-            "LastName" = $item.NameLast
+            "FirstName" = $item.NameFirst.trim()
+            "LastName" = $item.NameLast.trim()
             "Building" = $item.Building
             "JobTitle" = $item.JobTitle
             "OrgUnitPath" = $item.GoogleOrganizationalUnit
