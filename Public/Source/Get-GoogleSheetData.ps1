@@ -61,7 +61,7 @@ function Get-GoogleSheetData() {
     $uri = "https://sheets.googleapis.com/v4/spreadsheets/{0}/values/{1}?majorDimension=ROWS" -f $googleSheetID, $googleSheetRange
 
     # Send GET request to Google Sheets API
-    $results = Invoke-RestMethod -Uri $uri -Method GET -Headers $tokenInformation -Verbose:$false;
+    $results = Invoke-RestMethod -Uri $uri -Method GET -Headers $tokenInformation -Verbose:$false
 
     # Extract column headers from the first row
     $columns = $results.values[0]

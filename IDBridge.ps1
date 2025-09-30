@@ -48,7 +48,7 @@ try {
     $data = Get-SourceDataGSheet -IDConfig $IDConfig -logFile $logFile -headers $headers
 
     foreach ($item in $data) {
-        $item.PersonTypeGeneric = "Staff"
+        $item | Add-Member -MemberType NoteProperty -Name "PersonTypeGeneric" -Value "Staff"
     }
 }
 catch {
@@ -132,13 +132,13 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 #Add additional data to the user objects
 foreach ($item in $filteredData) {
-    $item = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $item -logFile $logFile
+    #$item = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $item -logFile $logFile
 
     if ($IDConfig.Google.enabled -eq $true) {
         $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleUsersLookupByID -duplicateGoogleUsers $duplicateGoogleUsers -logFile $logFile
     }
     if ($IDConfig.AD.enabled -eq $true) {
-        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adUsersLookupByID -duplicateADUsers $duplicateADUsers -logFile $logFile
+        #$item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adUsersLookupByID -duplicateADUsers $duplicateADUsers -logFile $logFile
     }
 }
 #endregion Data Modifcation

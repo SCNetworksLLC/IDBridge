@@ -45,7 +45,7 @@ function Set-AdditionalUserDataGoogle {
     #Add identifier if duplicate users exist in Google with the same externalID
     if ($userObject.UPN -in $duplicateGoogleUsers.UPN) {
         Write-Log -Path $logFile -Message ("Google: User with UPN: " + $userObject.UPN + " has a duplicate externalID with another user.") -Level Error
-        $userObject.GoogleDuplicateIDStatus = "DUPLICATE_ID"
+        $userObject | Add-Member -MemberType NoteProperty -Name GoogleDuplicateIDStatus -Value "DUPLICATE_ID" -Force
     }
 
     #Add Google User ID and Google User Suspended Status if available - skip duplicate IDs
@@ -53,13 +53,13 @@ function Set-AdditionalUserDataGoogle {
         $googleUser = $googleUsers[$userObject.personID]
 
         if ($googleUser) {
-            $userObject.GoogleCurrentUserID = $googleUser.id
-            $userObject.GoogleCurrentUserSuspendedStatus = $googleUser.suspended
-            $userObject.GoogleCurrentGroups = $googleUser.CurrentGroups
+            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserID -Value $googleUser.id -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserSuspendedStatus -Value $googleUser.suspended -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentGroups -Value $googleUser.CurrentGroups -Force
         } else {
-            $userObject.GoogleCurrentUserID = $null
-            $userObject.GoogleCurrentUserSuspendedStatus = $null
-            $userObject.GoogleCurrentGroups = $null
+            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserID -Value $null -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentUserSuspendedStatus -Value $null -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name GoogleCurrentGroups -Value $null -Force
         }
     }
 
