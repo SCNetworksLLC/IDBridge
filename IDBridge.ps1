@@ -1,5 +1,6 @@
 #### IDBridge ####
 #### Created by Sam Cattanach ####
+# Get-Content -Path "C:\IDBridge\Logs\IDBridge.log" -Tail 200 -Wait
 
 #region Import Modules
 try {
@@ -11,7 +12,7 @@ catch {
 #endregion Import Modules
 
 #region Set Logging
-#Checks the log file size and renames it if it is larger than 1MB
+#Checks the log file size and renames it if it is larger than 50MB
 Initialize-Logging
 #endregion Set Logging
 

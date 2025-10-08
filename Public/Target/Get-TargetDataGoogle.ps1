@@ -73,7 +73,7 @@ function Get-TargetDataGoogle {
 
     #Loop through each group and retrieve its members
     foreach ($item in $googleGroups | Where-Object {$_.directMembersCount -ne 0}) {
-        Write-Host "Google: Getting Group Members: $($item.email)"
+        Write-Log -Path $logFile -Message ("Google: Getting users for Group: " + $item.email)
         try {
             #Get group Memebers
             $groupMemberResults = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://admin.googleapis.com/admin/directory/v1/groups/" + $item.email + "/members?customer=my_customer&maxResults=500") -ErrorAction Stop

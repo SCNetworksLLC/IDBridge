@@ -4,7 +4,7 @@
   RootModule = 'IDBridge.psm1'
 
   # Version number of this module.
-  ModuleVersion = '25.5.6.2'
+  ModuleVersion = '25.10.3.1'
 
   # Author of this module
   Author = 'Sam Cattanach'
