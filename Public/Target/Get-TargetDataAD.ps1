@@ -96,9 +96,9 @@ function Get-TargetDataAD {
     foreach ($user in $ADUsers) {
         #Add groups if they exist
         if ($user.MemberOf) {
-            $user | Add-Member -MemberType NoteProperty -Name CurrentGroups -Value ($user.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
+            $user.CurrentGroups = ($user.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
         } else {
-            $user | Add-Member -MemberType NoteProperty -Name CurrentGroups -Value $null
+            $user.CurrentGroups = $null
         }
     }
 

@@ -4,7 +4,7 @@ function Initialize-Logging {
 
     $logFile = "C:\IDBridge\Logs\IDBridge.log"
 
-    if ((Get-Item $logFile).Length -gt 50000000) {
+    if ((Test-Path $logFile) -and (Get-Item $logFile).Length -gt 50000000) {
         Rename-Item $logFile ((Get-Item $logfile).BaseName + "_" + $logDate + ".log")
     }
 
