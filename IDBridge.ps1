@@ -317,7 +317,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 #region Update AD Users
 if ($IDConfig.AD.enabled -eq $true) {
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
-        $ADUser = $ADUsers | Where-Object {$_.employeeID -eq $item.personID}
+        $ADUser = $adUsersLookupByID[$item.personID]
 
         $itemUpdateSplat = @{}
 
