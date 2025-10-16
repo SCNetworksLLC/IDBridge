@@ -510,7 +510,7 @@ if ($IDConfig.AD.enabled -eq $true) {
     $allADUsers = @()
 
     foreach ($item in $OUCheckAD | Where-Object {$_ -notlike "*,OU=Trash,*"}) {
-        $allADUsers += Get-ADUser -Filter * -SearchBase $item -Properties $userPropertyAD -searchscope 1
+        $allADUsers += Get-ADUser -Filter * -SearchBase $item -Properties EmployeeID,Surname,GivenName -searchscope 1
     }
 
     foreach ($item in $allADUsers) {
