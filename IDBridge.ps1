@@ -234,7 +234,7 @@ if ($IDConfig.AD.enabled -eq $true) {
             }
             catch {
                 Write-Log -Path $logFile -Message "AD: Org Unit $item does not exist and could not be created. Please check RunAS user permisisons in AD" -Level Error
-                Exit 1
+                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
             }
         }
     }
@@ -554,7 +554,12 @@ if ($IDConfig.Google.enabled -eq $true) {
     foreach ($item in $OUCheckGoogle | Where-Object {$_ -notin $googleOrgUnits.orgUnitPath}) {
         Write-Log -Path $logFile -Message "Google: Creating org unit: $($item)"
         if ($IDConfig.Debug.readOnly -eq $false) {
-            New-GoogleOrganizationalUnit -NewOrgUnitFullPath $item -tokenInformation $headers
+            try {
+                New-GoogleOrganizationalUnit -NewOrgUnitFullPath $item -tokenInformation $headers
+            }
+            catch {
+                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
+            }
         }
     }
 }
