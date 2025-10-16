@@ -79,7 +79,7 @@ function Get-TargetDataAD {
 
     #Get all Groups from AD
     try {
-        $ADGroups = Get-ADGroup -Filter * | Select-Object -ExpandProperty Name
+        $ADGroups = Get-ADGroup -Filter * -Properties DistinguishedName | Select-Object Name, DistinguishedName
 
         if ($ADGroups) {
             Write-Log -Path $logFile -Message "AD: Successfully fetched Groups"
@@ -92,11 +92,23 @@ function Get-TargetDataAD {
         Throw $_
     }
 
+    # Build a hashtable mapping DistinguishedName -> Group Name to avoid repeated Get-ADGroup calls
+    $groupDnToName = @{}
+    foreach ($item in $ADGroups) {
+        if ($item.DistinguishedName) {
+            $groupDnToName[$item.DistinguishedName] = $item.Name
+        }
+    }
+
     #Add the groups to the users
     foreach ($user in $ADUsers) {
         #Add groups if they exist
         if ($user.MemberOf) {
-            $user.CurrentGroups = ($user.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
+            foreach ($item in $user.MemberOf) {
+                if ($groupDnToName.ContainsKey($item)) {
+                    $user.CurrentGroups += $groupDnToName[$item]
+                }
+            }
         } else {
             $user.CurrentGroups = $null
         }
@@ -120,7 +132,7 @@ function Get-TargetDataAD {
     #Return a single object with all data
     return [PSCustomObject]@{
         Users = $ADUsers
-        Groups = $ADGroups
+        Groups = $ADGroups.Name
         OrgUnits = $ADOrgUnits
     }
 }
