@@ -623,8 +623,8 @@ if ($IDConfig.Google.enabled -eq $true) {
 #region Update Google Users
 if ($IDConfig.Google.enabled -eq $true) {
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
-        $googleUser = $googleUsers | Where-Object {$_.externalIDs.value -eq $item.personID}
-
+        $googleUser = $googleUsersLookupByID[$item.personID]
+        
         $itemUpdateSplat = @{}
 
         if ($googleUser.primaryEmail -ne $item.UPN) {
