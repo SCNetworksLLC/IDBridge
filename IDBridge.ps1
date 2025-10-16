@@ -127,7 +127,9 @@ if ($IDConfig.Google.enabled -eq $true) {
 if ($IDConfig.AD.enabled -eq $true) {
     $adUsersLookupByID = @{}
     foreach ($adUser in $ADUsers) {
-        $adUsersLookupByID[$adUser.EmployeeID] = $adUser
+        if ($adUser.EmployeeID) {
+            $adUsersLookupByID[$adUser.EmployeeID] = $adUser
+        }
     }
 }
 
