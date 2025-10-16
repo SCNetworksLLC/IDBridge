@@ -53,7 +53,7 @@ try {
     }
 }
 catch {
-    Throw (Start-ScriptEnd -Message $_ -WriteError)
+    Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
 }
 #endregion Spreadsheet Data Staff
 
@@ -67,7 +67,7 @@ if ($IDConfig.Google.enabled -eq $true) {
         $googleOrgUnits = $googleData.OrgUnits
     }
     catch {
-        Throw (Start-ScriptEnd -Message $_ -WriteError)
+        Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
     }
 }
 #endregion Get Google Data
@@ -82,7 +82,7 @@ if ($IDConfig.AD.enabled -eq $true) {
         $ADOrgUnits = $adData.OrgUnits
     }
     catch {
-        Throw (Start-ScriptEnd -Message $_ -WriteError)
+        Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
     }
 }
 #endregion Get Data AD
@@ -97,7 +97,7 @@ try {
     $filteredData = Test-SourceData -SourceData $data
 }
 catch {
-    Throw (Start-ScriptEnd -Message $_ -WriteError)
+    Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
 }
 
 #endregion Test Source Data
@@ -773,4 +773,4 @@ $filteredData | Export-Csv -Path "C:\IDBridge\Exports\UserList-Staff.csv" -NoTyp
 #endregion Export User List
 
 
-Write-Log -Message "######## End of Script Run: $logDate ########" -Path $logFile
+Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers
