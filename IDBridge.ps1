@@ -765,5 +765,9 @@ if ($IDConfig.Google.enabled -eq $true) {
 #endregion Process Google Groups
 #endregion Processing Google
 
+#region Export User List
+$filteredData | Export-Csv -Path "C:\IDBridge\Exports\UserList-Staff.csv" -NoTypeInformation -Force
+#endregion Export User List
+
 
 Write-Log -Message "######## End of Script Run: $logDate ########" -Path $logFile
