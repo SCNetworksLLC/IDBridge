@@ -505,6 +505,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 #endregion Process AD Groups
 
 #region Report Non Data Users
+#### NEED TO ADD ADDITIONAL OPTIONS FOR TEST RUNS BEFORE GOING LIVE WITH THIS SECTION ####
 if ($IDConfig.AD.enabled -eq $true) {
     #Get all AD Users to Find Users who are not in the data file.
     $allADUsers = @()
@@ -624,7 +625,7 @@ if ($IDConfig.Google.enabled -eq $true) {
 if ($IDConfig.Google.enabled -eq $true) {
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
         $googleUser = $googleUsersLookupByID[$item.personID]
-        
+
         $itemUpdateSplat = @{}
 
         if ($googleUser.primaryEmail -ne $item.UPN) {
