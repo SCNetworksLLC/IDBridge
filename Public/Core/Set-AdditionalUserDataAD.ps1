@@ -45,7 +45,7 @@ function Set-AdditionalUserDataAD {
     #Add identifier if duplicate users exist in AD with the same employeeID
     if ($userObject.UPN -in $duplicateADUsers.UserPrincipalName) {
         Write-Log -Path $logFile -Message ("AD: User with UPN: " + $userObject.UPN + " has a duplicate employeeID with another user.") -Level Error
-        $userObject.ADDuplicateIDStatus = "DUPLICATE_ID"
+        $userObject | Add-Member -MemberType NoteProperty -Name ADDuplicateIDStatus -Value "DUPLICATE_ID" -Force
     }
 
     #Add AD User GUID, Enabled Status, and Current Groups if available - skip duplicate IDs
@@ -53,13 +53,13 @@ function Set-AdditionalUserDataAD {
         $adUser = $ADUsers[$userObject.personID]
 
         if ($adUser) {
-            $userObject.ADCurrentUserID = $adUser.ObjectGUID
-            $userObject.ADCurrentUserEnabledStatus = $adUser.Enabled
-            $userObject.ADCurrentGroups = $adUser.CurrentGroups
+            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserID -Value $adUser.ObjectGUID -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserEnabledStatus -Value $adUser.Enabled -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentGroups -Value $adUser.CurrentGroups -Force
         } else {
-            $userObject.ADCurrentUserID = $null
-            $userObject.ADCurrentUserEnabledStatus = $null
-            $userObject.ADCurrentGroups = $null
+            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserID -Value $null -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentUserEnabledStatus -Value $null -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name ADCurrentGroups -Value $null -Force
         }
     }
 
