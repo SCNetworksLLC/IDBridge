@@ -14,18 +14,13 @@ Initialize-Logging
 
 #region Import Configuration
 try {
-    #Test the configuration at C:\IDBridge - Returns True if tests pass
-    Test-IDBridgeConfiguration -ErrorAction Stop
-
     #Import the configuration
     $IDConfig = Get-IDBridgeConfiguration -ErrorAction Stop
 
     #Import the Google Authentication File
     $googleJSONPath = Get-IDBridgeGoogleAuthFile -ErrorAction Stop
 }
-catch {
-    Throw (Start-ScriptEnd -Message $_ -WriteError)
-}
+catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #endregion Import Configuration
 
 
@@ -34,24 +29,20 @@ catch {
 try {
     $headers = Get-GoogleApiAccessToken -ServiceAccountKeyPath $googleJSONPath -Scope $IDConfig.GoogleToken.googleAuthScope -TargetUserEmail $IDConfig.GoogleToken.adminEmail
 }
-catch {
-    Throw (Start-ScriptEnd -Message $_ -WriteError)
-}
+catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #endregion Google Authorization Token
 
 
 #region Gather Data
 #region Spreadsheet Data Staff
 try {
-    $data = Get-SourceDataGSheet -IDConfig $IDConfig -logFile $logFile -headers $headers
+    $data = Get-SourceDataGSheet -sheetID $IDConfig.GoogleSheet.sheetID -sheetRange $IDConfig.GoogleSheet.sheetRange -userCount $IDConfig.General.staffCount -logFile $logFile -headers $headers
 
     foreach ($item in $data) {
         $item | Add-Member -MemberType NoteProperty -Name "PersonTypeGeneric" -Value "Staff"
     }
 }
-catch {
-    Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
-}
+catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 #endregion Spreadsheet Data Staff
 
 #region Get Google Data
@@ -63,9 +54,7 @@ if ($IDConfig.Google.enabled -eq $true) {
         $googleGroups = $googleData.Groups
         $googleOrgUnits = $googleData.OrgUnits
     }
-    catch {
-        Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
-    }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 }
 #endregion Get Google Data
 
@@ -78,9 +67,7 @@ if ($IDConfig.AD.enabled -eq $true) {
         $ADGroups = $adData.Groups
         $ADOrgUnits = $adData.OrgUnits
     }
-    catch {
-        Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
-    }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)}
 }
 #endregion Get Data AD
 #endregion Gather Data

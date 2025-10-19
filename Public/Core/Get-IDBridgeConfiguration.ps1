@@ -1,44 +1,15 @@
-<#
-.SYNOPSIS
-Loads IDBridge runtime configuration from JSON files and performs environment checks.
-
-.DESCRIPTION
-Reads all JSON files from the configured config folder (default: C:\IDBridge\Config) and builds
-a hashtable where each key is the JSON filename base (spaces replaced with underscores) and the
-value is the parsed JSON object. The function also performs a small set of environment checks:
- - If AD is enabled in the loaded config, attempts to import the ActiveDirectory PowerShell module.
-   If the module is missing and `Debug.SkipADCHeck` is not set, the function will throw.
- - Adjusts some runtime flags (for example it disables group processing for Google/AD when the
-   respective service is disabled).
-
-This function returns a hashtable (PSCustomObject-like) containing all loaded configuration objects
-indexed by filename base (e.g., `$IDBridgeConfig.General`, `$IDBridgeConfig.Google`, etc.).
-
-.PARAMETER None
-This implementation accepts no parameters and uses the hard-coded config path `C:\IDBridge\Config`.
-Consider adding a `-ConfigPath` parameter to validate other locations or improve testability.
-
-.EXAMPLE
-$IDConfig = Get-IDBridgeConfiguration
-# $IDConfig now contains all JSON config objects loaded from C:\IDBridge\Config
-
-.INPUTS
-None. This function does not accept pipeline input.
-
-.OUTPUTS
-Hashtable of configuration objects (PSCustomObject). Example access:
-$IDConfig.General
-$IDConfig.Google
-$IDConfig.AD
-
-.NOTES
-Author: SCNetworksLLC (Sam Cattanach)
-File: Public/Core/Get-IDBridgeConfiguration.ps1
-#>
-
 function Get-IDBridgeConfiguration {
     [CmdletBinding()]
     param ()
+
+    #Test the configuration at C:\IDBridge
+    try {
+        Test-IDBridgeConfiguration -ErrorAction Stop
+    }
+    catch {
+        Throw $_
+    }
+    
 
     $configPath = "C:\IDBridge\Config"
 

@@ -2,7 +2,17 @@ function Get-SourceDataGSheet {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [PSObject]$IDConfig,
+        [string]$sheetID,
+
+        [Parameter(Mandatory = $true)]
+        [string]$sheetRange,
+
+        [Parameter(Mandatory = $true)]
+        [int]$userCount,
+
+        [int]$userCountSafetyPercentage = 75,
+
+        [bool]$testRun = $false,
 
         [Parameter(Mandatory = $true)]
         [string]$logFile,
@@ -13,7 +23,7 @@ function Get-SourceDataGSheet {
 
     #Get Data from Spreadsheet
     try {
-        $data = Get-GoogleSheetData -GoogleSheetID $IDConfig.GoogleSheet.sheetID -GoogleSheetRange $IDConfig.GoogleSheet.sheetRange -tokenInformation $headers
+        $data = Get-GoogleSheetData -GoogleSheetID $sheetID -GoogleSheetRange $sheetRange -tokenInformation $headers
         Write-Log -Path $logFile -Message "Source Data Staff: Successfully retrieved Google Sheet data"
     }
     catch {
@@ -21,14 +31,14 @@ function Get-SourceDataGSheet {
     }
 
     #Check data fetched count for safety
-    if ($data.count -gt ([int]$IDConfig.General.staffCount * ([int]$IDConfig.General.safetyPercentage / 100))) {
+    if ($data.count -gt ([int]$userCount * ([int]$userCountSafetyPercentage / 100))) {
         Write-Log -Path $logFile -Message "Source Data Staff: Successfully retrieved $($data.count) Users"
     } else {
-        Throw (Write-Log -Path $logFile -Message "Source Data Staff: $($data.count) retrieved but does not meet the threshold of $([int]$IDConfig.General.safetyPercentage / 100)" -Level Error)
+        Throw (Write-Log -Path $logFile -Message "Source Data Staff: $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
     }
 
     #Limit data to 10 objects if Test Run is active
-    if ($IDConfig.Debug.testRun -eq $true) {
+    if ($testRun -eq $true) {
         $data = $data | Select-Object -first 10
         Write-Log -Path $logFile -Message "TEST RUN: LIMITING DATA SOURCE TO TEN USERS - $($data.PersonID)"
     }
