@@ -2,6 +2,10 @@ function Get-SourceDataGSheet {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateSet("Student","Staff", IgnoreCase = $true)]
+        [string]$personType,
+        
+        [Parameter(Mandatory = $true)]
         [string]$sheetID,
 
         [Parameter(Mandatory = $true)]
@@ -24,17 +28,17 @@ function Get-SourceDataGSheet {
     #Get Data from Spreadsheet
     try {
         $data = Get-GoogleSheetData -GoogleSheetID $sheetID -GoogleSheetRange $sheetRange -tokenInformation $headers
-        Write-Log -Path $logFile -Message "Source Data Staff: Successfully retrieved Google Sheet data"
+        Write-Log -Path $logFile -Message "Source Data $($personType): Successfully retrieved Google Sheet data"
     }
     catch {
-        Throw (Write-Log -Path $logFile -Message "Source Data Staff: Failed to Retrieve Google Sheet Data" -Level Error)
+        Throw (Write-Log -Path $logFile -Message "Source Data $($personType): Failed to Retrieve Google Sheet Data" -Level Error)
     }
 
     #Check data fetched count for safety
     if ($data.count -gt ([int]$userCount * ([int]$userCountSafetyPercentage / 100))) {
-        Write-Log -Path $logFile -Message "Source Data Staff: Successfully retrieved $($data.count) Users"
+        Write-Log -Path $logFile -Message "Source Data $($personType): Successfully retrieved $($data.count) Users"
     } else {
-        Throw (Write-Log -Path $logFile -Message "Source Data Staff: $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
+        Throw (Write-Log -Path $logFile -Message "Source Data $($personType): $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
     }
 
     #Limit data to 10 objects if Test Run is active
@@ -45,7 +49,11 @@ function Get-SourceDataGSheet {
 
     #Check to see if there is actually any data to process
     if ($data.Process -notcontains "TRUE") {
-        Throw (Write-Log -Path $logFile -Message "Source Data: Data fetched but no users are set to process" -Level Error)
+        Throw (Write-Log -Path $logFile -Message "Source Data $($personType): Data fetched but no users are set to process" -Level Error)
+    }
+
+    foreach ($item in $data) {
+        $item | Add-Member -MemberType NoteProperty -Name "PersonTypeGeneric" -Value "$($personType)"
     }
 
     return $data

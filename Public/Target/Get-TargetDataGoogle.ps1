@@ -115,10 +115,43 @@ function Get-TargetDataGoogle {
     }
     #endregion Get Google Org Units
 
+
+    #region Get Duplicate IDs
+    #Get Google users with duplicate organization external ID
+    $duplicateUsers = ($googleUsers | ForEach-Object {
+        $pkID = ($_.externalIds | Where-Object { $_.Type -eq "organization" }).value
+        if ($pkID) {
+            [PSCustomObject]@{
+                UPN = $_.primaryEmail
+                FullName = $_.name.fullName
+                OrgID = $pkID
+            }
+        }
+    } | Group-Object -Property OrgID | Where-Object { $_.Count -gt 1 }).group
+
+    if ($duplicateUsers) {
+        Write-Log -Path $logFile -Message ("Google: Users found with Duplicate External IDs: " + ($duplicateUsers | ConvertTo-Json -Compress)) -Level Error
+    }
+    #endregion Get Duplicate IDs
+
+
+    #region Lookup Table Creation
+    # Build the lookup tables once to make the search faster
+    $googleUsersLookupByID = @{}
+    foreach ($gUser in $googleUsers) {
+        foreach ($extId in $gUser.externalIDs) {
+            $googleUsersLookupByID[$extId.value] = $gUser
+        }
+    }
+    #endregion Lookup Table Creation
+
+
     #Return a single object with all data
     return [PSCustomObject]@{
         Users             = $googleUsers
         Groups            = $googleGroups
         OrgUnits          = $googleOrgUnits
+        DuplicateUsers    = $duplicateUsers
+        LookupByID        = $googleUsersLookupByID
     }
 }

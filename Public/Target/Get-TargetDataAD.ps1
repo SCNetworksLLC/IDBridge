@@ -1,35 +1,3 @@
-<#
-.SYNOPSIS
-    Retrieves Active Directory organizational units, groups, and users.
-
-.DESCRIPTION
-    Connects to Active Directory using the provided configuration.
-    Returns a single object containing:
-      - All organizational units (Distinguished Names)
-      - All group names
-      - All users with specified properties
-
-.PARAMETER IDConfig
-    (Required) The configuration object containing Active Directory and script settings.
-
-.PARAMETER logFile
-    (Required) The path to the log file for error and process logging.
-
-.OUTPUTS
-    PSCustomObject
-    An object with properties: OrgUnits, Groups, Users.
-
-.EXAMPLE
-    $adData = Get-TargetDataAD -logFile $logFile
-    $adData.Users
-    $adData.Groups
-    $adData.OrgUnits
-
-.NOTES
-    Author: Sam Cattanach
-    Requires: ActiveDirectory module, supporting functions (Write-Log)
-#>
-
 function Get-TargetDataAD {
     [CmdletBinding()]
     param (
@@ -129,10 +97,31 @@ function Get-TargetDataAD {
         Throw $_
     }
 
+    #Get AD users with duplicate employeeID
+    $duplicateADUsers = ($ADUsers.where{$_.employeeID} | 
+        Select-Object -Property UserPrincipalName, employeeID | 
+        Group-Object -Property employeeID | 
+        Where-Object { $_.Count -gt 1 }
+    ).group
+
+    if ($duplicateADUsers) {
+        Write-Log -Path $logFile -Message ("AD: Users found with Duplicate External IDs: " + ($duplicateADUsers | ConvertTo-Json -Compress)) -Level Error
+    }
+
+    # Build the lookup tables once to make the search faster
+    $adUsersLookupByID = @{}
+    foreach ($adUser in $ADUsers) {
+        if ($adUser.EmployeeID) {
+            $adUsersLookupByID[$adUser.EmployeeID] = $adUser
+        }
+    }
+
     #Return a single object with all data
     return [PSCustomObject]@{
         Users = $ADUsers
         Groups = $ADGroups.Name
         OrgUnits = $ADOrgUnits
+        DuplicateUsers = $duplicateADUsers
+        LookupByID = $adUsersLookupByID
     }
 }

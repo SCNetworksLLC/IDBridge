@@ -36,36 +36,26 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #region Gather Data
 #region Spreadsheet Data Staff
 try {
-    $data = Get-SourceDataGSheet -sheetID $IDConfig.GoogleSheet.sheetID -sheetRange $IDConfig.GoogleSheet.sheetRange -userCount $IDConfig.General.staffCount -logFile $logFile -headers $headers
-
-    foreach ($item in $data) {
-        $item | Add-Member -MemberType NoteProperty -Name "PersonTypeGeneric" -Value "Staff"
-    }
+    $data = Get-SourceDataGSheet -personType "Staff" -sheetID $IDConfig.GoogleSheet.sheetID -sheetRange $IDConfig.GoogleSheet.sheetRange -userCount $IDConfig.General.staffCount -logFile $logFile -headers $headers
 }
 catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 #endregion Spreadsheet Data Staff
+
 
 #region Get Google Data
 if ($IDConfig.Google.enabled -eq $true) {
     try {
         $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headers -ErrorAction Stop
-
-        $googleUsers = $googleData.Users
-        $googleGroups = $googleData.Groups
-        $googleOrgUnits = $googleData.OrgUnits
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 }
 #endregion Get Google Data
 
+
 #region Get Data AD
 if ($IDConfig.AD.enabled -eq $true) {
     try {
         $adData = Get-TargetDataAD -logFile $logFile -ErrorAction Stop
-
-        $ADUsers = $adData.Users
-        $ADGroups = $adData.Groups
-        $ADOrgUnits = $adData.OrgUnits
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)}
 }
@@ -73,59 +63,22 @@ if ($IDConfig.AD.enabled -eq $true) {
 #endregion Gather Data
 
 #region Validate Data
-#region Test Source Data
-#Check to make sure required columns exist in the data
-#Remove Users who do not have data in all required fields except for terminationDate
-#Remove Users where the process field is false
 try {
     $filteredData = Test-SourceData -SourceData $data
 }
-catch {
-    Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
-}
-
-#endregion Test Source Data
-
-#region Get Duplicate IDs
-if ($IDConfig.Google.enabled -eq $true) {
-    $duplicateGoogleUsers = Get-DuplicateIDsGoogle -SourceData $googleUsers
-}
-
-if ($IDConfig.AD.enabled -eq $true) {
-    $duplicateADUsers = Get-DuplicateIDsAD -SourceData $ADUsers
-}
-#endregion Get Duplicate IDs
+catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 #endregion Validate Data
 
 #region Data Modifcation
-# Build the lookup tables once to make the search faster
-if ($IDConfig.Google.enabled -eq $true) {
-    $googleUsersLookupByID = @{}
-    foreach ($gUser in $googleUsers) {
-        foreach ($extId in $gUser.externalIDs) {
-            $googleUsersLookupByID[$extId.value] = $gUser
-        }
-    }
-}
-
-if ($IDConfig.AD.enabled -eq $true) {
-    $adUsersLookupByID = @{}
-    foreach ($adUser in $ADUsers) {
-        if ($adUser.EmployeeID) {
-            $adUsersLookupByID[$adUser.EmployeeID] = $adUser
-        }
-    }
-}
-
 #Add additional data to the user objects
 foreach ($item in $filteredData) {
     $item = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $item -logFile $logFile
 
     if ($IDConfig.Google.enabled -eq $true) {
-        $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleUsersLookupByID -duplicateGoogleUsers $duplicateGoogleUsers -logFile $logFile
+        $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateUsers -logFile $logFile
     }
     if ($IDConfig.AD.enabled -eq $true) {
-        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adUsersLookupByID -duplicateADUsers $duplicateADUsers -logFile $logFile
+        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateUsers -logFile $logFile
     }
 }
 #endregion Data Modifcation
@@ -149,7 +102,7 @@ if ($IDConfig.AD.enabled -eq $true) {
         }
 
         foreach ($item in $checkGroupsListAD | Select-Object -Unique | Sort-Object) {
-            if ($item -notin $ADGroups) {
+            if ($item -notin $adData.Groups) {
                 Write-Log -Path $logFile -Message ("AD: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
             }
         }
@@ -170,7 +123,7 @@ if ($IDConfig.Google.enabled -eq $true) {
         }
 
         foreach ($item in $checkGroupsListGoogle | Select-Object -Unique | Sort-Object) {
-            if ($item -notin $googleGroups.name) {
+            if ($item -notin $googleData.Groups.name) {
                 Write-Log -Path $logFile -Message ("Google: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
             }
         }
@@ -197,7 +150,7 @@ if ($IDConfig.AD.enabled -eq $true) {
         ("OU=Staff,OU=Trash," + $IDConfig.AD.userRootOU)
     )
 
-    #Add the OUs to check from the personTypeGeneric and personType Fields
+    #Add the OUs to check from only active users
     $OUCheckADAuto = @()
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
         $OUCheckADAuto += $item.ADOrganizationalUnit
@@ -209,7 +162,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 
     #Create Org Units that do not exist
     foreach ($item in $OUCheckAD | Sort-Object -Unique) {
-        if ($item -notin $ADOrgUnits){
+        if ($item -notin $adData.OrgUnits){
             try {
                 Write-Log -Path $logFile -Message "AD: Creating Org Unit $item"
                 if ($IDConfig.Debug.readOnly -eq $false) {
@@ -269,11 +222,11 @@ if ($IDConfig.AD.enabled -eq $true) {
     #If no user exists with the employee ID, try username
     #Username has to pair with the first name and last name
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and -not $_.ADDuplicateIDStatus}) {
-        if ($item.personID -notin $ADUsers.employeeID){
+        if ($item.personID -notin $adData.Users.employeeID){
             Write-Log -Path $logFile -Message ("AD: No user found with EmployeeID: " + $item.personID)
             
-            if ($item.username -in $ADUsers.SamAccountName) {
-                $ADUser = ($ADUsers | Where-Object {$_.SamAccountName -eq $item.username})
+            if ($item.username -in $adData.Users.SamAccountName) {
+                $ADUser = ($adData.Users | Where-Object {$_.SamAccountName -eq $item.username})
 
                 if ($ADUser.Surname -eq $item.NameLast -and $ADUser.GivenName -eq $item.NameFirst) {
                     #Update the user account employeeID with the personID
@@ -301,7 +254,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 #region Update AD Users
 if ($IDConfig.AD.enabled -eq $true) {
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
-        $ADUser = $adUsersLookupByID[$item.personID]
+        $ADUser = $adData.LookupByID[$item.personID]
 
         $itemUpdateSplat = @{}
 
@@ -392,7 +345,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 #region Create AD Users
 if ($IDConfig.AD.enabled -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and $_.UPN -notin $ADUsers.UserPrincipalName}) {
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and $_.UPN -notin $adData.Users.UserPrincipalName}) {
         $NewUserParams = @{
             Path                  = $item.ADorganizationalUnit
             Name                  = ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)
@@ -459,7 +412,7 @@ if ($IDConfig.AD.enabled -eq $true) {
             $proposedGroupList = $proposedGroupList | Select-Object -Unique
 
             #Add groups from Users - Only run if enableGroupProcessing is Enabled
-            foreach ($groupAdd in $proposedGroupList | Where-Object {$_ -in $ADGroups}) {
+            foreach ($groupAdd in $proposedGroupList | Where-Object {$_ -in $adData.Groups}) {
                 if ($groupAdd -notin $item.ADCurrentGroups) {
                     Write-Log -Path $logFile -Message "AD: Adding Group: $groupAdd to $($item.personID) $($item.NameFirst) $($item.NameLast)" -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
 
@@ -535,7 +488,7 @@ if ($IDConfig.Google.enabled -eq $true) {
     }
 
     #Create Org Units that do not exist
-    foreach ($item in $OUCheckGoogle | Where-Object {$_ -notin $googleOrgUnits.orgUnitPath}) {
+    foreach ($item in $OUCheckGoogle | Where-Object {$_ -notin $googleData.OrgUnits.orgUnitPath}) {
         Write-Log -Path $logFile -Message "Google: Creating org unit: $($item)"
         if ($IDConfig.Debug.readOnly -eq $false) {
             try {
@@ -584,8 +537,8 @@ if ($IDConfig.Google.enabled -eq $true) {
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and -not $_.GoogleDuplicateIDStatus}) {
         Write-Log -Path $logFile -Message ("Google: No user found with EmployeeID: " + $item.personID)
         
-        if ($item.UPN -in $googleUsers.primaryEmail) {
-            $googleUser = ($googleUsers | Where-Object {$_.primaryEmail -eq $item.UPN})
+        if ($item.UPN -in $googleData.Users.primaryEmail) {
+            $googleUser = ($googleData.Users | Where-Object {$_.primaryEmail -eq $item.UPN})
 
             if ($googleUser.Name.familyName -eq $item.NameLast -and $googleUser.Name.givenName -eq $item.NameFirst) {
                 #Update the user account employeeID with the personID
@@ -613,12 +566,12 @@ if ($IDConfig.Google.enabled -eq $true) {
 #region Update Google Users
 if ($IDConfig.Google.enabled -eq $true) {
     foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
-        $googleUser = $googleUsersLookupByID[$item.personID]
+        $googleUser = $googleData.LookupByID[$item.personID]
 
         $itemUpdateSplat = @{}
 
         if ($googleUser.primaryEmail -ne $item.UPN) {
-            if ($item.UPN -notin ($googleUsers.emails | Select-Object -ExpandProperty address)) {
+            if ($item.UPN -notin ($googleData.Users.emails | Select-Object -ExpandProperty address)) {
                 $itemUpdateSplat["PrimaryEmail"] = $item.UPN
             } else {
                 Write-Log -Path $logFile -Message ("Google: Failed to Update User: " + $item.personID + " with new UPN: " + $item.UPN + ". New UPN already in use.") -Level Error
@@ -665,7 +618,7 @@ if ($IDConfig.Google.enabled -eq $true) {
 
 #region Create Google Users
 if ($IDConfig.Google.enabled -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and $_.UPN -notin $googleUsers.primaryEmail}) {
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and $_.UPN -notin $googleData.Users.primaryEmail}) {
         $itemCreateSplat = @{
             "PrimaryEmail" = $item.UPN
             "PersonID" = $item.personID
@@ -725,13 +678,13 @@ if ($IDConfig.Google.enabled -eq $true) {
             $proposedGroupList = $proposedGroupList | Select-Object -Unique
 
             #Add groups from Users - Only run if enableGroupProcessing is Enabled
-            foreach ($group in $proposedGroupList | Where-Object {$_ -in $googleGroups.name}) {
+            foreach ($group in $proposedGroupList | Where-Object {$_ -in $googleData.Groups.name}) {
                 if (("$group@$($IDConfig.Google.GroupPrimaryDomainName)") -notin $item.GoogleCurrentGroups) {
                     Write-Log -Path $logFile -Message ("Google: Adding Group: $group to " + $item.personID) -WhatIfLogging $IDConfig.Google.enableGroupProcessingWhatIf
 
                     if ($IDConfig.Google.enableGroupProcessing -eq $true) {
                         if ($IDConfig.Debug.readOnly -eq $false) {
-                            Update-GoogleGroupMembers -GroupEmail ($googleGroups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headers
+                            Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headers
                         }
                     }
                 }
