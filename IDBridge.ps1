@@ -5,14 +5,10 @@
 #region Import Modules
 try {
     Import-Module (Get-Content "C:\IDBridge\Config\ModulePath.json" -Raw | ConvertFrom-Json) -Force -Verbose -ErrorAction Stop
-}
-catch {
-    Throw $_
-}
+} catch { Throw $_ }
 #endregion Import Modules
 
 #region Set Logging
-#Checks the log file size and renames it if it is larger than 50MB
 Initialize-Logging
 #endregion Set Logging
 
@@ -42,6 +38,7 @@ catch {
     Throw (Start-ScriptEnd -Message $_ -WriteError)
 }
 #endregion Google Authorization Token
+
 
 #region Gather Data
 #region Spreadsheet Data Staff

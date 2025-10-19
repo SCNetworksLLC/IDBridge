@@ -1,3 +1,28 @@
+<#
+.SYNOPSIS
+Locates and validates the Google service account JSON file used for API authentication.
+
+.DESCRIPTION
+Searches the folder `C:\IDBridge\Auth` for JSON files and verifies there is exactly one
+service account file present. The JSON is parsed and validated to ensure it contains the
+required `private_key` property used by Google service account credentials. If validation
+passes the full path to the JSON file is returned; otherwise the function throws an error.
+
+.EXAMPLE
+$authPath = Get-IDBridgeGoogleAuthFile
+Returns the full path to the single Google service account JSON file under
+`C:\IDBridge\Auth` and writes a confirmation to the host.
+
+.INPUTS
+None. The function does not accept pipeline input.
+
+.OUTPUTS
+System.String — full path to the validated Google service account JSON file.
+
+.NOTES
+Author: SCNetworksLLC (Sam Cattanach)
+File: Public/Core/Get-IDBridgeGoogleAuthFile.ps1
+#>
 function Get-IDBridgeGoogleAuthFile {
     [CmdletBinding()]
     param ()
