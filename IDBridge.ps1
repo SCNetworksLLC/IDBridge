@@ -24,7 +24,6 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #endregion Import Configuration
 
 
-
 #region Google Authorization Token
 try {
     $headers = Get-GoogleApiAccessToken -ServiceAccountKeyPath $googleJSONPath -Scope $IDConfig.GoogleToken.googleAuthScope -TargetUserEmail $IDConfig.GoogleToken.adminEmail
@@ -36,7 +35,10 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #region Gather Data
 #region Spreadsheet Data Staff
 try {
-    $data = Get-SourceDataGSheet -personType "Staff" -sheetID $IDConfig.GoogleSheet.sheetID -sheetRange $IDConfig.GoogleSheet.sheetRange -userCount $IDConfig.General.staffCount -logFile $logFile -headers $headers
+    $dataStaff = Get-SourceDataGSheet -personType "Staff" -sheetID $IDConfig.GoogleSheet.sheetID -sheetRange $IDConfig.GoogleSheet.sheetRange -userCount $IDConfig.General.staffCount -logFile $logFile -headers $headers
+
+    #Make sure the data is valid and has columns
+    $filteredData = Limit-SourceDataGSheet -SourceData $dataStaff
 }
 catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 #endregion Spreadsheet Data Staff
@@ -62,12 +64,6 @@ if ($IDConfig.AD.enabled -eq $true) {
 #endregion Get Data AD
 #endregion Gather Data
 
-#region Validate Data
-try {
-    $filteredData = Test-SourceData -SourceData $data
-}
-catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
-#endregion Validate Data
 
 #region Data Modifcation
 #Add additional data to the user objects
@@ -82,6 +78,7 @@ foreach ($item in $filteredData) {
     }
 }
 #endregion Data Modifcation
+
 
 #region Groups Not Processed
 #AD Checks

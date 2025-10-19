@@ -34,6 +34,31 @@ function Get-SourceDataGSheet {
         Throw (Write-Log -Path $logFile -Message "Source Data $($personType): Failed to Retrieve Google Sheet Data" -Level Error)
     }
 
+    #Required Columns in the Google Sheet
+    $requiredColumnsConfig = @(
+        "PersonID"
+        "NameFirst"
+        "NameLast"
+        "Username"
+        "Building"
+        "PersonType"
+        "JobTitle"
+        "TerminationDate"
+        "Word"
+        "Process"
+    )
+
+    #Check to make sure required columns exist in the data
+    $columnsReturned = $data | Get-member -MemberType 'NoteProperty' | Select-Object -ExpandProperty 'Name'
+
+    $columnCheck = Compare-Object $columnsReturned $requiredColumnsConfig | Where-Object{$_.SideIndicator -eq '=>'} | Select-Object -ExpandProperty InputObject
+
+    if($columnCheck) {
+        Write-Log -Path $logFile -Message "Required columns not found. Columns Needed: $columnCheck" -Level Error
+        Throw "Required columns not found. Columns Needed: $columnCheck"
+    }
+
+
     #Check data fetched count for safety
     if ($data.count -gt ([int]$userCount * ([int]$userCountSafetyPercentage / 100))) {
         Write-Log -Path $logFile -Message "Source Data $($personType): Successfully retrieved $($data.count) Users"
@@ -41,11 +66,13 @@ function Get-SourceDataGSheet {
         Throw (Write-Log -Path $logFile -Message "Source Data $($personType): $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
     }
 
+
     #Limit data to 10 objects if Test Run is active
     if ($testRun -eq $true) {
         $data = $data | Select-Object -first 10
         Write-Log -Path $logFile -Message "TEST RUN: LIMITING DATA SOURCE TO TEN USERS - $($data.PersonID)"
     }
+
 
     #Check to see if there is actually any data to process
     if ($data.Process -notcontains "TRUE") {
