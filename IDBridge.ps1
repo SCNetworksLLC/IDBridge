@@ -122,96 +122,41 @@ if ($IDConfig.AD.enabled -eq $true) {
 }
 #endregion Gather AD Processing Lists
 
-
+#region Process AD Changes
 if ($IDConfig.AD.enabled -eq $true) {
-    New-IDBridgeADOrgUnit -OrgUnitsForProcessing $ADOrgUnitsForProcessing -logFile $logFile
-
-    Disable-IDBridgeADUser -UsersToDeactivate $ADUsersToDeactivate -logFile $logFile
-
-    Update-IDBridgeADUser -UsersToUpdate $ADUsersToUpdate -logFile $logFile
-
-    New-IDBridgeADUser -UsersToCreate $ADUsersToCreate -logFile $logFile
-}
-
-
-#region Creating AD OUs
-if ($IDConfig.AD.enabled -eq $true) {
-    #Check and Create OUs in AD
-    #Manual and Top Level OUs to Check
-    $OUCheckAD = @(
-        $IDConfig.AD.userRootOU
-        ("OU=Student," + $IDConfig.AD.userRootOU)
-        ("OU=Staff," + $IDConfig.AD.userRootOU)
-        ("OU=Trash," + $IDConfig.AD.userRootOU)
-        ("OU=Student,OU=Trash," + $IDConfig.AD.userRootOU)
-        ("OU=Staff,OU=Trash," + $IDConfig.AD.userRootOU)
-    )
-
-    #Add the OUs to check from only active users
-    $OUCheckADAuto = @()
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
-        $OUCheckADAuto += $item.ADOrganizationalUnit
-        $OUCheckADAuto += $item.ADOrganizationalUnitTrash
+    #Create Orgs
+    foreach ($item in $ADOrgUnitsForProcessing | Sort-Object -Unique) {
+        try {
+            New-IDBridgeADOrgUnit -OrgUnit $item -ReadOnly $IDConfig.Debug.readOnly -logFile $logFile
+        }
+        catch {
+            Write-Log -Path $logFile -Message "AD: Error Creating Org Unit. Please check RunAS user permisisons in AD or Detailed Error for more information" -Level Error
+            Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
+        }  
     }
 
-    #Combine the OUs together - this is done so that the base OUs are created first
-    $OUCheckAD += $OUCheckADAuto | Sort-Object -Unique
-
-    #Create Org Units that do not exist
-    foreach ($item in $OUCheckAD | Sort-Object -Unique) {
-        if ($item -notin $adData.OrgUnits){
-            try {
-                Write-Log -Path $logFile -Message "AD: Creating Org Unit $item"
-                if ($IDConfig.Debug.readOnly -eq $false) {
-                    New-ADOrganizationalUnit -Name $item.split(",",2)[0].replace("OU=","") -Path $item.split(",",2)[1] -ErrorAction Stop
-                }
-            }
-            catch {
-                Write-Log -Path $logFile -Message "AD: Org Unit $item does not exist and could not be created. Please check RunAS user permisisons in AD" -Level Error
-                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
-            }
+    #Disable Users
+    foreach ($item in $ADUsersToDeactivate) {
+        try {
+            Disable-IDBridgeADUser -User $item -ReadOnly $IDConfig.Debug.readOnly -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash -logFile $logFile
+        }
+        catch {
+            Write-Log -Path $logFile -Message $_ -Level Error
         }
     }
-}
-#endregion Creating AD OUs
-
-#region Deativate AD Users
-if ($IDConfig.AD.enabled -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $false -and $_.ADCurrentUserEnabledStatus -eq $true}) {
-        #Disable the account
-        Write-Log -Path $logFile -Message ("AD: Disabling account for " + $item.PersonID)
-        if ($IDConfig.Debug.readOnly -eq $false) {
-            Set-ADUser -Identity $item.ADCurrentUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm) -Enabled $false
-        }
-
-        #Move the User to the Trash OU
-        Write-Log -Path $logFile -Message  ("AD: Moving user to trash: " + $item.PersonID)
-        if ($IDConfig.Debug.readOnly -eq $false) {
-            Move-ADObject -Identity $item.ADCurrentUserID -TargetPath $item.ADOrganizationalUnitTrash
-        }
-
-        #Get all the groups and write that to the log
-        if (-not [string]::IsNullOrEmpty($item.ADCurrentGroups)) {
-            Write-Log -Path $logFile -Message ("AD: Current groups for " + $item.PersonID)
-            Write-Log -Path $logFile -Message ($item.ADCurrentGroups -join ",")
     
-            #Remove All Groups from the user
-            if ($IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
-                Write-Log -Path $logFile -Message  ("WhatIf AD: Removing groups for " + $item.PersonID)
-            }
-            
-            if ($IDConfig.AD.enableGroupProcessingTrash -eq $true) {
-                Write-Log -Path $logFile -Message  ("AD: Removing groups for " + $item.PersonID)
-                if ($IDConfig.Debug.readOnly -eq $false) {
-                    $item.ADCurrentGroups | Remove-ADGroupMember -Members $item.ADCurrentUserID -Confirm:$false
-                }
-            }
-        } else {
-            Write-Log -Path $logFile -Message ("AD: Current groups for " + $item.PersonID + " : NONE")
-        }
-    }
+
+    #Update Users
+    Update-IDBridgeADUser -UserList $ADUsersToUpdate -logFile $logFile
+
+    #Create Users
+    New-IDBridgeADUser -UserList $ADUsersToCreate -logFile $logFile
 }
-#endregion Deativate AD Users
+#endregion Process AD Changes
+
+
+
+
 
 #region Set AD EmployeeID
 if ($IDConfig.AD.enabled -eq $true) {
