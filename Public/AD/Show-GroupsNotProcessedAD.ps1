@@ -8,9 +8,7 @@ function Show-GroupsNotProcessedAD {
         $CurrentADGroups,
 
         [Parameter(Mandatory = $true)]
-        $logFile,
-
-        $WhatIfLogging = $false
+        $logFile
     )
 
     $checkGroupsListAD = @()
@@ -29,7 +27,7 @@ function Show-GroupsNotProcessedAD {
 
     foreach ($item in $checkGroupsListAD | Select-Object -Unique | Sort-Object) {
         if ($item -notin $CurrentADGroups) {
-            Write-Log -Path $logFile -Message ("AD: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $WhatIfLogging
+            Write-Log -Path $logFile -Message ("AD: Not Processing Group: $item - Does Not Exist")
         }
     }
 }

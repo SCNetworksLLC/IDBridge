@@ -83,46 +83,59 @@ foreach ($item in $filteredData) {
 
 #region Groups Not Processed
 #AD Checks
-if ($IDConfig.AD.enabled -eq $true) {
-    if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
-        Show-GroupsNotProcessedAD -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
-    }
+if (($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) -and $IDConfig.Debug.verboseLogging -eq $true) {
+    Show-GroupsNotProcessedAD -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
 }
 
 #Google Checks
-if ($IDConfig.Google.enabled -eq $true) {
-    if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
-        Show-GroupsNotProcessedGoogle -UserList $filteredData -CurrentGoogleGroups $googleData.Groups -logFile $logFile -WhatIfLogging $IDConfig.Google.enableGroupProcessingWhatIf
-    }
+if (($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) -and $IDConfig.Debug.verboseLogging -eq $true) {
+    Show-GroupsNotProcessedGoogle -UserList $filteredData -CurrentGoogleGroups $googleData.Groups -logFile $logFile
 }
 #endregion Groups Not Processed
 
 
 #region Gather AD Processing Lists
 if ($IDConfig.AD.enabled -eq $true) {
+    #Org Units to Create
     $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.AD.userRootOU -CurrentOrgUnits $adData.OrgUnits -logFile $logFile
-    New-IDBridgeADOrgUnit -OrgUnitsForProcessing $ADOrgUnitsForProcessing -logFile $logFile
 
-    $ADUsersToDeactivate = $filteredData | Where-Object {$_.IDBActive -eq $false -and $_.ADCurrentUserEnabledStatus -eq $true}
-    Disable-IDBridgeADUser -UsersToDeactivate $ADUsersToDeactivate -logFile $logFile
+    #Users to Deactivate
+    $ADUsersToDeactivate = Get-ADUsersToDeactivate -UserList $filteredData -logFile $logFile
+    
+    #Update filteredData list and ADLookupByID Table with AD User Info if No EmployeeID is Set and an existing user is found that matches
+    $ADUsersToSetEmployeeID = Get-ADUsersToSetEmployeeID -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
+    foreach ($item in $filteredData) {
+        if ($ADUsersToSetEmployeeID[$item.personID]) {
+            Write-Log -Path $logFile -Message ("AD: Matched $($ADUsersToSetEmployeeID[$item.personID].ADUser.UserPrincipalName) with EmployeeID: $($item.personID).")
+            $item.ADCurrentUserID = $ADUsersToSetEmployeeID[$item.personID].ADCurrentUserID
+            $item.ADCurrentGroups = $ADUsersToSetEmployeeID[$item.personID].ADCurrentGroups
+            $item.ADCurrentUserEnabledStatus = $ADUsersToSetEmployeeID[$item.personID].ADCurrentUserEnabledStatus
+            $adData.LookupByID[$item.personID] = $ADUsersToSetEmployeeID[$item.personID].ADUser
+        }
+    }
 
-    $filteredDataADUpdate = Get-ADUsersToSetEmployeeID -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
+    #Users to Update
+    $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $filteredData -CurrentADUsersLookupByID $adData.LookupByID -logFile $logFile
 
-    $ADUsersToUpdate = $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}
+    #Users to Create
+    $ADUsersToCreate = Get-ADUsersToCreate -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
 }
 #endregion Gather AD Processing Lists
 
 
+if ($IDConfig.AD.enabled -eq $true) {
+    New-IDBridgeADOrgUnit -OrgUnitsForProcessing $ADOrgUnitsForProcessing -logFile $logFile
+
+    Disable-IDBridgeADUser -UsersToDeactivate $ADUsersToDeactivate -logFile $logFile
+
+    Update-IDBridgeADUser -UsersToUpdate $ADUsersToUpdate -logFile $logFile
+
+    New-IDBridgeADUser -UsersToCreate $ADUsersToCreate -logFile $logFile
+}
+
 
 #region Creating AD OUs
 if ($IDConfig.AD.enabled -eq $true) {
-    New-IDBADOrgUnitIDB -OrgUnitsForProcessing $ADOrgUnitsForProcessing -logFile $logFile
-
-    Disable-IDBADUsers -UsersToDeactivate $ADUsersToDeactivate -logFile $logFile
-
-
-
-
     #Check and Create OUs in AD
     #Manual and Top Level OUs to Check
     $OUCheckAD = @(
@@ -260,16 +273,20 @@ if ($IDConfig.AD.enabled -eq $true) {
             }
         }
 
-        if ($ADUser.Surname -ne $item.NameLast) {
+        if ($ADUser.EmployeeID -ne $item.PersonID) {
+            $itemUpdateSplat["EmployeeID"] = $item.PersonID
+        }
+
+        if ($ADUser.Surname -ne $item.NameLast.trim()) {
             $itemUpdateSplat["Surname"] = $item.NameLast.trim()
         }
 
-        if ($ADUser.GivenName -ne $item.NameFirst) {
+        if ($ADUser.GivenName -ne $item.NameFirst.trim()) {
             $itemUpdateSplat["GivenName"] = $item.NameFirst.trim()
         }
 
-        if ($ADUser.DisplayName -ne ($item.NameFirst + " " + $item.NameLast)) {
-            $itemUpdateSplat["DisplayName"] = ($item.NameFirst + " " + $item.NameLast)
+        if ($ADUser.DisplayName -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim())) {
+            $itemUpdateSplat["DisplayName"] = ($item.NameFirst.trim() + " " + $item.NameLast.trim())
         }
 
         if ($ADUser.physicalDeliveryOfficeName -ne $item.Building) {
@@ -304,12 +321,12 @@ if ($IDConfig.AD.enabled -eq $true) {
             }
         }
 
-        if ($ADUser.CN -ne ($item.NameFirst + " " + $item.NameLast + " " + $item.PersonID)) {
+        if ($ADUser.CN -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)) {
             Write-Log -Path $logFile -Message ("AD: Canonical Name does not match for " + $item.PersonID + ". Updating Canonical Name")
 
             if ($IDConfig.Debug.readOnly -eq $false) {
                 Set-ADUser -Identity $item.ADCurrentUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
-                Rename-ADObject -Identity $item.ADCurrentUserID -NewName ($item.NameFirst + " " + $item.NameLast + " " + $item.PersonID)
+                Rename-ADObject -Identity $item.ADCurrentUserID -NewName ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)
             }
         }
 

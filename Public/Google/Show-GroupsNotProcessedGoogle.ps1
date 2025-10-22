@@ -8,9 +8,7 @@ function Show-GroupsNotProcessedGoogle {
         $CurrentGoogleGroups,
 
         [Parameter(Mandatory = $true)]
-        $logFile,
-
-        $WhatIfLogging = $false
+        $logFile
     )
 
     $checkGroupsListGoogle = @()
@@ -25,7 +23,7 @@ function Show-GroupsNotProcessedGoogle {
 
     foreach ($item in $checkGroupsListGoogle | Select-Object -Unique | Sort-Object) {
         if ($item -notin $CurrentGoogleGroups.name) {
-            Write-Log -Path $logFile -Message ("Google: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $WhatIfLogging
+            Write-Log -Path $logFile -Message ("Google: Not Processing Group: $item - Does Not Exist")
         }
     }
 }
