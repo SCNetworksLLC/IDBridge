@@ -151,7 +151,7 @@ function Get-TargetDataGoogle {
         Users             = $googleUsers
         Groups            = $googleGroups
         OrgUnits          = $googleOrgUnits
-        DuplicateUsers    = $duplicateUsers
+        DuplicateIDs      = $duplicateUsers
         LookupByID        = $googleUsersLookupByID
     }
 }

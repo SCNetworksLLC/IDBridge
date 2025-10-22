@@ -68,13 +68,14 @@ if ($IDConfig.AD.enabled -eq $true) {
 #region Data Modifcation
 #Add additional data to the user objects
 foreach ($item in $filteredData) {
-    $item = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $item -logFile $logFile
+    $item = Set-AdditionalUserData -IDConfig $IDConfig -userObject $item -logFile $logFile
 
     if ($IDConfig.Google.enabled -eq $true) {
-        $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateUsers -logFile $logFile
+        $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
     }
+
     if ($IDConfig.AD.enabled -eq $true) {
-        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateUsers -logFile $logFile
+        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
     }
 }
 #endregion Data Modifcation
@@ -84,58 +85,44 @@ foreach ($item in $filteredData) {
 #AD Checks
 if ($IDConfig.AD.enabled -eq $true) {
     if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
-        $checkGroupsListAD = @()
-
-        foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
-            $checkGroupsListAD += $item.GroupsAutomatic
-
-            if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {
-                $checkGroupsListAD += ($item.ApplicationGroups -split ",").trim()
-            }
-            
-            if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
-                $checkGroupsListAD += ($item.EmailGroups -split ",").trim()
-            }  
-        }
-
-        foreach ($item in $checkGroupsListAD | Select-Object -Unique | Sort-Object) {
-            if ($item -notin $adData.Groups) {
-                Write-Log -Path $logFile -Message ("AD: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
-            }
-        }
+        Show-GroupsNotProcessedAD -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
     }
 }
 
 #Google Checks
 if ($IDConfig.Google.enabled -eq $true) {
     if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
-        $checkGroupsListGoogle = @()
-
-        foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
-            $checkGroupsListGoogle += $item.GroupsAutomatic
-
-            if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
-                $checkGroupsListGoogle += ($item.EmailGroups -split ",").trim()
-            }
-        }
-
-        foreach ($item in $checkGroupsListGoogle | Select-Object -Unique | Sort-Object) {
-            if ($item -notin $googleData.Groups.name) {
-                Write-Log -Path $logFile -Message ("Google: Not Processing Group: $item - Does Not Exist") -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
-            }
-        }
+        Show-GroupsNotProcessedGoogle -UserList $filteredData -CurrentGoogleGroups $googleData.Groups -logFile $logFile -WhatIfLogging $IDConfig.Google.enableGroupProcessingWhatIf
     }
 }
-
 #endregion Groups Not Processed
 
 
-
-
-
-#region Processing AD
-#region AD OUs
+#region Gather AD Processing Lists
 if ($IDConfig.AD.enabled -eq $true) {
+    $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.AD.userRootOU -CurrentOrgUnits $adData.OrgUnits -logFile $logFile
+    New-IDBridgeADOrgUnit -OrgUnitsForProcessing $ADOrgUnitsForProcessing -logFile $logFile
+
+    $ADUsersToDeactivate = $filteredData | Where-Object {$_.IDBActive -eq $false -and $_.ADCurrentUserEnabledStatus -eq $true}
+    Disable-IDBridgeADUser -UsersToDeactivate $ADUsersToDeactivate -logFile $logFile
+
+    $filteredDataADUpdate = Get-ADUsersToSetEmployeeID -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
+
+    $ADUsersToUpdate = $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}
+}
+#endregion Gather AD Processing Lists
+
+
+
+#region Creating AD OUs
+if ($IDConfig.AD.enabled -eq $true) {
+    New-IDBADOrgUnitIDB -OrgUnitsForProcessing $ADOrgUnitsForProcessing -logFile $logFile
+
+    Disable-IDBADUsers -UsersToDeactivate $ADUsersToDeactivate -logFile $logFile
+
+
+
+
     #Check and Create OUs in AD
     #Manual and Top Level OUs to Check
     $OUCheckAD = @(
@@ -149,7 +136,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 
     #Add the OUs to check from only active users
     $OUCheckADAuto = @()
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
         $OUCheckADAuto += $item.ADOrganizationalUnit
         $OUCheckADAuto += $item.ADOrganizationalUnitTrash
     }
@@ -173,7 +160,7 @@ if ($IDConfig.AD.enabled -eq $true) {
         }
     }
 }
-#endregion AD OUs
+#endregion Creating AD OUs
 
 #region Deativate AD Users
 if ($IDConfig.AD.enabled -eq $true) {

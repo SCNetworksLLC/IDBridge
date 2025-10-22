@@ -1,33 +1,5 @@
-<#
-.SYNOPSIS
-    Adds or updates base properties on a user object for IDBridge processing.
 
-.DESCRIPTION
-    Sets foundational properties on a user object based on whether the user is staff or student.
-    This includes assigning domains, UPNs, group memberships, company, organizational units, password prefixes, and change-at-login flags for both Active Directory and Google Workspace.
-    Also determines and sets the user's active status based on their termination date.
-
-.PARAMETER IDConfig
-    (Required) The configuration object containing general, AD, and Google settings.
-
-.PARAMETER userObject
-    (Required) The user object to which base properties will be added or updated.
-
-.PARAMETER logFile
-    (Required) The path to the log file for error and process logging.
-
-.OUTPUTS
-    The input userObject, with additional base properties for IDBridge processing.
-
-.EXAMPLE
-    $user = Set-AdditionalUserDataBase -IDConfig $IDConfig -userObject $user -logFile $logFile
-
-.NOTES
-    Author: Sam Cattanach
-    Intended for internal use within the IDBridge workflow.
-#>
-
-function Set-AdditionalUserDataBase {
+function Set-AdditionalUserData {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]

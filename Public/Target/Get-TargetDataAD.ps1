@@ -121,7 +121,7 @@ function Get-TargetDataAD {
         Users = $ADUsers
         Groups = $ADGroups.Name
         OrgUnits = $ADOrgUnits
-        DuplicateUsers = $duplicateADUsers
+        DuplicateIDs = $duplicateADUsers
         LookupByID = $adUsersLookupByID
     }
 }
