@@ -118,7 +118,7 @@ if ($IDConfig.AD.enabled -eq $true) {
     $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $filteredData -CurrentADUsersLookupByID $adData.LookupByID -logFile $logFile
 
     #Users to Create
-    $ADUsersToCreate = Get-ADUsersToCreate -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
+    $ADUsersToCreate = Get-ADUsersToCreate -UserList $filteredData -CurrentADUsers $adData.Users -SectretType 'Word' -logFile $logFile
 }
 #endregion Gather AD Processing Lists
 
@@ -149,8 +149,10 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
     #Update Users
     foreach ($item in $ADUsersToUpdate.UpdateList) {
         try {
-            Write-Log -Path $logFile -Message "AD: Updating User: $($item.CN) Properties: $($item.Splat)"
-            Set-ADUser @($item.splat) -ErrorAction Stop
+            Write-Log -Path $logFile -Message "AD: Updating User: $($item.CN) Properties: $($item.splat | ConvertTo-Json -Compress)"
+            $itemSplat = $null
+            $itemSplat = $item.splat
+            Set-ADUser @itemSplat -ErrorAction Stop
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -184,11 +186,13 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
     #Create Users
     foreach ($item in $ADUsersToCreate) {
         try {
-            Write-Log -Path $logFile -Message "AD: Creating User: $($item.PersonID) Properties: $($item.Splat)"
-            $newUser = New-ADUser @($item.splat) -ErrorAction Stop
+            Write-Log -Path $logFile -Message "AD: Creating User: $($item.PersonID) Properties: $($item.splat | ConvertTo-Json -Compress)"
+            $itemSplat = $null
+            $itemSplat = $item.splat
+            $newUser = New-ADUser @itemSplat -ErrorAction Stop
 
             #Add the GUID to the data object
-            foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $item.Splat.UserPrincipalName}) {
+            foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $itemSplat.UserPrincipalName}) {
                 $dataItem.ADCurrentUserID = $newUser.ObjectGUID
             }
         }
@@ -199,187 +203,6 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
 }
 #endregion Process AD Changes
 
-
-
-
-
-#region Set AD EmployeeID
-if ($IDConfig.AD.enabled -eq $true) {
-    #Set Users employeeID if not set
-    #If no user exists with the employee ID, try username
-    #Username has to pair with the first name and last name
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and -not $_.ADDuplicateIDStatus}) {
-        if ($item.personID -notin $adData.Users.employeeID){
-            Write-Log -Path $logFile -Message ("AD: No user found with EmployeeID: " + $item.personID)
-            
-            if ($item.username -in $adData.Users.SamAccountName) {
-                $ADUser = ($adData.Users | Where-Object {$_.SamAccountName -eq $item.username})
-
-                if ($ADUser.Surname -eq $item.NameLast -and $ADUser.GivenName -eq $item.NameFirst) {
-                    #Update the user account employeeID with the personID
-                    Write-Log -Path $logFile -Message ("AD: Setting EmployeeID field for: " + $item.username + " - " + $item.personID)
-
-                    if ($IDConfig.Debug.readOnly -eq $false) {
-                        $ADUser | Set-ADUser -EmployeeID $item.PersonID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
-
-                        #Add the GUID to the data object
-                        $item.ADCurrentUserID = $ADUser.ObjectGUID
-
-                        #Add the Current AD Groups to the data object
-                        $item.ADCurrentGroups = ($ADUser.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
-                    }
-                } else {
-                    Write-Log -Path $logFile -Message ("AD: Username " + $item.username + " for " + $item.personID + " is already taken with a different name of " + $ADUser.GivenName + " " + $ADUser.Surname) -Level Error
-                }
-            } 
-        }
-        if ($ADUser) {Remove-Variable ADUser}
-    }
-}
-#endregion Set AD EmployeeID
-
-#region Update AD Users
-if ($IDConfig.AD.enabled -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
-        $ADUser = $adData.LookupByID[$item.personID]
-
-        $itemUpdateSplat = @{}
-
-        if ($ADUser.SamAccountName -ne $item.Username) {
-            try {
-                Get-ADUser -Identity $item.UPN -ErrorAction Stop | Out-Null
-
-                Write-Log -Path $logFile -Message ("AD: Another user account has the username of " + $item.Username + ". Terminating updating person: " + $item.PersonID) -Level Error
-
-                continue
-            }
-            catch {
-                if ($_.CategoryInfo.Reason -eq 'ADIdentityNotFoundException') {
-                    Write-Log -Path $logFile -Message ("AD: Setting New Username for " + $item.PersonID + ". Old username is " + $ADUser.SamAccountName)
-
-                    $itemUpdateSplat["SamAccountName"] = $item.Username
-                    $itemUpdateSplat["UserPrincipalName"] = $item.UPN
-                }
-            }
-        }
-
-        if ($ADUser.EmployeeID -ne $item.PersonID) {
-            $itemUpdateSplat["EmployeeID"] = $item.PersonID
-        }
-
-        if ($ADUser.Surname -ne $item.NameLast.trim()) {
-            $itemUpdateSplat["Surname"] = $item.NameLast.trim()
-        }
-
-        if ($ADUser.GivenName -ne $item.NameFirst.trim()) {
-            $itemUpdateSplat["GivenName"] = $item.NameFirst.trim()
-        }
-
-        if ($ADUser.DisplayName -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim())) {
-            $itemUpdateSplat["DisplayName"] = ($item.NameFirst.trim() + " " + $item.NameLast.trim())
-        }
-
-        if ($ADUser.physicalDeliveryOfficeName -ne $item.Building) {
-            $itemUpdateSplat["Office"] = $item.Building
-        }
-
-        if ($ADUser.title -ne $item.JobTitle) {
-            $itemUpdateSplat["Title"] = $item.JobTitle
-        }
-
-        if ($ADUser.company -ne $item.company) {
-            $itemUpdateSplat["Company"] = $item.company
-        }
-
-        if ($ADUser.Enabled -ne $true) {
-            $itemUpdateSplat["Enabled"] = $true
-        }
-
-        if ($ADUser.EmployeeType -ne $item.PersonTypeID -or $ADUser.extensionAttribute1 -ne $item.PersonTypeID) {
-            $itemUpdateSplat["Replace"] = @{ 'EmployeeType' = ($item.PersonTypeID) ; 'extensionAttribute1' = ($item.PersonTypeID)}
-        }
-
-        if ($itemUpdateSplat.Count -gt 0) {
-            $itemUpdateSplat["Identity"] = $item.ADCurrentUserID
-            $itemUpdateSplat["Division"] = (Get-Date -format yyyy-MM-dd-HH:mm)
-
-            Write-Log -Path $logFile -Message ("AD: Updating Information for: " + $item.UPN + " - " + $item.personID)
-            Write-Log -Path $logFile -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
-
-            if ($IDConfig.Debug.readOnly -eq $false) {
-                Set-ADUser @itemUpdateSplat
-            }
-        }
-
-        if ($ADUser.CN -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)) {
-            Write-Log -Path $logFile -Message ("AD: Canonical Name does not match for " + $item.PersonID + ". Updating Canonical Name")
-
-            if ($IDConfig.Debug.readOnly -eq $false) {
-                Set-ADUser -Identity $item.ADCurrentUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
-                Rename-ADObject -Identity $item.ADCurrentUserID -NewName ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)
-            }
-        }
-
-        if ($ADUser.DistinguishedName.split(",",2)[1] -ne $item.ADOrganizationalUnit) {
-            Write-Log -Path $logFile -Message ("AD: Organization Unit does not match for " + $item.PersonID + ". Moving User to: " + $item.ADorganizationalUnit)
-
-            if ($IDConfig.Debug.readOnly -eq $false) {
-                Set-ADUser -Identity $item.ADCurrentUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
-                Move-ADObject -Identity $item.ADCurrentUserID -TargetPath $item.ADorganizationalUnit
-            }
-        }
-
-        if ($ADUser) {Remove-Variable ADUser}
-    }
-}
-#endregion Update AD Users
-
-#region Create AD Users
-if ($IDConfig.AD.enabled -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and $_.UPN -notin $adData.Users.UserPrincipalName}) {
-        $NewUserParams = @{
-            Path                  = $item.ADorganizationalUnit
-            Name                  = ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)
-            DisplayName           = ($item.NameFirst.trim() + " " + $item.NameLast.trim())
-            SamAccountName        = $item.Username
-            UserPrincipalName     = $item.UPN
-            GivenName             = $item.NameFirst.trim()
-            Surname               = $item.NameLast.trim()
-            EmployeeID            = $item.PersonID
-            Title                 = $item.JobTitle
-            Office                = $item.Building
-            Company               = $item.Company
-            Division              = (Get-Date -format yyyy-MM-dd-HH:mm)
-            OtherAttributes       = @{ 'EmployeeType' = $item.PersonTypeID ; 'extensionAttribute1' = ($item.PersonTypeID)}
-            Enabled               = $true
-            ChangePasswordAtLogon = $item.ADChangePasswordAtLogon
-            PasswordNeverExpires  = $false
-            PassThru              = $true
-            ErrorAction           = "Stop"
-        }
-
-        Write-Log -Path $logFile -Message ("AD: Creating User " + $item.NameFirst + " " + $item.NameLast + " " + $item.PersonID)
-        Write-Log -Path $logFile -Message ("AD: Createing User - Information for: " + $item.UPN + " - " + $item.personID)
-        Write-Log -Path $logFile -Message ($NewUserParams | ConvertTo-Json -Compress)
-
-        try {
-            #Add Password to the Params so it doesn't show up in the logs
-            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString ($item.ADPassPrefix + $item.Word) -AsPlainText -Force)
-
-            # Create the new AD user with splatting
-            if ($IDConfig.Debug.readOnly -eq $false) {
-                $newUser = New-ADUser @NewUserParams
-
-                #Add the GUID to the data object
-                $item.ADCurrentUserID = $newUser.ObjectGUID
-            }
-        }
-        catch {
-            Write-Log -Path $logFile -Message "$($_)" -Level Error
-        }
-    }
-}
-#endregion Create AD Users
 
 #region Process AD Groups
 if ($IDConfig.AD.enabled -eq $true) {
