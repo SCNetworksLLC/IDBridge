@@ -45,7 +45,7 @@ function Get-TargetDataGoogle {
         [Parameter(Mandatory = $true)]
         [PSObject]$headers,
 
-        [bool]$VerboseLogging = $false
+        $VerboseLogging = $false
     )
 
     #region Get Google Users
@@ -61,7 +61,7 @@ function Get-TargetDataGoogle {
     #region Google Groups and Memberships
     #Get Google Groups - Stores data in $googleGroups
     try {
-        $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer&maxResults=500" -VerboseLogging $VerboseLogging-ErrorAction Stop
+        $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
 
         #Remove Classroom Teachers Group
         $googleGroups = $googleGroups | Where-Object {$_.email -notlike "classroom_teachers@*"}

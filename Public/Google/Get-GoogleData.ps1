@@ -49,7 +49,7 @@ function Get-GoogleData {
         [Parameter(Mandatory)]
         [string]$APIUri,  # The Google API endpoint URI
 
-        [bool]$VerboseLogging = $false
+        $VerboseLogging = $false
     )
 
     # Validate GoogleHeaders - Ensure it's not empty
