@@ -30,6 +30,7 @@ function Set-AdditionalUserData {
             $userObject | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnitTrash -Value ("OU=" + (Get-Date -Format yyyy) + ",OU=" + $userObject.PersonTypeGeneric + ",OU=Trash," + $IDConfig.AD.userRootOU) -Force
             $userObject | Add-Member -MemberType NoteProperty -Name ADPassPrefix -Value $IDConfig.AD.passPrefix -Force
             $userObject | Add-Member -MemberType NoteProperty -Name ADChangePasswordAtLogon -Value $IDConfig.AD.staffChangePasswordAtLogon -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name ADPasswordType -Value $IDConfig.AD.staffPasswordType -Force
         }
 
         #Google Specific Data
@@ -38,6 +39,7 @@ function Set-AdditionalUserData {
             $userObject | Add-Member -MemberType NoteProperty -Name GoogleOrganizationalUnitTrash -Value ("/Trash/" + $userObject.PersonTypeGeneric + "/" + (Get-Date -Format yyyy)) -Force
             $userObject | Add-Member -MemberType NoteProperty -Name GooglePassPrefix -Value $IDConfig.Google.passPrefix -Force
             $userObject | Add-Member -MemberType NoteProperty -Name GoogleChangeAtNextLogin -Value $IDConfig.Google.staffChangePasswordAtLogon -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name GooglePasswordType -Value $IDConfig.Google.staffPasswordType -Force
         }
     }
 
@@ -58,6 +60,7 @@ function Set-AdditionalUserData {
             $userObject | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnitTrash -Value ("OU=" + $userObject.PersonType + ",OU=" + $userObject.PersonTypeGeneric + ",OU=Trash," + $IDConfig.AD.userRootOU) -Force
             $userObject | Add-Member -MemberType NoteProperty -Name ADPassPrefix -Value $IDConfig.AD.passPrefix -Force
             $userObject | Add-Member -MemberType NoteProperty -Name ADChangePasswordAtLogon -Value $IDConfig.AD.studentChangePasswordAtLogon -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name ADPasswordType -Value $IDConfig.AD.studentPasswordType -Force
         }
         
         #Google Specific Data
@@ -66,6 +69,7 @@ function Set-AdditionalUserData {
             $userObject | Add-Member -MemberType NoteProperty -Name GoogleOrganizationalUnitTrash -Value ("/Trash/" + $userObject.PersonTypeGeneric + "/" + $userObject.PersonType) -Force
             $userObject | Add-Member -MemberType NoteProperty -Name GooglePassPrefix -Value $IDConfig.Google.passPrefix -Force
             $userObject | Add-Member -MemberType NoteProperty -Name GoogleChangeAtNextLogin -Value $IDConfig.Google.studentChangePasswordAtLogon -Force
+            $userObject | Add-Member -MemberType NoteProperty -Name GooglePasswordType -Value $IDConfig.Google.studentPasswordType -Force
         }
     }
 

@@ -1,6 +1,8 @@
 #### IDBridge ####
 #### Created by Sam Cattanach ####
 # Get-Content -Path "C:\IDBridge\Logs\IDBridge.log" -Tail 200 -Wait
+### TO DO:
+### Convert Config files to PSD1
 
 #region Import Modules
 try {
@@ -47,7 +49,7 @@ catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheet
 #region Get Google Data
 if ($IDConfig.Google.enabled -eq $true) {
     try {
-        $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headers -ErrorAction Stop
+        $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headers -VerboseLogging $IDConfig.Debug.verboseLogging -ErrorAction Stop
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 }

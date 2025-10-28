@@ -43,12 +43,15 @@ function Get-TargetDataGoogle {
         [string]$logFile,
 
         [Parameter(Mandatory = $true)]
-        [PSObject]$headers
+        [PSObject]$headers,
+
+        [bool]$VerboseLogging = $false
     )
 
     #region Get Google Users
     try {
-        $googleUsers = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500" -ErrorAction Stop
+        $googleUsers = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
+        Write-Log -Path $logFile -Message "Google: Successfully retrieved users"
     }
     catch {
         Throw $_
@@ -58,10 +61,11 @@ function Get-TargetDataGoogle {
     #region Google Groups and Memberships
     #Get Google Groups - Stores data in $googleGroups
     try {
-        $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer&maxResults=500" -ErrorAction Stop
+        $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer&maxResults=500" -VerboseLogging $VerboseLogging-ErrorAction Stop
 
         #Remove Classroom Teachers Group
         $googleGroups = $googleGroups | Where-Object {$_.email -notlike "classroom_teachers@*"}
+        Write-Log -Path $logFile -Message "Google: Successfully retrieved groups"
     }
     catch {
         Throw $_
@@ -73,10 +77,13 @@ function Get-TargetDataGoogle {
 
     #Loop through each group and retrieve its members
     foreach ($item in $googleGroups | Where-Object {$_.directMembersCount -ne 0}) {
-        Write-Log -Path $logFile -Message ("Google: Getting users for Group: " + $item.email)
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message ("Google: Getting users for Group: " + $item.email)
+        }
         try {
             #Get group Memebers
-            $groupMemberResults = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://admin.googleapis.com/admin/directory/v1/groups/" + $item.email + "/members?customer=my_customer&maxResults=500") -ErrorAction Stop
+            $groupMemberResults = $null
+            $groupMemberResults = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://admin.googleapis.com/admin/directory/v1/groups/" + $item.email + "/members?customer=my_customer&maxResults=500") -VerboseLogging $VerboseLogging -ErrorAction Stop
             
             foreach ($member in $groupMemberResults) {
                 #Add user to hashtable, create entry if it doesn't exist
@@ -86,14 +93,14 @@ function Get-TargetDataGoogle {
 
                 #Add the group to the user's list
                 $userGoogleGroupsCurrent[$member.email] += $item.email
-            }
-
-            if ($groupMemberResults) {Remove-Variable groupMemberResults}
+            }            
         }
         catch {
             Throw (Write-Log -Path $logFile -Message ("Google: No users retrieved for Group: " + $item.email) -Level Error)
         }
     }
+
+    Write-Log -Path $logFile -Message "Google: Successfully retrieved group memberships"
 
     #Add Groups to User Object
     foreach ($user in $googleUsers) {
@@ -108,7 +115,8 @@ function Get-TargetDataGoogle {
 
     #region Get Google Org Units
     try {
-        $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all&maxResults=500" -ErrorAction Stop
+        $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
+        Write-Log -Path $logFile -Message "Google: Successfully retrieved organizational units"
     }
     catch {
         Throw $_

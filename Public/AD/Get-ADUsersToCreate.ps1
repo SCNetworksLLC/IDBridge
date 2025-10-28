@@ -7,10 +7,6 @@ function Get-ADUsersToCreate {
         [Parameter(Mandatory = $true)]
         $CurrentADUsers,
 
-        [Parameter(Mandatory)]
-        [ValidateSet('Random', 'Word', 'FSPIN')]
-        [string]$SectretType,
-
         [Parameter(Mandatory = $true)]
         [string]$logFile
     )
@@ -39,16 +35,14 @@ function Get-ADUsersToCreate {
             ErrorAction           = "Stop"
         }
 
-        if ($SectretType -eq "Random") {
+        if ($item.ADPasswordType -eq "Random") {
             $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
-        }
-
-        if ($SectretType -eq "FSPIN") {
+        } elseif ($item.ADPasswordType -eq "FSPIN") {
             $NewUserParams["AccountPassword"] = (ConvertTo-SecureString ($item.ADPassPrefix + $item.FSPIN) -AsPlainText -Force)
-        }
-
-        if ($SectretType -eq "Word") {
+        } elseif ($item.ADPasswordType -eq "Word") {
             $NewUserParams["AccountPassword"] = (ConvertTo-SecureString ($item.ADPassPrefix + $item.Word) -AsPlainText -Force)
+        } else {
+            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
         }
 
         Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). Adding user to create list.")

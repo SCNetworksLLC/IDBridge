@@ -47,7 +47,9 @@ function Get-GoogleData {
         [hashtable]$GoogleHeaders,  # Authentication headers for the Google API request
 
         [Parameter(Mandatory)]
-        [string]$APIUri  # The Google API endpoint URI
+        [string]$APIUri,  # The Google API endpoint URI
+
+        [bool]$VerboseLogging = $false
     )
 
     # Validate GoogleHeaders - Ensure it's not empty
@@ -89,6 +91,9 @@ function Get-GoogleData {
         $data += $request.$dataType
     }
 
-    Write-Log -Path $logFile -Message "Google: Successfully retrieved $($dataType)"
+    if ($VerboseLogging) {
+        Write-Log -Path $logFile -Message "Google: Successfully retrieved $($dataType)"
+    }
+    
     return $data
 }
