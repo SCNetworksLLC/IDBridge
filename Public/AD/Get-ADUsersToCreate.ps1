@@ -7,6 +7,10 @@ function Get-ADUsersToCreate {
         [Parameter(Mandatory = $true)]
         $CurrentADUsers,
 
+        [Parameter(Mandatory)]
+        [ValidateSet('Random', 'Word', 'FSPIN')]
+        [string]$SectretType,
+
         [Parameter(Mandatory = $true)]
         [string]$logFile
     )
@@ -14,9 +18,46 @@ function Get-ADUsersToCreate {
     $itemList = @()
 
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and $_.UPN -notin $CurrentADUsers.UserPrincipalName}) {
-        $itemList += $item
+        $NewUserParams = @{
+            Path                  = $item.ADorganizationalUnit
+            Name                  = ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)
+            DisplayName           = ($item.NameFirst.trim() + " " + $item.NameLast.trim())
+            SamAccountName        = $item.Username
+            UserPrincipalName     = $item.UPN
+            GivenName             = $item.NameFirst.trim()
+            Surname               = $item.NameLast.trim()
+            EmployeeID            = $item.PersonID
+            Title                 = $item.JobTitle
+            Office                = $item.Building
+            Company               = $item.Company
+            Division              = (Get-Date -format yyyy-MM-dd-HH:mm)
+            OtherAttributes       = @{ 'EmployeeType' = $item.PersonTypeID ; 'extensionAttribute1' = ($item.PersonTypeID)}
+            Enabled               = $true
+            ChangePasswordAtLogon = $item.ADChangePasswordAtLogon
+            PasswordNeverExpires  = $false
+            PassThru              = $true
+            ErrorAction           = "Stop"
+        }
+
+        if ($SectretType -eq "Random") {
+            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
+        }
+
+        if ($SectretType -eq "FSPIN") {
+            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString ($item.ADPassPrefix + $item.FSPIN) -AsPlainText -Force)
+        }
+
+        if ($SectretType -eq "Word") {
+            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString ($item.ADPassPrefix + $item.Word) -AsPlainText -Force)
+        }
 
         Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). Adding user to create list.")
+        Write-Log -Path $logFile -Message ($NewUserParams | ConvertTo-Json -Compress)
+
+        $itemList += [PSCustomObject]@{
+            PersonID = $item.PersonID
+            Splat = $NewUserParams
+        }
     }
 
     return $itemList

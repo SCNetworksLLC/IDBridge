@@ -123,11 +123,11 @@ if ($IDConfig.AD.enabled -eq $true) {
 #endregion Gather AD Processing Lists
 
 #region Process AD Changes
-if ($IDConfig.AD.enabled -eq $true) {
+if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
     #Create Orgs
     foreach ($item in $ADOrgUnitsForProcessing | Sort-Object -Unique) {
         try {
-            New-IDBridgeADOrgUnit -OrgUnit $item -ReadOnly $IDConfig.Debug.readOnly -logFile $logFile
+            New-IDBridgeADOrgUnit -OrgUnit $item -logFile $logFile
         }
         catch {
             Write-Log -Path $logFile -Message "AD: Error Creating Org Unit. Please check RunAS user permisisons in AD or Detailed Error for more information" -Level Error
@@ -138,7 +138,7 @@ if ($IDConfig.AD.enabled -eq $true) {
     #Disable Users
     foreach ($item in $ADUsersToDeactivate) {
         try {
-            Disable-IDBridgeADUser -User $item -ReadOnly $IDConfig.Debug.readOnly -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash -logFile $logFile
+            Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash -logFile $logFile
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -147,10 +147,55 @@ if ($IDConfig.AD.enabled -eq $true) {
     
 
     #Update Users
-    Update-IDBridgeADUser -UserList $ADUsersToUpdate -logFile $logFile
+    foreach ($item in $ADUsersToUpdate.UpdateList) {
+        try {
+            Write-Log -Path $logFile -Message "AD: Updating User: $($item.CN) Properties: $($item.Splat)"
+            Set-ADUser @($item.splat) -ErrorAction Stop
+        }
+        catch {
+            Write-Log -Path $logFile -Message $_ -Level Error
+        }
+    }
+
+    #Rename Users
+    foreach ($item in $ADUsersToUpdate.RenameList) {
+        try {
+            Write-Log -Path $logFile -Message "AD: Renaming User: $($item.CN) to $($item.NewName)"
+            Set-ADUser -Identity $item.ADUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
+            Rename-ADObject -Identity $item.ADUserID -NewName $item.NewName -ErrorAction Stop
+        }
+        catch {
+            Write-Log -Path $logFile -Message $_ -Level Error
+        }
+    }
+
+    #Move Users
+    foreach ($item in $ADUsersToUpdate.MoveList) {
+        try {
+            Write-Log -Path $logFile -Message "AD: Moving User: $($item.CN) to $($item.NewOrgUnit)"
+            Set-ADUser -Identity $item.ADUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
+            Move-ADObject -Identity $item.ADUserID -TargetPath $item.NewOrgUnit -ErrorAction Stop
+        }
+        catch {
+            Write-Log -Path $logFile -Message $_ -Level Error
+        }
+    }
 
     #Create Users
-    New-IDBridgeADUser -UserList $ADUsersToCreate -logFile $logFile
+    foreach ($item in $ADUsersToCreate) {
+        try {
+            Write-Log -Path $logFile -Message "AD: Creating User: $($item.PersonID) Properties: $($item.Splat)"
+            $newUser = New-ADUser @($item.splat) -ErrorAction Stop
+
+            #Add the GUID to the data object
+            foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $item.Splat.UserPrincipalName}) {
+                $dataItem.ADCurrentUserID = $newUser.ObjectGUID
+            }
+        }
+        catch {
+            Write-Log -Path $logFile -Message $_ -Level Error
+        }
+    }
 }
 #endregion Process AD Changes
 

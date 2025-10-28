@@ -82,14 +82,18 @@ function Get-ADUsersToUpdate {
             Write-Log -Path $logFile -Message ("AD: Information that needs updating for: " + $item.UPN + " - " + $item.personID)
             Write-Log -Path $logFile -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
 
-            $itemUpdateList += $itemUpdateSplat
+            $itemUpdateList += [PSCustomObject]@{
+                CN = $ADUser.CN
+                Splat = $itemUpdateSplat
+            }
         }
 
         if ($ADUser.CN -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)) {
             Write-Log -Path $logFile -Message ("AD: Canonical Name does not match for " + $item.PersonID + ".")
 
             $itemRenameList += [PSCustomObject]@{
-                ADCurrentUserID = $item.ADCurrentUserID
+                CN = $ADUser.CN
+                ADUserID = $item.ADCurrentUserID
                 NewName = "$($item.NameFirst.trim()) $($item.NameLast.trim()) $($item.PersonID)"
             }
         }
@@ -98,7 +102,8 @@ function Get-ADUsersToUpdate {
             Write-Log -Path $logFile -Message ("AD: Organization Unit does not match for " + $item.PersonID + ".")
 
             $itemMoveList += [PSCustomObject]@{
-                ADCurrentUserID = $item.ADCurrentUserID
+                CN = $ADUser.CN
+                ADUserID = $item.ADCurrentUserID
                 NewOrgUnit = $item.ADOrganizationalUnit
             }
         }
@@ -106,7 +111,7 @@ function Get-ADUsersToUpdate {
 
     return [PSCustomObject]@{
         UpdateList = $itemUpdateList
-        MoveList = $itemMoveList
         RenameList = $itemRenameList
+        MoveList = $itemMoveList
     }
 }
