@@ -123,6 +123,9 @@ if ($IDConfig.AD.enabled -eq $true) {
     $ADUsersToCreate = Get-ADUsersToCreate -UserList $filteredData -CurrentADUsers $adData.Users -SectretType 'Word' -logFile $logFile
 
     #Groups to Update
+    if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
+        $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
+    }
 
 }
 #endregion Gather AD Processing Lists
@@ -205,60 +208,39 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
             Write-Log -Path $logFile -Message $_ -Level Error
         }
     }
-}
-#endregion Process AD Changes
 
-
-#region Process AD Groups
-if ($IDConfig.AD.enabled -eq $true) {
-    if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
-        foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
-            $proposedGroupList = @()
-
-            if ($item.GroupsAutomatic) {
-                $proposedGroupList += $item.GroupsAutomatic
-            }
-
-            if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {
-                $proposedGroupList += ($item.ApplicationGroups -split ",").trim()
-            }
-
-            if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {
-                $proposedGroupList += ($item.EmailGroups -split ",").trim()
-            }
-
-            #Filter out duplicates
-            $proposedGroupList = $proposedGroupList | Select-Object -Unique
-
-            #Add groups from Users - Only run if enableGroupProcessing is Enabled
-            foreach ($groupAdd in $proposedGroupList | Where-Object {$_ -in $adData.Groups}) {
-                if ($groupAdd -notin $item.ADCurrentGroups) {
-                    Write-Log -Path $logFile -Message "AD: Adding Group: $groupAdd to $($item.personID) $($item.NameFirst) $($item.NameLast)" -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
-
-                    if ($IDConfig.AD.enableGroupProcessing -eq $true) {
-                        if ($IDConfig.Debug.readOnly -eq $false) {
-                            Add-ADPrincipalGroupMembership -Identity $item.ADCurrentUserID -MemberOf $groupAdd
-                        }
-                    }
+    #Process Group Membership
+    if ($IDConfig.AD.enableGroupProcessing -eq $true) {
+        #Process Group Membership Add
+        foreach ($item in $ADUserGroupsToUpdate.Add) {
+            foreach ($group in $item.Groups) {
+                try {
+                    Write-Log -Path $logFile -Message "AD: Adding Group: $group to $($item.PersonID)"
+                    Add-ADPrincipalGroupMembership -Identity $item.ADCurrentUserID -MemberOf $group
+                }
+                catch {
+                    Write-Log -Path $logFile -Message $_ -Level Error
                 }
             }
+        }
 
-            #Remove groups from Users - Only run if enableGroupProcessingRemove is Enabled
-            foreach ($groupCurrent in $item.ADCurrentGroups) {
-                if ($groupCurrent -notin $proposedGroupList) {
-                    Write-Log -Path $logFile -Message "AD: Removing Extra Group: $groupCurrent from $($item.personID) $($item.NameFirst) $($item.NameLast)" -WhatIfLogging $IDConfig.AD.enableGroupProcessingWhatIf
-
-                    if ($IDConfig.AD.enableGroupProcessingRemove -eq $true) {
-                        if ($IDConfig.Debug.readOnly -eq $false) {
-                            Remove-ADGroupMember -Identity $groupCurrent -Members $item.ADCurrentUserID -Confirm:$false
-                        }
+        #Process Group Membership Remove
+        if ($IDConfig.AD.enableGroupProcessingRemove -eq $true) {
+            foreach ($item in $ADUserGroupsToUpdate.Remove) {
+                foreach ($group in $item.Groups) {
+                    try {
+                        Write-Log -Path $logFile -Message "AD: Removing Group: $group from $($item.PersonID)"
+                        Remove-ADGroupMember -Identity $group -Members $item.ADCurrentUserID -Confirm:$false
+                    }
+                    catch {
+                        Write-Log -Path $logFile -Message $_ -Level Error
                     }
                 }
             }
         }
     }
 }
-#endregion Process AD Groups
+#endregion Process AD Changes
 
 #region Report Non Data Users
 #### NEED TO ADD ADDITIONAL OPTIONS FOR TEST RUNS BEFORE GOING LIVE WITH THIS SECTION ####
