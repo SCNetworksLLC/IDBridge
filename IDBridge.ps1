@@ -73,11 +73,11 @@ foreach ($item in $filteredData) {
     $item = Set-AdditionalUserData -IDConfig $IDConfig -userObject $item -logFile $logFile
 
     if ($IDConfig.Google.enabled -eq $true) {
-        #$item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
+        $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
     }
 
     if ($IDConfig.AD.enabled -eq $true) {
-        #$item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
+        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
     }
 }
 #endregion Data Modifcation
