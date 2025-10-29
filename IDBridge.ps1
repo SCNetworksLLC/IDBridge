@@ -10,9 +10,13 @@ try {
 } catch { Throw $_ }
 #endregion Import Modules
 
+
+
 #region Set Logging
 Initialize-Logging
 #endregion Set Logging
+
+
 
 #region Import Configuration
 try {
@@ -26,12 +30,16 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #endregion Import Configuration
 
 
+
+
 #region Google Authorization Token
 try {
     $headers = Get-GoogleApiAccessToken -ServiceAccountKeyPath $googleJSONPath -Scope $IDConfig.GoogleToken.googleAuthScope -TargetUserEmail $IDConfig.GoogleToken.adminEmail
 }
 catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #endregion Google Authorization Token
+
+
 
 
 #region Gather Data
@@ -67,6 +75,8 @@ if ($IDConfig.AD.enabled -eq $true) {
 #endregion Gather Data
 
 
+
+
 #region Data Modifcation
 #Add additional data to the user objects
 foreach ($item in $filteredData) {
@@ -83,6 +93,8 @@ foreach ($item in $filteredData) {
 #endregion Data Modifcation
 
 
+
+
 #region Groups Not Processed
 #AD Checks
 if (($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) -and $IDConfig.Debug.verboseLogging -eq $true) {
@@ -96,7 +108,9 @@ if (($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enabl
 #endregion Groups Not Processed
 
 
-#region Gather AD Processing Lists
+
+
+#region AD Processing Lists
 if ($IDConfig.AD.enabled -eq $true) {
     #Org Units to Create
     $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.AD.userRootOU -CurrentOrgUnits $adData.OrgUnits -logFile $logFile
@@ -128,7 +142,17 @@ if ($IDConfig.AD.enabled -eq $true) {
     }
 
 }
-#endregion Gather AD Processing Lists
+#endregion AD Processing Lists
+
+
+
+
+#region Google Processing Lists
+
+#endregion Google Processing Lists
+
+
+
 
 #region Process AD Changes
 if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
@@ -242,6 +266,8 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
 }
 #endregion Process AD Changes
 
+
+
 #region Report Non Data Users
 #### NEED TO ADD ADDITIONAL OPTIONS FOR TEST RUNS BEFORE GOING LIVE WITH THIS SECTION ####
 if ($IDConfig.AD.enabled -eq $true) {
@@ -259,8 +285,6 @@ if ($IDConfig.AD.enabled -eq $true) {
     }
 }
 #endregion Report Non Data Users
-#endregion Processing AD
-
 
 
 
