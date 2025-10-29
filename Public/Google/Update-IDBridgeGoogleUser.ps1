@@ -5,7 +5,7 @@
     name, organization details, password, and more by sending a PUT request to the Google Admin API.
 
 .DESCRIPTION
-    The Update-GoogleUser function facilitates updating an existing user's details in Google Workspace 
+    The Update-IDBridgeGoogleUser function facilitates updating an existing user's details in Google Workspace 
     Directory. The function accepts parameters for user-specific information such as primary email, suspension status,
     person ID, first name, last name, organizational unit path, password, and more. The function sends the updated 
     user information via a PUT request to the Google Admin API.
@@ -51,7 +51,7 @@
     used for authenticating the request to the Google Admin API.
 
 .EXAMPLE
-    Update-GoogleUser -GoogleUserID "user12345" -PrimaryEmail "newemail@example.com" -Suspended "false" 
+    Update-IDBridgeGoogleUser -GoogleUserID "user12345" -PrimaryEmail "newemail@example.com" -Suspended "false" 
                            -FirstName "John" -LastName "Doe" -Password "NewPassword123" -tokenInformation $authToken
 
     Updates the user with the Google user ID "user12345", changing the email to "newemail@example.com", 
@@ -67,7 +67,7 @@
     https://developers.google.com/admin-sdk/directory/reference/rest/v1/users
 #>
 
-function Update-GoogleUser() {
+function Update-IDBridgeGoogleUser() {
     [cmdletbinding()]
     Param(
         [parameter(Mandatory=$true)]  # Google User ID is required to identify which user to update
@@ -106,7 +106,10 @@ function Update-GoogleUser() {
         [String]$ChangeAtNextLogin,
 
         [parameter(Mandatory=$true)]  # Hashtable containing OAuth authentication headers
-        [hashtable]$tokenInformation
+        [hashtable]$tokenInformation,
+
+        [parameter(Mandatory=$true)]
+        $logFile
     )
 
     # Create an empty hashtable to store fields that will be updated
@@ -201,7 +204,7 @@ function Update-GoogleUser() {
         } catch {
             # Log any errors that occur during the API request
             Write-Log -Path $logFile -Message "Error: $($_.Exception.Message)" -Level Error
-            Write-Log -Path $logFile -Message "Error: $($_)" -Level Error
+            return $_
         }
     }
 }

@@ -5,7 +5,7 @@ function Get-ADUsersToUpdate {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $CurrentADUsersLookupByID,
+        $LookupByID,
 
         [Parameter(Mandatory = $true)]
         [string]$logFile
@@ -17,7 +17,7 @@ function Get-ADUsersToUpdate {
 
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
         $ADUser = $null
-        $ADUser = $CurrentADUsersLookupByID[$item.personID]
+        $ADUser = $LookupByID[$item.personID]
 
         $itemUpdateSplat = @{}
 

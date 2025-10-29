@@ -1,5 +1,4 @@
-function Get-ADOrgUnitsForProcessing {
-    [CmdletBinding()]
+function Get-GoogleOrgUnitsForProcessing {
     param (
         [Parameter(Mandatory = $true)]
         $UserList,
@@ -17,18 +16,18 @@ function Get-ADOrgUnitsForProcessing {
     #Manual and Top Level OUs to Check
     $OUList = @(
         $UserRootOU
-        ("OU=Student," + $UserRootOU)
-        ("OU=Staff," + $UserRootOU)
-        ("OU=Trash," + $UserRootOU)
-        ("OU=Student,OU=Trash," + $UserRootOU)
-        ("OU=Staff,OU=Trash," + $UserRootOU)
+        ($UserRootOU + "/Student")
+        ($UserRootOU + "/Staff")
+        ("/Trash")
+        ("/Trash/Student")
+        ("/Trash/Staff")
     )
 
     #Add the OUs to check from only active users
     $OUListAuto = @()
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true}) {
-        $OUListAuto += $item.ADOrganizationalUnit
-        $OUListAuto += $item.ADOrganizationalUnitTrash
+        $OUListAuto += $item.GoogleOrganizationalUnit
+        $OUListAuto += $item.GoogleOrganizationalUnitTrash
     }
 
     #Combine Base and OU Lists - This is needed to be done this way so that the base OUs get processed first
@@ -38,8 +37,8 @@ function Get-ADOrgUnitsForProcessing {
     $OrgUnitsForProcessing = $OUList | Where-Object {$_ -notin $CurrentOrgUnits}
 
     foreach ($item in $OrgUnitsForProcessing) {
-        Write-Log -Path $logFile -Message "AD: Adding Org Unit to Process List: Create: $($item)"
+        Write-Log -Path $logFile -Message "Google: Adding Org Unit to Process List: Create: $($item)"
     }
 
-    return $OrgUnitsForProcessing
+    return $OrgUnitsForProcessing | Sort-Object -Unique
 }

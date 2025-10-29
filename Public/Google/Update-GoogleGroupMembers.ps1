@@ -12,7 +12,10 @@ function Update-GoogleGroupMembers() {
         [string]$UpdateType,
 
         [parameter(Mandatory=$true)]  # Hashtable is mandatory and contains OAuth authentication headers
-        [hashtable]$tokenInformation  
+        [hashtable]$tokenInformation,
+
+        [parameter(Mandatory=$true)]  # Log file path is mandatory
+        [string]$logFile
     )
 
     $updateParams = @{}
@@ -42,6 +45,6 @@ function Update-GoogleGroupMembers() {
     } catch {
         # Log any errors that occur during the API request
         Write-Log -Path $logFile -Message "Error: $($_.Exception.Message)" -Level Error
-        Write-Log -Path $logFile -Message "Error: $($_)" -Level Error
+        return $_
     }
 }

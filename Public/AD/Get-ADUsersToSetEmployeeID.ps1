@@ -28,10 +28,10 @@ function Get-ADUsersToSetEmployeeID {
 
                 if ($ADUser.Surname -eq $item.NameLast -and $ADUser.GivenName -eq $item.NameFirst) {
                     $itemUpdateList[$item.personID] = [PSCustomObject]@{
-                        ADCurrentUserID = $ADUser.ObjectGUID
-                        ADCurrentGroups = ($ADUser.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
-                        ADCurrentUserEnabledStatus = $ADUser.Enabled
-                        ADUser = $ADUser
+                        ID = $ADUser.ObjectGUID
+                        Groups = ($ADUser.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
+                        EnabledStatus = $ADUser.Enabled
+                        User = $ADUser
                     }
                 } else {
                     Write-Log -Path $logFile -Message ("AD: Username " + $item.username + " for " + $item.personID + " is already taken with a different name of " + $ADUser.GivenName + " " + $ADUser.Surname) -Level Error

@@ -4,7 +4,7 @@
     This function sends a POST request to the Google Admin SDK API to create the new OU under a parent organizational unit.
 
 .DESCRIPTION
-    The New-GoogleOrganizationalUnit function allows you to create a new organizational unit (OU) in Google Workspace.
+    The New-IDBridgeGoogleOrgUnit function allows you to create a new organizational unit (OU) in Google Workspace.
     The function accepts the full path of the new OU and makes a POST request to the Google Admin API to create it. The new OU
     is created under a parent OU, which is determined based on the provided full path. The function will also handle logging 
     of responses and errors.
@@ -17,7 +17,7 @@
     A hashtable containing OAuth authentication headers. This is a mandatory parameter and is used for API request authentication.
 
 .EXAMPLE
-    New-GoogleOrganizationalUnit -NewOrgUnitFullPath "/School/Grade5" -tokenInformation $authToken
+    New-IDBridgeGoogleOrgUnit -NewOrgUnitFullPath "/School/Grade5" -tokenInformation $authToken
 
     Creates a new organizational unit "Grade5" under the "School" organizational unit in Google Workspace.
 
@@ -31,18 +31,21 @@
     https://developers.google.com/admin-sdk/directory/reference/rest/v1/orgunits
 #>
 
-function New-GoogleOrganizationalUnit() {
+function New-IDBridgeGoogleOrgUnit() {
     [cmdletbinding()]
     Param(
-        [parameter(Mandatory=$true)]  # NewOrgUnitFullPath is mandatory to specify the full path of the new organizational unit
-        [string]$NewOrgUnitFullPath,
+        [parameter(Mandatory=$true)]  # OrgUnit is mandatory to specify the full path of the new organizational unit
+        [string]$OrgUnit,
 
         [parameter(Mandatory=$true)]  # Hashtable is mandatory and contains OAuth authentication headers
-        [hashtable]$tokenInformation  
+        [hashtable]$tokenInformation,
+
+        [parameter(Mandatory=$true)]
+        [string]$logFile
     )
 
     # Split the NewOrgUnitFullPath into parts by "/" and remove any empty entries (because the path starts with "/")
-    $parts = $NewOrgUnitFullPath -split "/" | Where-Object { $_ -ne "" }
+    $parts = $OrgUnit -split "/" | Where-Object { $_ -ne "" }
 
     # Determine the parent organizational unit and the last organizational unit to be created
     if ($parts.Count -gt 1) {
@@ -53,7 +56,7 @@ function New-GoogleOrganizationalUnit() {
         $lastOU = $parts
     }
 
-    Write-Log -Path $logFile -Message "Creating Google Org Unit $NewOrgUnitFullPath"
+    Write-Log -Path $logFile -Message "Creating Google Org Unit $OrgUnit"
 
     # API URL for creating a new organizational unit
     $url = ("https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits")
@@ -71,6 +74,6 @@ function New-GoogleOrganizationalUnit() {
     } catch {
         # Log any errors that occur during the API request
         Write-Log -Path $logFile -Message "Error: $($_.Exception.Message)" -Level Error
-        Write-Log -Path $logFile -Message "Error: $($_)" -Level Error
+        return $_
     }
 }

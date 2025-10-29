@@ -123,24 +123,23 @@ if ($IDConfig.AD.enabled -eq $true) {
     foreach ($item in $filteredData) {
         if ($ADUsersToSetEmployeeID[$item.personID]) {
             Write-Log -Path $logFile -Message ("AD: Matched $($ADUsersToSetEmployeeID[$item.personID].ADUser.UserPrincipalName) with EmployeeID: $($item.personID).")
-            $item.ADCurrentUserID = $ADUsersToSetEmployeeID[$item.personID].ADCurrentUserID
-            $item.ADCurrentGroups = $ADUsersToSetEmployeeID[$item.personID].ADCurrentGroups
-            $item.ADCurrentUserEnabledStatus = $ADUsersToSetEmployeeID[$item.personID].ADCurrentUserEnabledStatus
-            $adData.LookupByID[$item.personID] = $ADUsersToSetEmployeeID[$item.personID].ADUser
+            $item.ADCurrentUserID = $ADUsersToSetEmployeeID[$item.personID].ID
+            $item.ADCurrentGroups = $ADUsersToSetEmployeeID[$item.personID].Groups
+            $item.ADCurrentUserEnabledStatus = $ADUsersToSetEmployeeID[$item.personID].EnabledStatus
+            $adData.LookupByID[$item.personID] = $ADUsersToSetEmployeeID[$item.personID].User
         }
     }
 
     #Users to Update
-    $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $filteredData -CurrentADUsersLookupByID $adData.LookupByID -logFile $logFile
+    $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $filteredData -LookupByID $adData.LookupByID -logFile $logFile
 
     #Users to Create
-    $ADUsersToCreate = Get-ADUsersToCreate -UserList $filteredData -CurrentADUsers $adData.Users -SectretType 'Word' -logFile $logFile
+    $ADUsersToCreate = Get-ADUsersToCreate -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
 
     #Groups to Update
     if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
         $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
     }
-
 }
 #endregion AD Processing Lists
 
@@ -148,7 +147,36 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 
 #region Google Processing Lists
+if ($IDConfig.Google.enabled -eq $true) {
+    #Org Units to Create
+    $GoogleOrgUnitsForProcessing = Get-GoogleOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.Google.userRootOU -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath -logFile $logFile
 
+    #Users to Deactivate
+    $GoogleUsersToDeactivate = Get-GoogleUsersToDeactivate -UserList $filteredData -logFile $logFile
+    
+    #Update filteredData list and GoogleLookupByID Table with Google User Info if No EmployeeID is Set and an existing user is found that matches
+    $GoogleUsersToSetEmployeeID = Get-GoogleUsersToSetEmployeeID -UserList $filteredData -CurrentGoogleUsers $googleData.Users -logFile $logFile
+    foreach ($item in $filteredData) {
+        if ($GoogleUsersToSetEmployeeID[$item.personID]) {
+            Write-Log -Path $logFile -Message ("Google: Matched $($GoogleUsersToSetEmployeeID[$item.personID].User.primaryEmail) with EmployeeID: $($item.personID).")
+            $item.GoogleCurrentUserID = $GoogleUsersToSetEmployeeID[$item.personID].ID
+            $item.GoogleCurrentGroups = $GoogleUsersToSetEmployeeID[$item.personID].Groups
+            $item.GoogleCurrentUserEnabledStatus = $GoogleUsersToSetEmployeeID[$item.personID].EnabledStatus
+            $googleData.LookupByID[$item.personID] = $GoogleUsersToSetEmployeeID[$item.personID].User
+        }
+    }
+
+    #Users to Update
+    $GoogleUsersToUpdate = Get-GoogleUsersToUpdate -UserList $filteredData -LookupByID $googleData.LookupByID -GoogleUsers $googleData.Users -logFile $logFile
+
+    #Users to Create
+    $GoogleUsersToCreate = Get-GoogleUsersToCreate -UserList $filteredData -CurrentGoogleUsers $googleData.Users -logFile $logFile
+
+    #Groups to Update
+    if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
+        $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -CurrentGoogleGroups $googleData.Groups -logFile $logFile
+    }
+}
 #endregion Google Processing Lists
 
 
@@ -156,7 +184,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 #region Process AD Changes
 if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
-    #Create Orgs
+    #Create Org Units
     foreach ($item in $ADOrgUnitsForProcessing | Sort-Object -Unique) {
         try {
             New-IDBridgeADOrgUnit -OrgUnit $item -logFile $logFile
@@ -288,158 +316,62 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 
 
+#region Process Google Changes
+if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
+    #Create Org Units
+    foreach ($item in $GoogleOrgUnitsForProcessing) {
+        try {
+            New-IDBridgeGoogleOrgUnit -OrgUnit $item -tokenInformation $headers -logFile $logFile
+        }
+        catch {
+            Write-Log -Path $logFile -Message "Google: Error Creating Org Unit. Please check API permissions in Google or Detailed Error for more information" -Level Error
+            Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
+        }
+    }
+
+    #Disable Users
+    foreach ($item in $GoogleUsersToDeactivate) {
+        try {
+            Write-Log -Path $logFile -Message ("Google: Disabling account for " + $item.UPN)
+            Write-Log -Path $logFile -Message  ("Google: Moving account to trash: " + $item.UPN)
+            Update-IDBridgeGoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true' -tokenInformation $headers -logFile $logFile
+        }
+        catch {
+            Write-Log -Path $logFile -Message $_ -Level Error
+        }
+
+        if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true) {
+            foreach ($group in $item.GoogleCurrentGroups) {
+                try {
+                    Write-Log -Path $logFile -Message ("Google: Removing Group: $group from " + $item.personID)
+                    Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers -logFile $logFile
+                }
+                catch {
+                    Write-Log -Path $logFile -Message $_ -Level Error
+                }
+            }
+        }
+    }
+
+    #Update, Move, Rename Users
+    foreach ($item in $GoogleUsersToUpdate) {
+        try {
+            Write-Log -Path $logFile -Message "Google: Updating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
+            $itemSplat = $null
+            $itemSplat = $item.splat
+            Update-GoogleUser @itemSplat -tokenInformation $headers
+        }
+        catch {
+            Write-Log -Path $logFile -Message $_ -Level Error
+        }
+    }
+}
+#endregion Process Google Changes
+
+
+
 
 #region Processing Google
-#region Google OUs
-if ($IDConfig.Google.enabled -eq $true) {
-    #Manual and Top Level OUs to Check
-    $OUCheckGoogle = @(
-        $IDConfig.Google.userRootOU
-        ($IDConfig.Google.userRootOU + "/Student")
-        ($IDConfig.Google.userRootOU + "/Staff")
-        ("/Trash")
-        ("/Trash/Student")
-        ("/Trash/Staff")
-    )
-
-    #Create the OUs to check
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true} | Select-Object -ExpandProperty GoogleOrganizationalUnit | Sort-Object -Unique) {
-        $OUCheckGoogle += $item
-    }
-
-    #Create the OUs to check
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true} | Select-Object -ExpandProperty GoogleOrganizationalUnitTrash | Sort-Object -Unique) {
-        $OUCheckGoogle += $item
-    }
-
-    #Create Org Units that do not exist
-    foreach ($item in $OUCheckGoogle | Where-Object {$_ -notin $googleData.OrgUnits.orgUnitPath}) {
-        Write-Log -Path $logFile -Message "Google: Creating org unit: $($item)"
-        if ($IDConfig.Debug.readOnly -eq $false) {
-            try {
-                New-GoogleOrganizationalUnit -NewOrgUnitFullPath $item -tokenInformation $headers
-            }
-            catch {
-                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
-            }
-        }
-    }
-}
-#endregion Google OUs
-
-#region Deactive Google Users
-if ($IDConfig.Google.enabled -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $false -and $_.GoogleCurrentUserSuspendedStatus -eq $false}) {
-        if (-not [string]::IsNullOrEmpty($item.GoogleCurrentGroups)) {
-            Write-Log -Path $logFile -Message "Google: Current Groups for $($item.UPN): $($item.GoogleCurrentGroups -join ",")"
-            Write-Log -Path $logFile -Message ($item.GoogleCurrentGroups -join ",")
-
-            if ($IDConfig.Google.enableGroupProcessingTrash -eq $true) {
-                foreach ($group in $item.GoogleCurrentGroups) {
-                    Write-Log -Path $logFile -Message ("Google: Removing Group: $group from " + $item.personID)
-                    if ($IDConfig.Debug.readOnly -eq $false) {
-                        Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers
-                    }
-                }
-            }
-        } else {
-            Write-Log -Path $logFile -Message ("Google: Current groups for " + $item.UPN + " : NONE")
-        }
-
-        Write-Log -Path $logFile -Message ("Google: Disabling account for " + $item.UPN)
-        Write-Log -Path $logFile -Message  ("Google: Moving account to trash: " + $item.UPN)
-        if ($IDConfig.Debug.readOnly -eq $false) {
-            Update-GoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true' -tokenInformation $headers
-        }
-    }
-}
-#endregion Deactive Google Users
-
-#region Set Google EmployeeID
-if ($IDConfig.Google.enabled -eq $true) {
-    # Set Users employeeID if not set in Google based on UPN
-    # UPN has to pair with the first name and last name
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and -not $_.GoogleDuplicateIDStatus}) {
-        Write-Log -Path $logFile -Message ("Google: No user found with EmployeeID: " + $item.personID)
-        
-        if ($item.UPN -in $googleData.Users.primaryEmail) {
-            $googleUser = ($googleData.Users | Where-Object {$_.primaryEmail -eq $item.UPN})
-
-            if ($googleUser.Name.familyName -eq $item.NameLast -and $googleUser.Name.givenName -eq $item.NameFirst) {
-                #Update the user account employeeID with the personID
-                Write-Log -Path $logFile -Message ("Google: Setting ExternalID field for: " + $item.UPN + " - " + $item.personID)
-
-                if ($IDConfig.Debug.readOnly -eq $false) {
-                    Update-GoogleUser -GoogleUserID $googleUser.ID -PersonID $item.personID -tokenInformation $headers
-
-                    #Add the Google ID to the data object
-                    $item.GoogleCurrentUserID = $googleUser.ID
-
-                    #Add the Current Google Groups to the data object
-                    $item.GoogleCurrentGroups = $googleUser.CurrentGroups
-                }
-            } else {
-                Write-Log -Path $logFile -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " is already taken with a different name of " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName) -Level Error
-            }
-        }
-
-        if ($googleUser) {Remove-Variable googleUser}
-    }
-}
-#endregion Set Google EmployeeID
-
-#region Update Google Users
-if ($IDConfig.Google.enabled -eq $true) {
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
-        $googleUser = $googleData.LookupByID[$item.personID]
-
-        $itemUpdateSplat = @{}
-
-        if ($googleUser.primaryEmail -ne $item.UPN) {
-            if ($item.UPN -notin ($googleData.Users.emails | Select-Object -ExpandProperty address)) {
-                $itemUpdateSplat["PrimaryEmail"] = $item.UPN
-            } else {
-                Write-Log -Path $logFile -Message ("Google: Failed to Update User: " + $item.personID + " with new UPN: " + $item.UPN + ". New UPN already in use.") -Level Error
-                continue
-            }
-        }
-
-        if ($googleUser.Name.givenName -ne $item.NameFirst -or $googleUser.Name.familyName -ne $item.NameLast) {
-            $itemUpdateSplat["FirstName"] = $item.NameFirst.trim()
-            $itemUpdateSplat["LastName"] = $item.NameLast.trim()
-        }
-
-        if ($googleUser.organizations.department -ne $item.Building -or $googleUser.organizations.title -ne $item.JobTitle) {
-            $itemUpdateSplat["Building"] = $item.Building
-            $itemUpdateSplat["JobTitle"] = $item.JobTitle
-        }
-
-        if ($googleUser.suspended -ne $false) {
-            $itemUpdateSplat["Suspended"] = 'false'
-        }
-
-        if ($googleUser.orgUnitPath -ne $item.GoogleOrganizationalUnit) {
-            $itemUpdateSplat["OrgUnitPath"] = $item.GoogleOrganizationalUnit
-        }
-
-        #Update the user account information if needed
-        if ($itemUpdateSplat.Count -gt 0) {
-            $itemUpdateSplat["GoogleUserID"] = $item.GoogleCurrentUserID
-
-            Write-Log -Path $logFile -Message ("Google: Updating Information for: " + $item.UPN + " - " + $item.personID)
-            Write-Log -Path $logFile -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
-
-            $itemUpdateSplat["tokenInformation"] = $headers
-
-            if ($IDConfig.Debug.readOnly -eq $false) {
-                Update-GoogleUser @itemUpdateSplat
-            }
-        }
-
-        if ($googleUser) {Remove-Variable googleUser}
-    }
-}
-#endregion Update Google Users
 
 #region Create Google Users
 if ($IDConfig.Google.enabled -eq $true) {
