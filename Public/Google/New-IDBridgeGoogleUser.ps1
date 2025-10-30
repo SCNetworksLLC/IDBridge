@@ -7,7 +7,7 @@
     next login.
 
 .DESCRIPTION
-    The New-GoogleUser function facilitates the creation of a new user in the Google Workspace 
+    The New-IDBridgeGoogleUser function facilitates the creation of a new user in the Google Workspace 
     Directory by sending a POST request to the Google Admin API. The function accepts parameters such 
     as primary email, person ID, first name, last name, organizational unit path, and password.
     Optionally, you can provide the user's building (department), job title, and a flag to indicate 
@@ -48,7 +48,7 @@
     A hashtable containing OAuth authentication headers for the API request. This is a mandatory parameter.
 
 .EXAMPLE
-    New-GoogleUser -PrimaryEmail "newuser@example.com" -PersonID "12345" -FirstName "John" -LastName "Doe" 
+    New-IDBridgeGoogleUser -PrimaryEmail "newuser@example.com" -PersonID "12345" -FirstName "John" -LastName "Doe" 
                         -OrgUnitPath "/students" -Password "SecurePassword123" -tokenInformation $authToken
 
     Creates a new user with the specified details in the "/students" organizational unit, 
@@ -63,7 +63,7 @@
 .LINK
     https://developers.google.com/admin-sdk/directory/reference/rest/v1/users
 #>
-function New-GoogleUser() {
+function New-IDBridgeGoogleUser() {
     [cmdletbinding()]
     Param(
         
@@ -96,7 +96,10 @@ function New-GoogleUser() {
         [String]$ChangeAtNextLogin, # Optional parameter to force password change at the next login
         
         [parameter(Mandatory=$true)]
-        [hashtable]$tokenInformation # Mandatory hashtable parameter for OAuth token headers
+        [hashtable]$tokenInformation, # Mandatory hashtable parameter for OAuth token headers
+
+        [Parameter(Mandatory = $true)]
+        [string]$logFile # Mandatory parameter for log file path
     )
 
     # Create a hashtable to store the new user's details
@@ -178,7 +181,7 @@ function New-GoogleUser() {
         } catch {
             # In case of an error, log the error details
             Write-Log -Path $logFile -Message "Error: $($_.Exception.Message)" -Level Error
-            Write-Log -Path $logFile -Message "Error: $($_)" -Level Error
+            return $_
         }
     }
 }
