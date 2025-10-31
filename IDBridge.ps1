@@ -359,7 +359,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             Write-Log -Path $logFile -Message "Google: Updating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
             $itemSplat = $null
             $itemSplat = $item.splat
-            Update-GoogleUser @itemSplat -tokenInformation $headers
+            Update-IDBridgeGoogleUser @itemSplat -tokenInformation $headers -logFile $logFile
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -373,7 +373,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             $itemSplat = $null
             $itemSplat = $item.splat
             
-            $newUserResponse = New-IDBridgeGoogleUser @itemCreateSplat -tokenInformation $headers -ErrorAction Stop
+            $newUserResponse = New-IDBridgeGoogleUser @itemSplat -tokenInformation $headers -logFile $logFile -ErrorAction Stop
 
             #Add the Google ID to the data object
             foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $itemSplat.PrimaryEmail}) {
@@ -392,7 +392,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             foreach ($group in $item.Groups) {
                 try {
                     Write-Log -Path $logFile -Message "Google: Adding Group: $group to $($item.PersonID)"
-                    Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headers
+                    Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headers -logFile $logFile
                 }
                 catch {
                     Write-Log -Path $logFile -Message $_ -Level Error
@@ -406,7 +406,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
                 foreach ($group in $item.Groups) {
                     try {
                         Write-Log -Path $logFile -Message "Google: Removing Group: $group from $($item.PersonID)"
-                        Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers
+                        Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers -logFile $logFile
                     }
                     catch {
                         Write-Log -Path $logFile -Message $_ -Level Error
