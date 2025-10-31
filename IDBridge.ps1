@@ -122,7 +122,7 @@ if ($IDConfig.AD.enabled -eq $true) {
     $ADUsersToSetEmployeeID = Get-ADUsersToSetEmployeeID -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
     foreach ($item in $filteredData) {
         if ($ADUsersToSetEmployeeID[$item.personID]) {
-            Write-Log -Path $logFile -Message ("AD: Matched $($ADUsersToSetEmployeeID[$item.personID].ADUser.UserPrincipalName) with EmployeeID: $($item.personID).")
+            Write-Log -Path $logFile -Message ("AD: Matched $($ADUsersToSetEmployeeID[$item.personID].User.UserPrincipalName) with EmployeeID: $($item.personID).")
             $item.ADCurrentUserID = $ADUsersToSetEmployeeID[$item.personID].ID
             $item.ADCurrentGroups = $ADUsersToSetEmployeeID[$item.personID].Groups
             $item.ADCurrentUserEnabledStatus = $ADUsersToSetEmployeeID[$item.personID].EnabledStatus
@@ -161,7 +161,7 @@ if ($IDConfig.Google.enabled -eq $true) {
             Write-Log -Path $logFile -Message ("Google: Matched $($GoogleUsersToSetEmployeeID[$item.personID].User.primaryEmail) with EmployeeID: $($item.personID).")
             $item.GoogleCurrentUserID = $GoogleUsersToSetEmployeeID[$item.personID].ID
             $item.GoogleCurrentGroups = $GoogleUsersToSetEmployeeID[$item.personID].Groups
-            $item.GoogleCurrentUserEnabledStatus = $GoogleUsersToSetEmployeeID[$item.personID].EnabledStatus
+            $item.GoogleCurrentUserSuspendedStatus = $GoogleUsersToSetEmployeeID[$item.personID].EnabledStatus
             $googleData.LookupByID[$item.personID] = $GoogleUsersToSetEmployeeID[$item.personID].User
         }
     }

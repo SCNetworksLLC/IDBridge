@@ -44,7 +44,7 @@ function Get-GoogleUsersToCreate {
         }
 
         Write-Log -Path $logFile -Message ("Google: No user found for $($item.PersonID). Adding user to create list.")
-        Write-Log -Path $logFile -Message ($NewUserParams | ConvertTo-Json -Compress)
+        Write-Log -Path $logFile -Message ($itemCreateSplat | ConvertTo-Json -Compress)
 
         $itemList += [PSCustomObject]@{
             UPN = $item.UPN
