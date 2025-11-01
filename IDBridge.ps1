@@ -252,17 +252,8 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
             $newUser = New-ADUser @itemSplat -ErrorAction Stop
 
             #Add the GUID to the data object
-            foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $itemSplat.UserPrincipalName}) {
-                #Add AD User ID to the data object
-                $dataItem.ADCurrentUserID = $newUser.ObjectGUID
-
-                #Add AD User Groups to the data object
-                $ADUserGroupsToUpdate.Add += [PSCustomObject]@{
-                    PersonID = $item.PersonID
-                    ADCurrentUserID = $item.ADCurrentUserID
-                    Groups = $item.ADGroupsProposed
-                }
-            }
+            ($filteredData | Where-Object UPN -eq $itemSplat.UserPrincipalName).ADCurrentUserID = $newUser.ObjectGUID
+            
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -271,6 +262,12 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
 
     #Process Group Membership
     if ($IDConfig.AD.enableGroupProcessing -eq $true) {
+        #
+        if ($ADUsersToCreate.Count -gt 0) {
+            #Refresh AD User Groups to Update List to include newly created users
+            Write-Log -Path $logFile -Message "AD: Refreshing AD User Groups to Update List to include newly created users."
+            $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
+        }
         #Process Group Membership Add
         foreach ($item in $ADUserGroupsToUpdate.Add) {
             foreach ($group in $item.Groups) {
@@ -384,10 +381,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             $newUserResponse = New-IDBridgeGoogleUser @itemSplat -tokenInformation $headers -logFile $logFile -ErrorAction Stop
 
             #Add the Google ID to the data object
-            foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $itemSplat.PrimaryEmail}) {
-                #Add Google User ID to the data object
-                $dataItem.GoogleCurrentUserID = $newUserResponse.ID
-            }
+            ($filteredData | Where-Object UPN -eq $itemSplat.PrimaryEmail).GoogleCurrentUserID = $newUserResponse.ID
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -398,7 +392,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
     if ($IDConfig.Google.enableGroupProcessing -eq $true) {
         if ($GoogleUsersToCreate.Count -gt 0) {
             #Refresh Google User Groups to Update List to include newly created users
-            Write-Log -Path $logFile -Message "Google: Refreshing Google User Groups to Update List to include newly created users."
+            Write-Log -Path $logFile -Message "Google: Refreshing AD User Groups to Update List to include newly created users."
             $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
         }
 
