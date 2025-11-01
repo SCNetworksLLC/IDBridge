@@ -23,10 +23,17 @@ function Get-GoogleUsersToUpdate {
         $itemUpdateSplat = @{}
 
         if ($googleUser.primaryEmail -ne $item.UPN) {
-            if ($item.UPN -notin ($GoogleUsers.emails | Select-Object -ExpandProperty address)) {
+            if ($item.UPN -notin $GoogleUsers.PrimaryEmail) {
+
                 $itemUpdateSplat["PrimaryEmail"] = $item.UPN
+
+                if ($item.UPN -in ($GoogleUsers.emails | Select-Object -ExpandProperty address)) {
+                    $aliasUser = $GoogleUsers | Where-Object {$item.UPN -in ($_.emails | Select-Object -ExpandProperty address)}
+                    $itemUpdateSplat["RemoveAlias"] = $item.UPN
+                    Write-Log -Path $logFile -Message ("Google: User: $($item.personID) with new UPN: $($item.UPN). New UPN already in use as Alias, will remove alias from $($aliasUser.primaryEmail).") -Level Warn
+                }
             } else {
-                Write-Log -Path $logFile -Message ("Google: User: " + $item.personID + " with new UPN: " + $item.UPN + ". New UPN already in use.") -Level Error
+                Write-Log -Path $logFile -Message ("Google: User: $($item.personID) with new UPN: $($item.UPN). New UPN already in use.") -Level Error
                 continue
             }
         }

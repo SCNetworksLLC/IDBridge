@@ -387,13 +387,6 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $itemSplat.PrimaryEmail}) {
                 #Add Google User ID to the data object
                 $dataItem.GoogleCurrentUserID = $newUserResponse.ID
-
-                #Add Google User Groups to the data object
-                $GoogleUserGroupsToUpdate.Add += [PSCustomObject]@{
-                    PersonID = $dataItem.PersonID
-                    GoogleCurrentUserID = $item.GoogleCurrentUserID
-                    Groups = $item.GoogleGroupsProposed
-                }
             }
         }
         catch {
@@ -403,6 +396,12 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
 
     #Process Group Membership
     if ($IDConfig.Google.enableGroupProcessing -eq $true) {
+        if ($GoogleUsersToCreate.Count -gt 0) {
+            #Refresh Google User Groups to Update List to include newly created users
+            Write-Log -Path $logFile -Message "Google: Refreshing Google User Groups to Update List to include newly created users."
+            $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
+        }
+
         #Process Group Membership Add
         foreach ($item in $GoogleUserGroupsToUpdate.Add) {
             foreach ($group in $item.Groups) {

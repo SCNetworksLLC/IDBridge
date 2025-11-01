@@ -105,6 +105,9 @@ function Update-IDBridgeGoogleUser() {
         [ValidateSet("true", "false")]
         [String]$ChangeAtNextLogin,
 
+        [parameter(Mandatory=$false)]  # RemoveAlias is optional; if provided, it will remove the alias defined here
+        [string]$RemoveAlias,
+
         [parameter(Mandatory=$true)]  # Hashtable containing OAuth authentication headers
         [hashtable]$tokenInformation,
 
@@ -189,6 +192,29 @@ function Update-IDBridgeGoogleUser() {
         $updateFields["password"] = $Password | ConvertFrom-SecureString -AsPlainText
     }
 
+    if ($RemoveAlias) {
+        try {
+            #Get the user that currently has the alias
+            $aliasLookupUri = "https://admin.googleapis.com/admin/directory/v1/users/$($RemoveAlias)"
+            $aliasUser = Invoke-RestMethod -Uri $aliasLookupUri -Headers $tokenInformation -Method GET
+            Write-Log -Path $logFile -Message "Google: Remove Alias User: $($aliasUser | ConvertTo-Json -Depth 5)"
+
+            if ($aliasUser -and $RemoveAlias -ne $aliasUser.primaryEmail) {
+                #Remove alias from current owner
+                $removeAliasUri = "https://admin.googleapis.com/admin/directory/v1/users/$($aliasUser.id)/aliases/$($RemoveAlias)"
+                Invoke-RestMethod -Uri $removeAliasUri -Headers $tokenInformation -Method DELETE -ErrorAction Stop
+                Write-Log -Path $logFile -Message "Google: Alias: $($RemoveAlias) Removed from user $($aliasUser.primaryEmail)"
+            } elseif ($RemoveAlias -eq $aliasUser.primaryEmail) {
+                Write-Log -Path $logFile -Message "Google: Can't Remove Alias $($RemoveAlias) - Alias is a primary email for $($aliasUser.name | ConvertTo-Json -Depth 5)" -Level Error
+            } else {
+                Write-Log -Path $logFile -Message "Google: No alias user found for alias $RemoveAlias" -Level Warn
+            }
+        }
+        catch {
+            return $_
+        }
+    }
+
     # If there are any fields to update, send the API request to update the user
     if ($updateFields) {
         # Construct the API URL for updating the user
@@ -200,10 +226,10 @@ function Update-IDBridgeGoogleUser() {
         # Send the PUT request to the API
         try {
             $response = Invoke-RestMethod -Uri $url -Method Put -Headers $tokenInformation -Body $body -ContentType "application/json"
-            Write-Log -Path $logFile -Message "Response: $($response | ConvertTo-Json -Depth 5)"
+            Write-Log -Path $logFile -Message "Google: Update Response: $($response | ConvertTo-Json -Depth 5)"
         } catch {
             # Log any errors that occur during the API request
-            Write-Log -Path $logFile -Message "Error: $($_.Exception.Message)" -Level Error
+            Write-Log -Path $logFile -Message "Google: $($_.Exception.Message)" -Level Error
             return $_
         }
     }
