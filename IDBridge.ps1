@@ -253,7 +253,15 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
 
             #Add the GUID to the data object
             foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $itemSplat.UserPrincipalName}) {
+                #Add AD User ID to the data object
                 $dataItem.ADCurrentUserID = $newUser.ObjectGUID
+
+                #Add AD User Groups to the data object
+                $ADUserGroupsToUpdate.Add += [PSCustomObject]@{
+                    PersonID = $item.PersonID
+                    ADCurrentUserID = $item.ADCurrentUserID
+                    Groups = $item.ADGroupsProposed
+                }
             }
         }
         catch {
@@ -377,7 +385,15 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
 
             #Add the Google ID to the data object
             foreach ($dataItem in $filteredData | Where-Object {$_.UPN -eq $itemSplat.PrimaryEmail}) {
+                #Add Google User ID to the data object
                 $dataItem.GoogleCurrentUserID = $newUserResponse.ID
+
+                #Add Google User Groups to the data object
+                $GoogleUserGroupsToUpdate.Add += [PSCustomObject]@{
+                    PersonID = $dataItem.PersonID
+                    GoogleCurrentUserID = $item.GoogleCurrentUserID
+                    Groups = $item.GoogleGroupsProposed
+                }
             }
         }
         catch {
