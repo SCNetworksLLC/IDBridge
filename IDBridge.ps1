@@ -303,16 +303,36 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
 
 #region Report Non Data Users
 #### NEED TO ADD ADDITIONAL OPTIONS FOR TEST RUNS BEFORE GOING LIVE WITH THIS SECTION ####
-if ($IDConfig.AD.enabled -eq $true) {
+if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.verboseLogging -eq $true) {
     #Get all AD Users to Find Users who are not in the data file.
     $allADUsers = @()
 
-    foreach ($item in $OUCheckAD | Where-Object {$_ -notlike "*,OU=Trash,*"}) {
+    #Manual and Top Level OUs to Check
+    $OUList = @(
+        $IDConfig.AD.userRootOU
+        ("OU=Student," + $IDConfig.AD.userRootOU)
+        ("OU=Staff," + $IDConfig.AD.userRootOU)
+        ("OU=Trash," + $IDConfig.AD.userRootOU)
+        ("OU=Student,OU=Trash," + $IDConfig.AD.userRootOU)
+        ("OU=Staff,OU=Trash," + $IDConfig.AD.userRootOU)
+    )
+
+    #Add the OUs to check from only active users
+    $OUListAuto = @()
+    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
+        $OUListAuto += $item.ADOrganizationalUnit
+        $OUListAuto += $item.ADOrganizationalUnitTrash
+    }
+
+    #Combine Base and OU Lists - This is needed to be done this way so that the base OUs get processed first
+    $OUList += $OUListAuto | Sort-Object -Unique
+
+    foreach ($item in $OUList | Where-Object {$_ -notlike "*,OU=Trash,*"}) {
         $allADUsers += Get-ADUser -Filter * -SearchBase $item -Properties EmployeeID,Surname,GivenName -searchscope 1
     }
 
     foreach ($item in $allADUsers) {
-        if ($item.employeeID -notin $data.personID) {
+        if ($item.employeeID -notin $filteredData.personID) {
             Write-Log -Path $logFile -Message "AD: $($item.GivenName) $($item.Surname) not in data file."
         }
     }
