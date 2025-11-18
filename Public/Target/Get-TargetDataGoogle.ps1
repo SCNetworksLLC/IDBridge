@@ -51,7 +51,9 @@ function Get-TargetDataGoogle {
     #region Get Google Users
     try {
         $googleUsers = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
-        Write-Log -Path $logFile -Message "Google: Successfully retrieved users"
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message "Google: Successfully retrieved users"
+        }
     }
     catch {
         Throw $_
@@ -65,12 +67,19 @@ function Get-TargetDataGoogle {
 
         #Remove Classroom Teachers Group
         $googleGroups = $googleGroups | Where-Object {$_.email -notlike "classroom_teachers@*"}
-        Write-Log -Path $logFile -Message "Google: Successfully retrieved groups"
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message "Google: Successfully retrieved groups"
+        }
     }
     catch {
         Throw $_
     }
 
+
+
+
+
+    <# This section has been modified to use ForEach-Object -Parallel for better performance
     #Get Google Group Memberships - Stores memberships in $userGoogleGroupsCurrent
     #Hashtable to store users and their groups
     $userGoogleGroupsCurrent = @{}
@@ -101,6 +110,97 @@ function Get-TargetDataGoogle {
     }
 
     Write-Log -Path $logFile -Message "Google: Successfully retrieved group memberships"
+    #>
+
+
+
+
+
+    #Get Google Group Memberships - Stores memberships in $userGoogleGroupsCurrent
+    $sharedLogs = [hashtable]::Synchronized(@{})
+
+    foreach ($item in $googleGroups) {
+        $item | Add-Member -MemberType NoteProperty -Name Headers -Value $headers -Force
+        $item | Add-Member -MemberType NoteProperty -Name GetGoogleData -Value (Get-Command Get-GoogleData).Definition -Force
+        $item | Add-Member -MemberType NoteProperty -Name VerboseLogging -Value $IDConfig.Debug.verboseLogging -Force
+    }
+
+    #Loop through each group and retrieve its members
+    $finalResults = $googleGroups | Where-Object {$_.directMembersCount -ne 0} | ForEach-Object -Parallel  {
+        $null = New-Item -Path function: -Name 'Get-GoogleData' -Value ($_.GetGoogleData) -force
+
+        $headers = $_.headers
+        $email = $_.email
+
+        if ($_.VerboseLogging) {
+            ($using:sharedLogs).(Get-Date -Format "yyyy-MM-dd_HH:mm:ss:ffff") = [PSCustomObject]@{
+                Message    = ("Google: Getting users for Group: " + $email)
+                Level      = "info"
+            }
+        }
+
+        try {
+            #Get group Memebers
+            $groupMemberResults = $null
+            $groupMemberResults = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://admin.googleapis.com/admin/directory/v1/groups/" + $email + "/members?customer=my_customer&maxResults=500") -ErrorAction Stop
+
+            [PSCustomObject]@{
+                GroupEmail = $email
+                Members    = $groupMemberResults
+            }
+
+            if ($_.VerboseLogging) {
+                ($using:sharedLogs).(Get-Date -Format "yyyy-MM-dd_HH:mm:ss:ffff") = [PSCustomObject]@{
+                    Message    = ("Google: Received $($groupMemberResults.count) users for Group: " + $email)
+                    Level      = "info"
+                }
+            }
+        }
+        catch {
+            ($using:sharedLogs).(Get-Date -Format "yyyy-MM-dd_HH:mm:ss:ffff") = [PSCustomObject]@{
+                Message    = ("Google: No users retrieved for Group: " + $email)
+                Level      = "error"
+            }
+
+            ($using:sharedLogs).(Get-Date -Format "yyyy-MM-dd_HH:mm:ss:ffff") = [PSCustomObject]@{
+                Message    = $_
+                Level      = "error"
+            }
+        }
+    } -ThrottleLimit 10
+
+    #Write Logs from Parallel Processing
+    foreach ($logEntry in $sharedLogs.GetEnumerator() | Sort-Object Name) {
+        $entry = $logEntry.Value
+        Write-Log -Path $logFile -Message $entry.Message -Level $entry.Level
+    }
+
+    #Check for errors during parallel processing
+    if ($sharedLogs.GetEnumerator() -like "*error*") {
+        Throw "Errors occurred while retrieving group memberships. Check the log for details."
+    }
+
+    #Process final results into hashtable
+    $userGoogleGroupsCurrent = @{}
+    foreach ($item in $finalResults) {
+        foreach ($member in $item.Members) {
+            #Add user to hashtable, create entry if it doesn't exist
+            if (-not $userGoogleGroupsCurrent.ContainsKey($member.email)) {
+                $userGoogleGroupsCurrent[$member.email] = @()
+            }
+
+            #Add the group to the user's list
+            $userGoogleGroupsCurrent[$member.email] += $item.GroupEmail
+        }
+    }
+
+
+
+
+
+
+
+
 
     #Add Groups to User Object
     foreach ($user in $googleUsers) {
@@ -116,7 +216,9 @@ function Get-TargetDataGoogle {
     #region Get Google Org Units
     try {
         $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
-        Write-Log -Path $logFile -Message "Google: Successfully retrieved organizational units"
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message ("Google: Retrieved $($googleOrgUnits.count) organizational units")
+        }
     }
     catch {
         Throw $_

@@ -265,7 +265,9 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
         #
         if ($ADUsersToCreate.Count -gt 0) {
             #Refresh AD User Groups to Update List to include newly created users
-            Write-Log -Path $logFile -Message "AD: Refreshing AD User Groups to Update List to include newly created users."
+            if ($IDConfig.Debug.verboseLogging -eq $true) {
+                Write-Log -Path $logFile -Message "AD: Refreshing AD User Groups to Update List to include newly created users." -Level Info
+            }
             $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
         }
         #Process Group Membership Add
@@ -412,7 +414,9 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
     if ($IDConfig.Google.enableGroupProcessing -eq $true) {
         if ($GoogleUsersToCreate.Count -gt 0) {
             #Refresh Google User Groups to Update List to include newly created users
-            Write-Log -Path $logFile -Message "Google: Refreshing AD User Groups to Update List to include newly created users."
+            if ($IDConfig.Debug.verboseLogging -eq $true) {
+                Write-Log -Path $logFile -Message "Google: Refreshing AD User Groups to Update List to include newly created users." -Level Info
+            }
             $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
         }
 

@@ -54,22 +54,19 @@ function Get-GoogleData {
 
     # Validate GoogleHeaders - Ensure it's not empty
     if (-not $GoogleHeaders -or $GoogleHeaders.Count -eq 0) {
-        Write-Log -Path $logFile -Message "Google: Failed to fetch data" -Level Error
-        Throw (Start-ScriptEnd -Message "Invalid input: GoogleHeaders cannot be empty.")
+        Throw "Invalid input: GoogleHeaders cannot be empty."
     }
 
     # Validate APIUri - Ensure it's a valid URL format
     if ($APIUri -notmatch "^https?:\/\/[\w\-]+(\.[\w\-]+)+[/#?]?.*$") {
-        Write-Log -Path $logFile -Message "Google: Failed to fetch data" -Level Error
-        Throw (Start-ScriptEnd -Message "Invalid input: APIUri must be a valid URL: $($APIUri)")
+        Throw "Invalid input: APIUri must be a valid URL: $($APIUri)"
     }
 
     # Send the initial request to the Google API
     try {
         $request = Invoke-RestMethod -Uri $APIUri -Headers $GoogleHeaders -Method Get
     } catch {
-        Write-Log -Path $logFile -Message "Google: Failed to fetch data" -Level Error
-        Throw (Start-ScriptEnd -Message "Failed to fetch data from Google API $($APIUri): $_")
+        Throw "Failed to fetch data from Google API $($APIUri): $_"
     }
 
     # Identify the primary data object within the response
@@ -84,15 +81,11 @@ function Get-GoogleData {
             # Send a request for the next page
             $request = Invoke-RestMethod -Uri $requestUri -Headers $GoogleHeaders -Method Get
         } catch {
-            Throw (Start-ScriptEnd -Message "Failed to fetch additional data from API: $_")
+            Throw "Failed to fetch additional data from API: $_"
         }
 
         # Append new data to the existing dataset
         $data += $request.$dataType
-    }
-
-    if ($VerboseLogging) {
-        Write-Log -Path $logFile -Message "Google: Successfully retrieved $($dataType)"
     }
     
     return $data
