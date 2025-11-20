@@ -64,7 +64,7 @@ function Get-GoogleData {
 
     # Send the initial request to the Google API
     try {
-        $request = Invoke-RestMethod -Uri $APIUri -Headers $GoogleHeaders -Method Get
+        $request = Invoke-RestMethod -Uri $APIUri -Headers $GoogleHeaders -Method Get -ErrorAction Stop
     } catch {
         Throw "Failed to fetch data from Google API $($APIUri): $_"
     }
@@ -79,7 +79,7 @@ function Get-GoogleData {
         
         try {
             # Send a request for the next page
-            $request = Invoke-RestMethod -Uri $requestUri -Headers $GoogleHeaders -Method Get
+            $request = Invoke-RestMethod -Uri $requestUri -Headers $GoogleHeaders -Method Get -ErrorAction Stop
         } catch {
             Throw "Failed to fetch additional data from API: $_"
         }

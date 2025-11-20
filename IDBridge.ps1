@@ -67,7 +67,7 @@ if ($IDConfig.Google.enabled -eq $true) {
 #region Get Data AD
 if ($IDConfig.AD.enabled -eq $true) {
     try {
-        $adData = Get-TargetDataAD -logFile $logFile -ErrorAction Stop
+        $adData = Get-TargetDataAD -logFile $logFile -VerboseLogging $IDConfig.Debug.verboseLogging -ErrorAction Stop
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)}
 }

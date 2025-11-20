@@ -2,7 +2,9 @@ function Get-TargetDataAD {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string]$logFile
+        [string]$logFile,
+
+        $VerboseLogging = $false
     )
 
     #User Properties to load
@@ -35,7 +37,9 @@ function Get-TargetDataAD {
         $ADUsers = Get-ADUser -Filter * -Properties $userPropertyAD
 
         if ($ADUsers) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Users"
+            if ($VerboseLogging) {
+                Write-Log -Path $logFile -Message "AD: Successfully fetched Users"
+            }
         } else {
             Throw "AD: Connected to AD but no users fetched"
         }
@@ -50,7 +54,9 @@ function Get-TargetDataAD {
         $ADGroups = Get-ADGroup -Filter * -Properties DistinguishedName | Select-Object Name, DistinguishedName
 
         if ($ADGroups) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Groups"
+            if ($VerboseLogging) {
+                Write-Log -Path $logFile -Message "AD: Successfully fetched Groups"
+            }
         } else {
             Throw "AD: Connected to AD but no groups fetched"
         }
@@ -87,7 +93,9 @@ function Get-TargetDataAD {
         $ADOrgUnits = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' | Select-Object -ExpandProperty DistinguishedName
 
         if ($ADOrgUnits) {
-            Write-Log -Path $logFile -Message "AD: Successfully fetched Org Units"
+            if ($VerboseLogging) {
+                Write-Log -Path $logFile -Message "AD: Successfully fetched Org Units"
+            }
         } else {
             Throw "AD: Connected to AD but no org units fetched"
         }
