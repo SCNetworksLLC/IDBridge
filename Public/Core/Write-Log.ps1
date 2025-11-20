@@ -59,10 +59,7 @@ function Write-Log {
         [string]$Level="Info", 
          
         [Parameter(Mandatory=$false)] 
-        [switch]$NoClobber , 
-         
-        [Parameter(Mandatory=$false)] 
-        [bool]$WhatIfLogging
+        [switch]$NoClobber
     ) 
  
     Begin 
@@ -95,32 +92,16 @@ function Write-Log {
         # Write message to error, warning, or verbose pipeline and specify $LevelText 
         switch ($Level) { 
             'Error' { 
-                if ($WhatIfLogging -eq $true) {
-                    Write-Error "WhatIf: $Message"
-                    $LevelText = 'ERROR:' 
-                } else {
-                    Write-Error $Message 
-                    $LevelText = 'ERROR:' 
-                }
+                Write-Error $Message 
+                $LevelText = 'ERROR:' 
             } 
             'Warn' { 
-                if ($WhatIfLogging -eq $true) {
-                    Write-Warning "WhatIf: $Message"
-                    $LevelText = 'WARNING:' 
-                } else {
-                    Write-Warning $Message 
-                    $LevelText = 'WARNING:' 
-                }
-
+                Write-Warning $Message 
+                $LevelText = 'WARNING:' 
             } 
             'Info' { 
-                if ($WhatIfLogging -eq $true) {
-                    Write-Verbose "WhatIf: $Message"
-                    $LevelText = 'INFO:' 
-                } else {
-                    Write-Verbose $Message 
-                    $LevelText = 'INFO:' 
-                }
+                Write-Verbose $Message 
+                $LevelText = 'INFO:' 
             } 
         } 
          
