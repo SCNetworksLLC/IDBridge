@@ -161,7 +161,7 @@ function Get-SourceDataSkywardSMS {
 
         # Return PSCustomObject with selected student properties
         [PSCustomObject]@{
-            SourcedId            = $_.DisplayId
+            SourceId             = $_.DisplayId
             LocalID              = $_.DisplayId
             InternalID           = $_.NameID
             NameFirst            = $_.FirstName
