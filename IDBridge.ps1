@@ -44,14 +44,67 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 
 #region Gather Data
 #region Spreadsheet Data Staff
-try {
-    $dataStaff = Get-SourceDataGSheet -personType "Staff" -sheetID $IDConfig.GoogleSheet.staffSheetID -sheetRange $IDConfig.GoogleSheet.staffSheetRange -userCount $IDConfig.Staff.SafetyCheckCount -logFile $logFile -headers $headers
+if ($IDConfig.Staff.Enabled -eq $true) {
+    try {
+        $paramsStaff = @{
+            personType  = "Staff"
+            sheetID     = $IDConfig.GoogleSheet.staffSheetID
+            sheetRange  = $IDConfig.GoogleSheet.staffSheetRange
+            userCount   = $IDConfig.Staff.SafetyCheckCount
+            logFile     = $logFile
+            headers     = $headers
+        }
 
-    #Make sure the data is valid and has columns
-    $filteredData = Limit-SourceDataGSheet -SourceData $dataStaff
+        $dataStaff = Get-SourceDataGSheet @paramsStaff
+
+        #Make sure the data is valid and has columns
+        $filteredDataStaff = Limit-SourceDataGSheet -SourceData $dataStaff
+    }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 }
-catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 #endregion Spreadsheet Data Staff
+
+#region Student - Skyward SMS
+if ($IDConfig.Student.Enabled -eq $true) {
+    try {
+        $paramsStudent = @{
+            BaseUrl      = $IDConfig.SkywardSMS.BaseUrl
+            TokenUrl     = $IDConfig.SkywardSMS.TokenUrl
+            ClientId     = $IDConfig.SkywardSMS.ClientId
+            ClientSecret = $IDConfig.SkywardSMS.ClientSecret
+            ExcludeEntityIDs = $IDConfig.SkywardSMS.ExcludeEntityIDs
+            logFile      = $logFile
+        }
+
+        $dataStudent = Get-SourceDataSkywardSMS @paramsStudent
+
+        #Make Sure Data Returned is over the safety check count
+        if ($dataStudent.Count -lt ([int]$IDConfig.Student.SafetyCheckCount * ([int]$IDConfig.Student.SafetyCheckPercentage / 100))) {
+            Throw "Skyward SMS: Retrieved user count ($($dataStudent.Count)) is below the safety check count ($([int]$IDConfig.Student.SafetyCheckCount * ([int]$IDConfig.Student.SafetyCheckPercentage / 100))). Aborting processing to prevent potential data loss."
+        }
+
+        #Transform Data to be compatible with IDBridge
+        $filteredDataStudent = $dataStudent | ForEach-Object {
+            Write-Verbose "Processing student: $($_.DisplayId)"
+
+            # Return PSCustomObject with selected student properties
+            [PSCustomObject]@{
+                PersonID             = $_.SourceId
+                NameFirst            = $_.NameFirst
+                NameLast             = $_.NameLast
+                Username             = $_.SourceId
+                Building             = (Get-Culture).TextInfo.ToTitleCase($($_.SchoolName).ToLower())
+                Grade                = $_.Grade
+                GradYear             = $_.GradYear
+                JobTitle             = "Student - Grade $($_.Grade)"
+                Word                 = $_.FoodServicePin
+                PersonTypeGeneric    = "Student"
+            }
+        }
+    }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
+}
+#endregion Student - Skyward SMS
 
 
 #region Get Google Data
@@ -79,7 +132,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 #region Data Modifcation
 #Add additional data to the user objects
-foreach ($item in $filteredData) {
+foreach ($item in $filteredDataStudent) {
     $item = Set-AdditionalUserData -IDConfig $IDConfig -userObject $item -logFile $logFile
 
     if ($IDConfig.Google.enabled -eq $true) {
@@ -87,7 +140,7 @@ foreach ($item in $filteredData) {
     }
 
     if ($IDConfig.AD.enabled -eq $true) {
-        $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
+        #$item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
     }
 }
 #endregion Data Modifcation

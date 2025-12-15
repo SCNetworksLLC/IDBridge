@@ -5,6 +5,20 @@ function Limit-SourceDataGSheet {
         $SourceData
     )
 
+    #Required Columns in the Google Sheet
+    $requiredColumnsConfig = @(
+        "PersonID"
+        "NameFirst"
+        "NameLast"
+        "Username"
+        "Building"
+        "PersonType"
+        "JobTitle"
+        "TerminationDate"
+        "Word"
+        "Process"
+    )
+
     #Remove Users who do not have data in all required fields except for terminationDate
     #Remove Users where the process field is false
     $filteredData = @()

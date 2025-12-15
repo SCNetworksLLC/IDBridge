@@ -150,14 +150,35 @@ function Get-SourceDataSkywardSMS {
         } while ($response.Count -eq $limit)
     }
 
+    #Filter for unique users based on NameID
     $students = $students | Sort-Object -Property NameID -Unique
 
     # Output total number of users retrieved
     Write-Log -Path $logFile -Message ("Total users retrieved: $($students.Count)")
 
+    #Filter out students with FoodServiceKeyPadNumber greater than 0
+    $students = $students | Where-Object {$_.FoodServiceKeyPadNumber -gt 0}
+
+    #Set FoodServicePin to string to preserve leading zeros
+    $maxLength = ($students | ForEach-Object { $_.FoodServiceKeyPadNumber.ToString().Length } | Measure-Object -Maximum).Maximum
+
+    foreach ($item in $students) {
+        $item.FoodServiceKeyPadNumber = $item.FoodServiceKeyPadNumber.ToString().PadLeft($maxLength, '0')
+    }
+
     # Transform each student into a flattened object
     $studentsFiltered = $students | ForEach-Object {
         Write-Verbose "Processing student: $($_.DisplayId)"
+
+        #Set School Name with ExcludeEntityIDs check
+        $schoolName = $null
+        $schoolIDTemp = $null
+        if ($schoolLookup[$_.DefaultSchoolId]) {
+            $schoolName = $schoolLookup[$_.DefaultSchoolId]
+        } else {
+            $schoolIDTemp = $_.SchoolIds | Where-Object {$_ -notin $ExcludeEntityIDs} | Select-Object -First 1
+            $schoolName = $schoolLookup[$schoolIDTemp]
+        }
 
         # Return PSCustomObject with selected student properties
         [PSCustomObject]@{
@@ -168,7 +189,8 @@ function Get-SourceDataSkywardSMS {
             NameLast             = $_.LastName
             Email                = $_.SchoolEmail
             Grade                = $_.GradeLevel
-            SchoolName           = $schoolLookup[$_.DefaultSchoolId]
+            GradYear             = $_.GradYr
+            SchoolName           = $schoolName
             SchoolId             = $_.DefaultSchoolId
             SchoolIdsAll         = $_.SchoolIds
             FoodServicePin       = $_.FoodServiceKeyPadNumber

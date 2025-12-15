@@ -73,20 +73,21 @@ function Set-AdditionalUserData {
     #Student Specific Data
     if ($userObject.PersonTypeGeneric -eq "Student") {
         #Student Data
+        if ($userObject.GradYear -and !($userObject.Grade)) {
+            $userObject | Add-Member -MemberType NoteProperty -Name grade -Value (Get-StudentGrade -gradYear $userObject.GradYear -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate) -Force
+        }
+
         $userObject | Add-Member -MemberType NoteProperty -Name PersonDomain -Value $IDConfig.Student.DomainName -Force
         $userObject | Add-Member -MemberType NoteProperty -Name UPN -Value ($userObject.Username + "@" + $userObject.PersonDomain) -Force
-        $userObject | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStudent -building $userObject.Building -grade $userObject.PersonType -config $IDConfig.GroupsStudent) -Force
+        $userObject | Add-Member -MemberType NoteProperty -Name GroupsAutomatic -Value (Get-UserGroupsStudent -building $userObject.Building -grade $userObject.Grade -config $IDConfig.GroupsStudent) -Force
         $userObject | Add-Member -MemberType NoteProperty -Name Company -Value $IDConfig.Student.company -Force
 
         $userObject | Add-Member -MemberType NoteProperty -Name PersonTypeID -Value "1" -Force
 
-        if ($userObject.GradeYear) {
-            $userObject | Add-Member -MemberType NoteProperty -Name grade -Value (Get-StudentGrade -gradYear $userObject.PersonType -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate) -Force
-        }
 
         #AD Specific Data
         $userObject | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnit -Value ('OU=Grade-' + $userObject.grade + ',OU=' + $userObject.PersonTypeGeneric + "," + $IDConfig.AD.userRootOU) -Force
-        $userObject | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnitTrash -Value ("OU=" + $userObject.PersonType + ",OU=" + $userObject.PersonTypeGeneric + ",OU=Trash," + $IDConfig.AD.userRootOU) -Force
+        $userObject | Add-Member -MemberType NoteProperty -Name ADOrganizationalUnitTrash -Value ("OU=" + $userObject.GradYear + ",OU=" + $userObject.PersonTypeGeneric + ",OU=Trash," + $IDConfig.AD.userRootOU) -Force
         $userObject | Add-Member -MemberType NoteProperty -Name ADPassPrefix -Value $IDConfig.Student.$($userObject.grade).AD.passPrefix -Force
         $userObject | Add-Member -MemberType NoteProperty -Name ADChangePasswordAtLogon -Value $IDConfig.Student.$($userObject.grade).AD.ChangePasswordAtLogon -Force
         $userObject | Add-Member -MemberType NoteProperty -Name ADPasswordType -Value $IDConfig.Student.$($userObject.grade).AD.PasswordType -Force

@@ -53,10 +53,12 @@ function Test-IDBridgeConfiguration {
     $expectedConfigFiles = @(
         "GoogleToken.json",
         "GoogleSheet.json",
-        "General.json",
         "Google.json",
         "AD.json",
-        "PersonTypeThree.json"
+        "PersonTypeThree.json",
+        "Staff.json",
+        "Student.json",
+        "Staff.json"
     )
 
     Write-Host "Checking IDBridge configuration folder structure..." -ForegroundColor Cyan
