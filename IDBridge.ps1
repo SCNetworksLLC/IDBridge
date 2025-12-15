@@ -161,7 +161,7 @@ if ($IDConfig.Google.enabled -eq $true) {
             Write-Log -Path $logFile -Message ("Google: Matched $($GoogleUsersToSetEmployeeID[$item.personID].User.primaryEmail) with EmployeeID: $($item.personID).")
             $item.GoogleCurrentUserID = $GoogleUsersToSetEmployeeID[$item.personID].ID
             $item.GoogleCurrentGroups = $GoogleUsersToSetEmployeeID[$item.personID].Groups
-            $item.GoogleCurrentUserSuspendedStatus = $GoogleUsersToSetEmployeeID[$item.personID].EnabledStatus
+            $item.GoogleCurrentUserSuspendedStatus = $GoogleUsersToSetEmployeeID[$item.personID].SuspendedStatus
             $googleData.LookupByID[$item.personID] = $GoogleUsersToSetEmployeeID[$item.personID].User
         }
     }

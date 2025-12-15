@@ -28,7 +28,7 @@ function Get-GoogleUsersToSetEmployeeID {
                 $itemUpdateList[$item.personID] = [PSCustomObject]@{
                     ID = $googleUser.ID
                     Groups = $googleUser.CurrentGroups
-                    EnabledStatus = $googleUser.Enabled
+                    SuspendedStatus = $googleUser.Suspended
                     User = $googleUser
                 }
             } else {

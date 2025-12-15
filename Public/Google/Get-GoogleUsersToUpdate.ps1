@@ -38,6 +38,10 @@ function Get-GoogleUsersToUpdate {
             }
         }
 
+        if ($item.PersonID -notin $googleUser.ExternalIDs.value) {
+            $itemUpdateSplat["PersonID"] = $item.PersonID
+        }
+
         if ($googleUser.Name.givenName -ne $item.NameFirst -or $googleUser.Name.familyName -ne $item.NameLast) {
             $itemUpdateSplat["FirstName"] = $item.NameFirst.trim()
             $itemUpdateSplat["LastName"] = $item.NameLast.trim()
