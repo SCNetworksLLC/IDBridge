@@ -45,7 +45,7 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #region Gather Data
 #region Spreadsheet Data Staff
 try {
-    $dataStaff = Get-SourceDataGSheet -personType "Staff" -sheetID $IDConfig.GoogleSheet.staffSheetID -sheetRange $IDConfig.GoogleSheet.staffSheetRange -userCount $IDConfig.General.staffCount -logFile $logFile -headers $headers
+    $dataStaff = Get-SourceDataGSheet -personType "Staff" -sheetID $IDConfig.GoogleSheet.staffSheetID -sheetRange $IDConfig.GoogleSheet.staffSheetRange -userCount $IDConfig.Staff.SafetyCheckCount -logFile $logFile -headers $headers
 
     #Make sure the data is valid and has columns
     $filteredData = Limit-SourceDataGSheet -SourceData $dataStaff
