@@ -19,6 +19,9 @@ function Get-StudentGrade() {
     }
 
     $gradeSet = @{
+        ([int]$schoolYear-3) = "GD"
+        ([int]$schoolYear-2) = "GD"
+        ([int]$schoolYear-1) = "GD"
         [int]$schoolYear = "12"
         ([int]$schoolYear+1) = "11"
         ([int]$schoolYear+2) = "10"

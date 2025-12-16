@@ -82,18 +82,18 @@ if ($IDConfig.Student.Enabled -eq $true) {
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 
     #Transform Data to be compatible with IDBridge
-    $filteredDataStudent = $dataStudent | ForEach-Object {
+    $dataStudentFormatted = $dataStudent | ForEach-Object {
         [PSCustomObject]@{
             PersonID             = $_.DisplayId
             NameFirst            = $_.FirstName
             NameLast             = $_.LastName
             Username             = $_.DisplayId
             Building             = (Get-Culture).TextInfo.ToTitleCase($($_.SchoolName).ToLower())
-            Grade                = $_.GradeLevel
+            Grade                = (Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)
             GradYear             = $_.GradYr
-            JobTitle             = "Student - Grade $($_.GradeLevel)"
+            JobTitle             = "Student - Grade $(Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)"
             Word                 = $_.FoodServiceKeyPadNumber
-            PersonTypeGeneric    = "Student"
+            #PersonTypeGeneric    = "Student"
         }
     }
 }
@@ -118,11 +118,6 @@ if ($IDConfig.AD.enabled -eq $true) {
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)}
 }
 #endregion Get Data AD
-
-
-#region Combine Data
-$filteredData = $filteredDataStaff + $filteredDataStudent
-#endregion Combine Data
 #endregion Gather Data
 
 
@@ -131,12 +126,40 @@ $filteredData = $filteredDataStaff + $filteredDataStudent
 #region Data Modifcation
 #Add additional data to the user objects
 if ($IDConfig.Student.Enabled -eq $true) {
-    foreach ($item in $filteredDataStudent) {
-        $item = Set-AdditionalUserDataStudent -IDConfig $IDConfig -userObject $item -logFile $logFile
+    foreach ($item in $dataStudentFormatted) {
+        $additionalUserProperties = [PSCustomObject]@{
+            IDBActive                       = $true
+            PersonTypeID                    = "1"
+            UPN                             = ("$($item.Username)@$($IDConfig.Student.DomainName)")
+            Company                         = $IDConfig.Student.Company
+            GroupsAutomatic                 = (Get-UserGroupsStudent -building $item.Building -grade $item.Grade -config $IDConfig.GroupsStudent)
 
-        if ($IDConfig.Google.enabled -eq $true) {
-            $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
+            ADOrganizationalUnit            = "OU=Grade-$($item.Grade),OU=Students,$($IDConfig.AD.userRootOU)"
+            ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
+            ADPassPrefix                    = ($IDConfig.Student.$($item.Grade).AD.passPrefix)
+            ADChangePasswordAtLogon         = $IDConfig.Student.$($item.Grade).AD.ChangePasswordAtLogon
+            ADPasswordType                  = $IDConfig.Student.$($item.Grade).AD.PasswordType
+
+            GoogleOrganizationalUnit        = "$($IDConfig.Google.userRootOU)/Students/Grade-$($item.Grade)"
+            GoogleOrganizationalUnitTrash   = "/Trash/Students/$($item.GradYear)"
+            GooglePassPrefix                = $IDConfig.Student.$($item.Grade).Google.passPrefix
+            GoogleChangePasswordAtLogon     = $IDConfig.Student.$($item.Grade).Google.ChangePasswordAtLogon
+            GooglePasswordType              = $IDConfig.Student.$($item.Grade).Google.PasswordType
+
+            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).ID}
+            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).suspended}
+            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
+
+            #GoogleDuplicateIDStatus          = if ($item.UPN -in $googleData.DuplicateIDs.UPN) { "DUPLICATE_ID" } else { $null }
         }
+
+        foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
+            $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
+        }
+
+        #if ($IDConfig.Google.enabled -eq $true) {
+        #    $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
+        #}
 
         if ($IDConfig.AD.enabled -eq $true) {
             $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
@@ -158,6 +181,13 @@ if ($IDConfig.Staff.Enabled -eq $true) {
     }
 }
 #endregion Data Modifcation
+
+
+
+
+#region Combine Data
+$filteredData = $dataStaff + $dataStudentFormatted
+#endregion Combine Data
 
 
 
