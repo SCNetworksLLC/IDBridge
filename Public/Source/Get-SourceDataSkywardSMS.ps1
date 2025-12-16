@@ -72,7 +72,9 @@ function Get-SourceDataSkywardSMS {
         [int]$SafetyCheckPercentage,
 
         [Parameter(Mandatory = $true)]
-        [PSObject]$logFile
+        [PSObject]$logFile,
+
+        $VerboseLogging = $false
     )
 
     # Prepare OAuth token request
@@ -83,10 +85,11 @@ function Get-SourceDataSkywardSMS {
     }
 
     try {
-        Write-Verbose "Requesting access token from $TokenUrl"
         $tokenResponse = Invoke-RestMethod -Method Post -Uri $TokenUrl -Body $tokenBody -ErrorAction Stop
         $accessToken   = $tokenResponse.access_token
-        Write-Log -Path $logFile -Message "Access token for Skyward SMS retrieved successfully"
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message "Access token for Skyward SMS retrieved successfully"
+        }
     }
     catch {
         Write-Log -Path $logFile -Message "Access token request failed: $_" -Level Error
@@ -111,7 +114,9 @@ function Get-SourceDataSkywardSMS {
     }
 
     # Output total number of users retrieved
-    Write-Verbose "Total schools retrieved: $($responseSchools.Count)"
+    if ($VerboseLogging) {
+        Write-Log -Path $logFile -Message "Total schools retrieved: $($responseSchools.Count)"
+    }
 
     # Remove ExcludeEntityIDs schools from list
     $responseSchools = $responseSchools | Where-Object { $_.SchoolId -notin $ExcludeEntityIDs }
@@ -126,7 +131,10 @@ function Get-SourceDataSkywardSMS {
     $students = @()
     $limit = 10000   # Number of users to request per API call
 
-    Write-Verbose "Starting user student retrieval"
+    if ($VerboseLogging) {
+        Write-Log -Path $logFile -Message "Beginning user student retrieval"
+    }
+
     # Loop through API paging to retrieve all users
     # Using Schools endpoint to get students by school to remove ExcludeEntityIDs schools
 
@@ -135,7 +143,11 @@ function Get-SourceDataSkywardSMS {
         do {
             try {
                 $url = "$BaseUrl/schools/$($school.SchoolID)/students?limit=$limit&offset=$offset"
-                Write-Verbose "Requesting users from $url"
+
+                if ($VerboseLogging) {
+                    Write-Log -Path $logFile -Message "Requesting users from $url"
+                }
+
                 $response = Invoke-RestMethod -Method Get -Uri $url -Headers $headers
 
                 if ($null -ne $response) {
@@ -143,9 +155,11 @@ function Get-SourceDataSkywardSMS {
                     $students += $response
                     # Increment offset by number of users returned
                     $offset += $response.Count
-                    Write-Log -Path $logFile -Message ("Retrieved $($response.Count) users for school $($school.SchoolId); total so far: $($students.Count)")
+
+                    if ($VerboseLogging) {
+                        Write-Log -Path $logFile -Message ("Retrieved $($response.Count) users for school $($school.SchoolId); total so far: $($students.Count)")
+                    }
                 } else {
-                    Write-Verbose "No more users returned; ending loop"
                     break
                 }
             }
@@ -160,9 +174,18 @@ function Get-SourceDataSkywardSMS {
     $students = $students | Sort-Object -Property NameID -Unique
 
     # Output total number of users retrieved
-    Write-Log -Path $logFile -Message ("Total users retrieved: $($students.Count)")
+    if ($VerboseLogging) {
+        Write-Log -Path $logFile -Message ("Total users retrieved before filtering: $($students.Count)")
+    }
 
     #Filter out students with FoodServiceKeyPadNumber greater than 0
+    if ($VerboseLogging) {
+        $studentsWithFoodService = $students | Where-Object {$_.FoodServiceKeyPadNumber -eq 0}
+        foreach ($item in $studentsWithFoodService) {
+            Write-Log -Path $logFile -Message "Excluding Student without Food Service Key Pad Number: $($item.DisplayId) - $($item.FirstName) $($item.LastName)"
+        }
+    }
+
     $students = $students | Where-Object {$_.FoodServiceKeyPadNumber -gt 0}
 
     #Set FoodServicePin to string to preserve leading zeros
@@ -183,13 +206,13 @@ function Get-SourceDataSkywardSMS {
             $item | Add-Member -MemberType NoteProperty -Name SchoolName -Value $($schoolLookup[$schoolIDTemp]) -Force
         }
     }
-    
-    Write-Verbose "Finished processing all students"
 
     #Make Sure Data Returned is over the safety check count
     if ($students.Count -lt ([int]$SafetyCheckCount * ([int]$SafetyCheckPercentage / 100))) {
         Throw "Skyward SMS: Retrieved user count: $($students.Count) is below the safety check count: $([int]$SafetyCheckCount * ([int]$SafetyCheckPercentage / 100)). Aborting processing to prevent potential data loss."
     }
+
+    Write-Log -Path $logFile -Message "Finished fetching all students from Skyward SMS: $($students.Count)"
 
     # Return the collection of student objects
     return $students

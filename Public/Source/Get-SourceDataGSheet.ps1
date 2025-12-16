@@ -83,5 +83,29 @@ function Get-SourceDataGSheet {
         $item | Add-Member -MemberType NoteProperty -Name "PersonTypeGeneric" -Value "$($personType)"
     }
 
-    return $data
+    #Remove Users who do not have data in all required fields except for terminationDate
+    $filteredData = @()
+    foreach ($item in $data) {
+        $dataCheckFailed = $null
+        if ($item.Process -eq "TRUE") {
+            foreach ($column in ($requiredColumnsConfig | Where-Object {$_ -ne "TerminationDate"})) {
+                if (!($item.$column)) {
+                    $dataCheckFailed = "yes"
+                }
+            }
+            if ($dataCheckFailed) {
+                #$skippedData += $item
+                Write-Log -Path $logFile -Message ("Skipping Person Due to Missing Data in Required Columns: " + $item.PersonID)
+                Remove-Variable dataCheckFailed
+            } else {
+                $filteredData += $item
+            }
+        } else {
+            #Remove Users where the process field is false
+            #$skippedData += $item
+            Write-Log -Path $logFile -Message ("Skipping Person Due to process field set to false: " + $item.PersonID)
+        }
+    }
+
+    return $filteredData
 }

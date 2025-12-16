@@ -58,11 +58,9 @@ if ($IDConfig.Staff.Enabled -eq $true) {
         $dataStaff = Get-SourceDataGSheet @paramsStaff
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
-
-    #Make sure the data is valid and has columns
-    $filteredDataStaff = Limit-SourceDataGSheet -SourceData $dataStaff
 }
 #endregion Spreadsheet Data Staff
+
 
 #region Student - Skyward SMS
 if ($IDConfig.Student.Enabled -eq $true) {
@@ -75,7 +73,8 @@ if ($IDConfig.Student.Enabled -eq $true) {
             ExcludeEntityIDs        = $IDConfig.SkywardSMS.ExcludeEntityIDs
             SafetyCheckCount        = $IDConfig.Student.SafetyCheckCount
             SafetyCheckPercentage   = $IDConfig.Student.SafetyCheckPercentage
-            logFile                 = $logFile
+            LogFile                 = $logFile
+            VerboseLogging          = $IDConfig.Debug.verboseLogging
         }
 
         $dataStudent = Get-SourceDataSkywardSMS @paramsStudent
@@ -84,9 +83,6 @@ if ($IDConfig.Student.Enabled -eq $true) {
 
     #Transform Data to be compatible with IDBridge
     $filteredDataStudent = $dataStudent | ForEach-Object {
-        Write-Verbose "Processing student: $($_.DisplayId)"
-
-        # Return PSCustomObject with selected student properties
         [PSCustomObject]@{
             PersonID             = $_.DisplayId
             NameFirst            = $_.FirstName
@@ -122,6 +118,11 @@ if ($IDConfig.AD.enabled -eq $true) {
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)}
 }
 #endregion Get Data AD
+
+
+#region Combine Data
+$filteredData = $filteredDataStaff + $filteredDataStudent
+#endregion Combine Data
 #endregion Gather Data
 
 
@@ -129,15 +130,31 @@ if ($IDConfig.AD.enabled -eq $true) {
 
 #region Data Modifcation
 #Add additional data to the user objects
-foreach ($item in $filteredDataStudent) {
-    $item = Set-AdditionalUserData -IDConfig $IDConfig -userObject $item -logFile $logFile
+if ($IDConfig.Student.Enabled -eq $true) {
+    foreach ($item in $filteredDataStudent) {
+        $item = Set-AdditionalUserDataStudent -IDConfig $IDConfig -userObject $item -logFile $logFile
 
-    if ($IDConfig.Google.enabled -eq $true) {
-        $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
+        if ($IDConfig.Google.enabled -eq $true) {
+            $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
+        }
+
+        if ($IDConfig.AD.enabled -eq $true) {
+            $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
+        }
     }
+}
 
-    if ($IDConfig.AD.enabled -eq $true) {
-        #$item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
+if ($IDConfig.Staff.Enabled -eq $true) {
+    foreach ($item in $filteredData) {
+        $item = Set-AdditionalUserData -IDConfig $IDConfig -userObject $item -logFile $logFile
+
+        if ($IDConfig.Google.enabled -eq $true) {
+            $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
+        }
+
+        if ($IDConfig.AD.enabled -eq $true) {
+            $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
+        }
     }
 }
 #endregion Data Modifcation
