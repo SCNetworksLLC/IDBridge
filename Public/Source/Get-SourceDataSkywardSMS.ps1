@@ -66,6 +66,12 @@ function Get-SourceDataSkywardSMS {
         [string]$ExcludeEntityIDs,
 
         [Parameter(Mandatory = $true)]
+        [int]$SafetyCheckCount,
+
+        [Parameter(Mandatory = $true)]
+        [int]$SafetyCheckPercentage,
+
+        [Parameter(Mandatory = $true)]
         [PSObject]$logFile
     )
 
@@ -166,39 +172,25 @@ function Get-SourceDataSkywardSMS {
         $item.FoodServiceKeyPadNumber = $item.FoodServiceKeyPadNumber.ToString().PadLeft($maxLength, '0')
     }
 
-    # Transform each student into a flattened object
-    $studentsFiltered = $students | ForEach-Object {
-        Write-Verbose "Processing student: $($_.DisplayId)"
-
+    #Add school names to student objects
+    foreach ($item in $students) {
         #Set School Name with ExcludeEntityIDs check
-        $schoolName = $null
         $schoolIDTemp = $null
-        if ($schoolLookup[$_.DefaultSchoolId]) {
-            $schoolName = $schoolLookup[$_.DefaultSchoolId]
+        if ($schoolLookup[$item.DefaultSchoolId]) {
+            $item | Add-Member -MemberType NoteProperty -Name SchoolName -Value $($schoolLookup[$item.DefaultSchoolId]) -Force
         } else {
-            $schoolIDTemp = $_.SchoolIds | Where-Object {$_ -notin $ExcludeEntityIDs} | Select-Object -First 1
-            $schoolName = $schoolLookup[$schoolIDTemp]
-        }
-
-        # Return PSCustomObject with selected student properties
-        [PSCustomObject]@{
-            SourceId             = $_.DisplayId
-            LocalID              = $_.DisplayId
-            InternalID           = $_.NameID
-            NameFirst            = $_.FirstName
-            NameLast             = $_.LastName
-            Email                = $_.SchoolEmail
-            Grade                = $_.GradeLevel
-            GradYear             = $_.GradYr
-            SchoolName           = $schoolName
-            SchoolId             = $_.DefaultSchoolId
-            SchoolIdsAll         = $_.SchoolIds
-            FoodServicePin       = $_.FoodServiceKeyPadNumber
+            $schoolIDTemp = $item.SchoolIds | Where-Object {$_ -notin $ExcludeEntityIDs} | Select-Object -First 1
+            $item | Add-Member -MemberType NoteProperty -Name SchoolName -Value $($schoolLookup[$schoolIDTemp]) -Force
         }
     }
     
     Write-Verbose "Finished processing all students"
 
-    # Return the collection of filtered student objects
-    return $studentsFiltered
+    #Make Sure Data Returned is over the safety check count
+    if ($students.Count -lt ([int]$SafetyCheckCount * ([int]$SafetyCheckPercentage / 100))) {
+        Throw "Skyward SMS: Retrieved user count: $($students.Count) is below the safety check count: $([int]$SafetyCheckCount * ([int]$SafetyCheckPercentage / 100)). Aborting processing to prevent potential data loss."
+    }
+
+    # Return the collection of student objects
+    return $students
 }

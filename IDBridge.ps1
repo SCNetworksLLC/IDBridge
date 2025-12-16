@@ -56,11 +56,11 @@ if ($IDConfig.Staff.Enabled -eq $true) {
         }
 
         $dataStaff = Get-SourceDataGSheet @paramsStaff
-
-        #Make sure the data is valid and has columns
-        $filteredDataStaff = Limit-SourceDataGSheet -SourceData $dataStaff
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
+
+    #Make sure the data is valid and has columns
+    $filteredDataStaff = Limit-SourceDataGSheet -SourceData $dataStaff
 }
 #endregion Spreadsheet Data Staff
 
@@ -68,41 +68,38 @@ if ($IDConfig.Staff.Enabled -eq $true) {
 if ($IDConfig.Student.Enabled -eq $true) {
     try {
         $paramsStudent = @{
-            BaseUrl      = $IDConfig.SkywardSMS.BaseUrl
-            TokenUrl     = $IDConfig.SkywardSMS.TokenUrl
-            ClientId     = $IDConfig.SkywardSMS.ClientId
-            ClientSecret = $IDConfig.SkywardSMS.ClientSecret
-            ExcludeEntityIDs = $IDConfig.SkywardSMS.ExcludeEntityIDs
-            logFile      = $logFile
+            BaseUrl                 = $IDConfig.SkywardSMS.BaseUrl
+            TokenUrl                = $IDConfig.SkywardSMS.TokenUrl
+            ClientId                = $IDConfig.SkywardSMS.ClientId
+            ClientSecret            = $IDConfig.SkywardSMS.ClientSecret
+            ExcludeEntityIDs        = $IDConfig.SkywardSMS.ExcludeEntityIDs
+            SafetyCheckCount        = $IDConfig.Student.SafetyCheckCount
+            SafetyCheckPercentage   = $IDConfig.Student.SafetyCheckPercentage
+            logFile                 = $logFile
         }
 
         $dataStudent = Get-SourceDataSkywardSMS @paramsStudent
-
-        #Make Sure Data Returned is over the safety check count
-        if ($dataStudent.Count -lt ([int]$IDConfig.Student.SafetyCheckCount * ([int]$IDConfig.Student.SafetyCheckPercentage / 100))) {
-            Throw "Skyward SMS: Retrieved user count ($($dataStudent.Count)) is below the safety check count ($([int]$IDConfig.Student.SafetyCheckCount * ([int]$IDConfig.Student.SafetyCheckPercentage / 100))). Aborting processing to prevent potential data loss."
-        }
-
-        #Transform Data to be compatible with IDBridge
-        $filteredDataStudent = $dataStudent | ForEach-Object {
-            Write-Verbose "Processing student: $($_.DisplayId)"
-
-            # Return PSCustomObject with selected student properties
-            [PSCustomObject]@{
-                PersonID             = $_.SourceId
-                NameFirst            = $_.NameFirst
-                NameLast             = $_.NameLast
-                Username             = $_.SourceId
-                Building             = (Get-Culture).TextInfo.ToTitleCase($($_.SchoolName).ToLower())
-                Grade                = $_.Grade
-                GradYear             = $_.GradYear
-                JobTitle             = "Student - Grade $($_.Grade)"
-                Word                 = $_.FoodServicePin
-                PersonTypeGeneric    = "Student"
-            }
-        }
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
+
+    #Transform Data to be compatible with IDBridge
+    $filteredDataStudent = $dataStudent | ForEach-Object {
+        Write-Verbose "Processing student: $($_.DisplayId)"
+
+        # Return PSCustomObject with selected student properties
+        [PSCustomObject]@{
+            PersonID             = $_.DisplayId
+            NameFirst            = $_.FirstName
+            NameLast             = $_.LastName
+            Username             = $_.DisplayId
+            Building             = (Get-Culture).TextInfo.ToTitleCase($($_.SchoolName).ToLower())
+            Grade                = $_.GradeLevel
+            GradYear             = $_.GradYr
+            JobTitle             = "Student - Grade $($_.GradeLevel)"
+            Word                 = $_.FoodServiceKeyPadNumber
+            PersonTypeGeneric    = "Student"
+        }
+    }
 }
 #endregion Student - Skyward SMS
 
