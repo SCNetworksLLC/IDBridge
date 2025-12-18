@@ -16,10 +16,10 @@ function Get-GoogleOrgUnitsForProcessing {
     #Manual and Top Level OUs to Check
     $OUList = @(
         $UserRootOU
-        ($UserRootOU + "/Student")
+        ($UserRootOU + "/Students")
         ($UserRootOU + "/Staff")
         ("/Trash")
-        ("/Trash/Student")
+        ("/Trash/Students")
         ("/Trash/Staff")
     )
 

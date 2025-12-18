@@ -17,7 +17,7 @@ function Get-GoogleUsersToSetEmployeeID {
 
     $itemUpdateList = @{}
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and -not $_.GoogleDuplicateIDStatus}) {
+    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID}) {
         $googleUser = $null
         Write-Log -Path $logFile -Message ("Google: No user found with EmployeeID: " + $item.personID)
 

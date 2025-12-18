@@ -17,10 +17,10 @@ function Get-ADOrgUnitsForProcessing {
     #Manual and Top Level OUs to Check
     $OUList = @(
         $UserRootOU
-        ("OU=Student," + $UserRootOU)
+        ("OU=Students," + $UserRootOU)
         ("OU=Staff," + $UserRootOU)
         ("OU=Trash," + $UserRootOU)
-        ("OU=Student,OU=Trash," + $UserRootOU)
+        ("OU=Students,OU=Trash," + $UserRootOU)
         ("OU=Staff,OU=Trash," + $UserRootOU)
     )
 

@@ -207,6 +207,11 @@ function Get-SourceDataSkywardSMS {
         }
     }
 
+    #Add IDBActive Property and set to false by default
+    foreach ($item in $students) {
+        $item | Add-Member -MemberType NoteProperty -Name 'IDBActive' -Value $false -Force
+    }
+
     #Make Sure Data Returned is over the safety check count
     if ($students.Count -lt ([int]$SafetyCheckCount * ([int]$SafetyCheckPercentage / 100))) {
         Throw "Skyward SMS: Retrieved user count: $($students.Count) is below the safety check count: $([int]$SafetyCheckCount * ([int]$SafetyCheckPercentage / 100)). Aborting processing to prevent potential data loss."

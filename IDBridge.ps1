@@ -93,7 +93,6 @@ if ($IDConfig.Student.Enabled -eq $true) {
             GradYear             = $_.GradYr
             JobTitle             = "Student - Grade $(Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)"
             Word                 = $_.FoodServiceKeyPadNumber
-            #PersonTypeGeneric    = "Student"
         }
     }
 }
@@ -128,7 +127,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 if ($IDConfig.Student.Enabled -eq $true) {
     foreach ($item in $dataStudentFormatted) {
         $additionalUserProperties = [PSCustomObject]@{
-            IDBActive                       = $true
+            IDBActive                       = $IDConfig.Student.$($item.Grade).Enabled
             PersonTypeID                    = "1"
             UPN                             = ("$($item.Username)@$($IDConfig.Student.DomainName)")
             Company                         = $IDConfig.Student.Company
@@ -149,8 +148,6 @@ if ($IDConfig.Student.Enabled -eq $true) {
             GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).ID}
             GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).suspended}
             GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
-
-            #GoogleDuplicateIDStatus          = if ($item.UPN -in $googleData.DuplicateIDs.UPN) { "DUPLICATE_ID" } else { $null }
         }
 
         foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
@@ -220,9 +217,9 @@ if ($IDConfig.AD.enabled -eq $true) {
     foreach ($item in $filteredData) {
         if ($ADUsersToSetEmployeeID[$item.personID]) {
             Write-Log -Path $logFile -Message ("AD: Matched $($ADUsersToSetEmployeeID[$item.personID].User.UserPrincipalName) with EmployeeID: $($item.personID).")
-            $item.ADCurrentUserID = $ADUsersToSetEmployeeID[$item.personID].ID
-            $item.ADCurrentGroups = $ADUsersToSetEmployeeID[$item.personID].Groups
-            $item.ADCurrentUserEnabledStatus = $ADUsersToSetEmployeeID[$item.personID].EnabledStatus
+            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserID' -Value $ADUsersToSetEmployeeID[$item.personID].ID -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentGroups' -Value $ADUsersToSetEmployeeID[$item.personID].Groups -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserEnabledStatus' -Value $ADUsersToSetEmployeeID[$item.personID].EnabledStatus -Force
             $adData.LookupByID[$item.personID] = $ADUsersToSetEmployeeID[$item.personID].User
         }
     }
@@ -256,9 +253,9 @@ if ($IDConfig.Google.enabled -eq $true) {
     foreach ($item in $filteredData) {
         if ($GoogleUsersToSetEmployeeID[$item.personID]) {
             Write-Log -Path $logFile -Message ("Google: Matched $($GoogleUsersToSetEmployeeID[$item.personID].User.primaryEmail) with EmployeeID: $($item.personID).")
-            $item.GoogleCurrentUserID = $GoogleUsersToSetEmployeeID[$item.personID].ID
-            $item.GoogleCurrentGroups = $GoogleUsersToSetEmployeeID[$item.personID].Groups
-            $item.GoogleCurrentUserSuspendedStatus = $GoogleUsersToSetEmployeeID[$item.personID].SuspendedStatus
+            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserID' -Value $GoogleUsersToSetEmployeeID[$item.personID].ID -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentGroups' -Value $GoogleUsersToSetEmployeeID[$item.personID].Groups -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserSuspendedStatus' -Value $GoogleUsersToSetEmployeeID[$item.personID].SuspendedStatus -Force
             $googleData.LookupByID[$item.personID] = $GoogleUsersToSetEmployeeID[$item.personID].User
         }
     }

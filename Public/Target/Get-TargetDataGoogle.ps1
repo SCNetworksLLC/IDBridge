@@ -250,6 +250,9 @@ function Get-TargetDataGoogle {
             $item | Add-Member -MemberType NoteProperty -Name GoogleDuplicateIDStatus -Value "DUPLICATE_ID" -Force
         }
     }
+
+    #Remove duplicate users from main list
+    $googleUsers = $googleUsers | Where-Object { $_.GoogleDuplicateIDStatus -ne "DUPLICATE_ID" }
     #endregion Get Duplicate IDs
 
 
