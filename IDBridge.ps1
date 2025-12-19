@@ -126,54 +126,108 @@ if ($IDConfig.AD.enabled -eq $true) {
 #Add additional data to the user objects
 if ($IDConfig.Student.Enabled -eq $true) {
     foreach ($item in $dataStudentFormatted) {
+        $groupsAutomatic = $null
+        $groupsAutomatic = (Get-UserGroupsStudent -building $item.Building -grade $item.Grade -config $IDConfig.GroupsStudent)
+
+        #AD Proposed Groups
+        $proposedGroupListAD = @()
+        if ($item.GroupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
+        if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {$proposedGroupListAD += ($item.ApplicationGroups -split ",").trim()}
+        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListAD += ($item.EmailGroups -split ",").trim()}
+
+        #Google Proposed Groups
+        $proposedGroupListGoogle = @()
+        if ($item.GroupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
+        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
+
         $additionalUserProperties = [PSCustomObject]@{
             IDBActive                       = $IDConfig.Student.$($item.Grade).Enabled
             PersonTypeID                    = "1"
-            UPN                             = ("$($item.Username)@$($IDConfig.Student.DomainName)")
+            UPN                             = "$($item.Username)@$($IDConfig.Student.DomainName)"
             Company                         = $IDConfig.Student.Company
-            GroupsAutomatic                 = (Get-UserGroupsStudent -building $item.Building -grade $item.Grade -config $IDConfig.GroupsStudent)
+            GroupsAutomatic                 = $groupsAutomatic
 
             ADOrganizationalUnit            = "OU=Grade-$($item.Grade),OU=Students,$($IDConfig.AD.userRootOU)"
             ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
-            ADPassPrefix                    = ($IDConfig.Student.$($item.Grade).AD.passPrefix)
+            ADPassPrefix                    = $IDConfig.Student.$($item.Grade).AD.passPrefix
             ADChangePasswordAtLogon         = $IDConfig.Student.$($item.Grade).AD.ChangePasswordAtLogon
             ADPasswordType                  = $IDConfig.Student.$($item.Grade).AD.PasswordType
+            ADGroupsProposed                = $proposedGroupListAD | Select-Object -Unique
 
             GoogleOrganizationalUnit        = "$($IDConfig.Google.userRootOU)/Students/Grade-$($item.Grade)"
             GoogleOrganizationalUnitTrash   = "/Trash/Students/$($item.GradYear)"
             GooglePassPrefix                = $IDConfig.Student.$($item.Grade).Google.passPrefix
             GoogleChangePasswordAtLogon     = $IDConfig.Student.$($item.Grade).Google.ChangePasswordAtLogon
             GooglePasswordType              = $IDConfig.Student.$($item.Grade).Google.PasswordType
+            GoogleGroupsProposed            = $proposedGroupListGoogle | Select-Object -Unique
 
+            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID])}
             GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).ID}
             GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).suspended}
             GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
+
+            ADObject                         = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID])}
+            ADCurrentUserID                  = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).ObjectGUID}
+            ADCurrentUserEnabledStatus       = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).Enabled}
+            ADCurrentGroups                  = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).CurrentGroups}
         }
 
         foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
             $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
         }
-
-        #if ($IDConfig.Google.enabled -eq $true) {
-        #    $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
-        #}
-
-        if ($IDConfig.AD.enabled -eq $true) {
-            $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
-        }
     }
 }
 
 if ($IDConfig.Staff.Enabled -eq $true) {
-    foreach ($item in $filteredData) {
-        $item = Set-AdditionalUserData -IDConfig $IDConfig -userObject $item -logFile $logFile
+    foreach ($item in $dataStaff) {
+        $groupsAutomatic = $null
+        $groupsAutomatic = (Get-UserGroupsStaff -building $item.Building -personType $item.PersonType -config $IDConfig.GroupsStaff)
 
-        if ($IDConfig.Google.enabled -eq $true) {
-            $item = Set-AdditionalUserDataGoogle -userObject $item -googleUsers $googleData.LookupByID -duplicateGoogleUsers $googleData.DuplicateIDs -logFile $logFile
+        #AD Proposed Groups
+        $proposedGroupListAD = @()
+        if ($item.GroupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
+        if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {$proposedGroupListAD += ($item.ApplicationGroups -split ",").trim()}
+        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListAD += ($item.EmailGroups -split ",").trim()}
+
+        #Google Proposed Groups
+        $proposedGroupListGoogle = @()
+        if (-not [string]::IsNullOrEmpty($item.GroupsAutomatic)) {$proposedGroupListGoogle += $item.GroupsAutomatic}
+        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
+
+        $additionalUserProperties = [PSCustomObject]@{
+            IDBActive                       = if ($item.TerminationDate -and (Get-Date $item.TerminationDate -format "yyyy-MM-dd") -lt (Get-Date -format "yyyy-MM-dd")) {$false} else {$true}
+            PersonTypeID                    = if ($item.PersonType -in $IDConfig.PersonTypeThree) {"3"} else {"2"}
+            UPN                             = "$($item.Username)@$($IDConfig.Staff.DomainName)"
+            Company                         = $IDConfig.Staff.Company
+            GroupsAutomatic                 = $groupsAutomatic
+
+            ADOrganizationalUnit            = "OU=$($item.PersonType),OU=Staff,$($IDConfig.AD.userRootOU)"
+            ADOrganizationalUnitTrash       = "OU=$(Get-Date -Format yyyy),OU=Staff,OU=Trash,$($IDConfig.AD.userRootOU)"
+            ADPassPrefix                    = $IDConfig.Staff.AD.passPrefix
+            ADChangePasswordAtLogon         = $IDConfig.Staff.AD.ChangePasswordAtLogon
+            ADPasswordType                  = $IDConfig.Staff.AD.PasswordType
+            ADGroupsProposed                = $proposedGroupListAD | Select-Object -Unique
+
+            GoogleOrganizationalUnit        = "$($IDConfig.Google.userRootOU)/Staff/$($item.PersonType)"
+            GoogleOrganizationalUnitTrash   = "/Trash/Staff/$(Get-Date -Format yyyy)"
+            GooglePassPrefix                = $IDConfig.Staff.Google.passPrefix
+            GoogleChangePasswordAtLogon     = $IDConfig.Staff.Google.ChangePasswordAtLogon
+            GooglePasswordType              = $IDConfig.Staff.Google.PasswordType
+            GoogleGroupsProposed            = $proposedGroupListGoogle | Select-Object -Unique
+
+            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID])}
+            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).ID}
+            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).suspended}
+            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).CurrentGroups}
+
+            ADObject                         = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID])}
+            ADCurrentUserID                  = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).ObjectGUID}
+            ADCurrentUserEnabledStatus       = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).Enabled}
+            ADCurrentGroups                  = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).CurrentGroups}
         }
 
-        if ($IDConfig.AD.enabled -eq $true) {
-            $item = Set-AdditionalUserDataAD -userObject $item -ADUsers $adData.LookupByID -duplicateADUsers $adData.DuplicateIDs -logFile $logFile
+        foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
+            $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
         }
     }
 }
