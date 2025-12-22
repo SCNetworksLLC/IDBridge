@@ -131,13 +131,13 @@ if ($IDConfig.Student.Enabled -eq $true) {
 
         #AD Proposed Groups
         $proposedGroupListAD = @()
-        if ($item.GroupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
+        if ($groupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
         if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {$proposedGroupListAD += ($item.ApplicationGroups -split ",").trim()}
         if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListAD += ($item.EmailGroups -split ",").trim()}
 
         #Google Proposed Groups
         $proposedGroupListGoogle = @()
-        if ($item.GroupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
+        if ($groupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
         if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
 
         $additionalUserProperties = [PSCustomObject]@{
@@ -185,13 +185,13 @@ if ($IDConfig.Staff.Enabled -eq $true) {
 
         #AD Proposed Groups
         $proposedGroupListAD = @()
-        if ($item.GroupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
+        if ($groupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
         if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {$proposedGroupListAD += ($item.ApplicationGroups -split ",").trim()}
         if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListAD += ($item.EmailGroups -split ",").trim()}
 
         #Google Proposed Groups
         $proposedGroupListGoogle = @()
-        if (-not [string]::IsNullOrEmpty($item.GroupsAutomatic)) {$proposedGroupListGoogle += $item.GroupsAutomatic}
+        if (-not [string]::IsNullOrEmpty($groupsAutomatic)) {$proposedGroupListGoogle += $groupsAutomatic}
         if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
 
         $additionalUserProperties = [PSCustomObject]@{
