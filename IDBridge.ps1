@@ -237,8 +237,32 @@ if ($IDConfig.Staff.Enabled -eq $true) {
 
 
 #region Combine Data
-$filteredData = $dataStaff + $dataStudentFormatted
+#Combining this way so that blank datasets don't cause issues
+$filteredData = $(if($dataStaff) { $dataStaff }) + $(if($dataStudentFormatted) { $dataStudentFormatted })
 #endregion Combine Data
+
+
+
+
+#region Remove Duplicate IDs
+#Remove Users from Processing with Duplicate IDs from Google or AD
+if ($filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}) {
+    foreach ($item in $filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}) {
+        Write-Log -Path $logFile -Message ("Removing User from Processing with Duplicate Person ID: $($item.personID) - UPN: $($item.UPN) - AD Duplicate Status: $($item.ADDuplicateIDStatus) - Google Duplicate Status: $($item.GoogleDuplicateIDStatus)") -Level Info
+    }
+    $filteredData = $filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}
+}
+
+#Remove Users from Processing with Duplicate IDs from IDBridge Sources
+$duplicateIDs = $filteredData | Where-Object {-not [string]::IsNullOrWhiteSpace($_.personID)} | Group-Object -Property personID | Where-Object {$_.Count -gt 1} | Select-Object -ExpandProperty Name
+
+if ($duplicateIDs) {
+    foreach ($item in $filteredData | Where-Object { $_.personID -in $duplicateIDs }) {
+        Write-Log -Path $logFile -Message ("Removing User from Processing with Duplicate Person ID: $($item.personID) - UPN: $($item.UPN) - IDBridge Duplicate Status: DUPLICATE_ID") -Level Info
+    }
+      $filteredData = $filteredData | Where-Object {$_.personID -notin $duplicateIDs}
+}
+#endregion Remove Duplicate IDs
 
 
 
@@ -268,14 +292,13 @@ if ($IDConfig.AD.enabled -eq $true) {
     
     #Update filteredData list and ADLookupByID Table with AD User Info if No EmployeeID is Set and an existing user is found that matches
     $ADUsersToSetEmployeeID = Get-ADUsersToSetEmployeeID -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
-    foreach ($item in $filteredData) {
-        if ($ADUsersToSetEmployeeID[$item.personID]) {
+    foreach ($item in $filteredData | Where-Object {$ADUsersToSetEmployeeID.ContainsKey($_.personID)}) {
             Write-Log -Path $logFile -Message ("AD: Matched $($ADUsersToSetEmployeeID[$item.personID].User.UserPrincipalName) with EmployeeID: $($item.personID).")
-            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserID' -Value $ADUsersToSetEmployeeID[$item.personID].ID -Force
-            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentGroups' -Value $ADUsersToSetEmployeeID[$item.personID].Groups -Force
-            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserEnabledStatus' -Value $ADUsersToSetEmployeeID[$item.personID].EnabledStatus -Force
-            $adData.LookupByID[$item.personID] = $ADUsersToSetEmployeeID[$item.personID].User
-        }
+            $item | Add-Member -MemberType NoteProperty -Name 'ADObject' -Value ($ADUsersToSetEmployeeID[$item.personID].User) -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserID' -Value ($ADUsersToSetEmployeeID[$item.personID].ID) -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentGroups' -Value ($ADUsersToSetEmployeeID[$item.personID].Groups) -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserEnabledStatus' -Value ($ADUsersToSetEmployeeID[$item.personID].EnabledStatus) -Force
+            $adData.LookupByID[$item.personID] = ($ADUsersToSetEmployeeID[$item.personID].User)
     }
 
     #Users to Update
@@ -304,14 +327,13 @@ if ($IDConfig.Google.enabled -eq $true) {
     
     #Update filteredData list and GoogleLookupByID Table with Google User Info if No EmployeeID is Set and an existing user is found that matches
     $GoogleUsersToSetEmployeeID = Get-GoogleUsersToSetEmployeeID -UserList $filteredData -GoogleUsers $googleData.Users -logFile $logFile
-    foreach ($item in $filteredData) {
-        if ($GoogleUsersToSetEmployeeID[$item.personID]) {
+    foreach ($item in $filteredData | Where-Object {$GoogleUsersToSetEmployeeID.ContainsKey($_.personID)}) {
             Write-Log -Path $logFile -Message ("Google: Matched $($GoogleUsersToSetEmployeeID[$item.personID].User.primaryEmail) with EmployeeID: $($item.personID).")
-            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserID' -Value $GoogleUsersToSetEmployeeID[$item.personID].ID -Force
-            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentGroups' -Value $GoogleUsersToSetEmployeeID[$item.personID].Groups -Force
-            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserSuspendedStatus' -Value $GoogleUsersToSetEmployeeID[$item.personID].SuspendedStatus -Force
-            $googleData.LookupByID[$item.personID] = $GoogleUsersToSetEmployeeID[$item.personID].User
-        }
+            $item | Add-Member -MemberType NoteProperty -Name 'GoogleObject' -Value ($GoogleUsersToSetEmployeeID[$item.personID].User) -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserID' -Value ($GoogleUsersToSetEmployeeID[$item.personID].ID) -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentGroups' -Value ($GoogleUsersToSetEmployeeID[$item.personID].Groups) -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserSuspendedStatus' -Value ($GoogleUsersToSetEmployeeID[$item.personID].SuspendedStatus) -Force
+            $googleData.LookupByID[$item.personID] = ($GoogleUsersToSetEmployeeID[$item.personID].User)
     }
 
     #Users to Update

@@ -124,9 +124,6 @@ function Get-TargetDataAD {
         }
     }
 
-    #Remove duplicate users from main list
-    $ADUsers = $ADUsers | Where-Object { $_.ADDuplicateIDStatus -ne "DUPLICATE_ID" }
-
     # Build the lookup tables once to make the search faster
     $adUsersLookupByID = @{}
     foreach ($adUser in $ADUsers) {
@@ -140,7 +137,6 @@ function Get-TargetDataAD {
         Users = $ADUsers
         Groups = $ADGroups.Name
         OrgUnits = $ADOrgUnits
-        DuplicateIDs = $duplicateADUsers
         LookupByID = $adUsersLookupByID
     }
 }
