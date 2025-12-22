@@ -31,7 +31,7 @@ function Get-ADUsersToUpdate {
             }
             catch {
                 if ($_.CategoryInfo.Reason -eq 'ADIdentityNotFoundException') {
-                    Write-Log -Path $logFile -Message ("AD: New Username for " + $item.PersonID + ". Old username is " + $ADUser.SamAccountName)
+                    Write-Log -Path $logFile -Message ("AD: New Username found for " + $item.PersonID + ". Old username is " + $ADUser.SamAccountName + ". New username is " + $item.Username + ".")
 
                     $itemUpdateSplat["SamAccountName"] = $item.Username
                     $itemUpdateSplat["UserPrincipalName"] = $item.UPN

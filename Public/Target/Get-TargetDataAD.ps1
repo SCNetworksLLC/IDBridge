@@ -113,13 +113,12 @@ function Get-TargetDataAD {
     ).group
 
     if ($duplicateADUsers) {
-        Write-Log -Path $logFile -Message ("AD: Users found with Duplicate External IDs: " + ($duplicateADUsers | ConvertTo-Json -Compress)) -Level Error
+        Write-Log -Path $logFile -Message ("AD: Users found with Duplicate External IDs: " + ($duplicateADUsers | ConvertTo-Json -Compress))
     }
 
     #Add identifier if duplicate users exist in AD with the same employeeID
     foreach ($item in $ADUsers) {
         if ($item.UPN -in $duplicateADUsers.UserPrincipalName) {
-            #Write-Log -Path $logFile -Message ("AD: User with UPN: " + $userObject.UPN + " has a duplicate employeeID with another user.") -Level Error
             $item | Add-Member -MemberType NoteProperty -Name ADDuplicateIDStatus -Value "DUPLICATE_ID" -Force
         }
     }

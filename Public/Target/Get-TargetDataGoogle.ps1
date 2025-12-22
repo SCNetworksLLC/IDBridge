@@ -240,13 +240,12 @@ function Get-TargetDataGoogle {
     } | Group-Object -Property OrgID | Where-Object { $_.Count -gt 1 }).group
 
     if ($duplicateUsers) {
-        Write-Log -Path $logFile -Message ("Google: Users found with Duplicate External IDs: " + ($duplicateUsers | ConvertTo-Json -Compress)) -Level Error
+        Write-Log -Path $logFile -Message ("Google: Users found with Duplicate External IDs: " + ($duplicateUsers | ConvertTo-Json -Compress))
     }
 
     #Add identifier if duplicate users exist in Google with the same externalID
     foreach ($item in $googleUsers) {
         if ($item.primaryEmail -in $duplicateUsers.UPN) {
-            #Write-Log -Path $logFile -Message ("Google: User with UPN: " + $userObject.UPN + " has a duplicate externalID with another user.") -Level Error
             $item | Add-Member -MemberType NoteProperty -Name GoogleDuplicateIDStatus -Value "DUPLICATE_ID" -Force
         }
     }
