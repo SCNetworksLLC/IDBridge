@@ -250,7 +250,7 @@ if ($filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateI
     foreach ($item in $filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}) {
         Write-Log -Path $logFile -Message ("Removing User from Processing with Duplicate Person ID: $($item.personID) - UPN: $($item.UPN) - AD Duplicate Status: $($item.ADDuplicateIDStatus) - Google Duplicate Status: $($item.GoogleDuplicateIDStatus)") -Level Info
     }
-    $filteredData = $filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}
+    $filteredData = $filteredData | Where-Object {-not ($_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus) }
 }
 
 #Remove Users from Processing with Duplicate IDs from IDBridge Sources
