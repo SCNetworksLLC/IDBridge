@@ -126,7 +126,7 @@ function Get-TargetDataAD {
     # Build the lookup tables once to make the search faster
     $adUsersLookupByID = @{}
     foreach ($adUser in $ADUsers) {
-        if ($adUser.EmployeeID) {
+        if ($adUser.EmployeeID -and ($adUser.EmployeeID -notin $duplicateADUsers.employeeID)) {
             $adUsersLookupByID[$adUser.EmployeeID] = $adUser
         }
     }
@@ -136,6 +136,7 @@ function Get-TargetDataAD {
         Users = $ADUsers
         Groups = $ADGroups.Name
         OrgUnits = $ADOrgUnits
+        DuplicateUsers = $duplicateADUsers
         LookupByID = $adUsersLookupByID
     }
 }

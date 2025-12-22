@@ -161,15 +161,17 @@ if ($IDConfig.Student.Enabled -eq $true) {
             GooglePasswordType              = $IDConfig.Student.$($item.Grade).Google.PasswordType
             GoogleGroupsProposed            = $proposedGroupListGoogle | Select-Object -Unique
 
-            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID])}
-            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).ID}
-            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).suspended}
-            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
-
             ADObject                         = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID])}
             ADCurrentUserID                  = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).ObjectGUID}
             ADCurrentUserEnabledStatus       = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).Enabled}
             ADCurrentGroups                  = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).CurrentGroups}
+            ADDuplicateIDStatus              = if ($IDConfig.AD.enabled -eq $true -and ($item.PersonID -in $adData.DuplicateUsers.employeeID)) {"DUPLICATE_ID"}
+
+            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID])}
+            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).ID}
+            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).suspended}
+            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
+            GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
         }
 
         foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
@@ -191,7 +193,7 @@ if ($IDConfig.Staff.Enabled -eq $true) {
 
         #Google Proposed Groups
         $proposedGroupListGoogle = @()
-        if (-not [string]::IsNullOrEmpty($groupsAutomatic)) {$proposedGroupListGoogle += $groupsAutomatic}
+        if ($groupsAutomatic) {$proposedGroupListGoogle += $groupsAutomatic}
         if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
 
         $additionalUserProperties = [PSCustomObject]@{
@@ -215,15 +217,17 @@ if ($IDConfig.Staff.Enabled -eq $true) {
             GooglePasswordType              = $IDConfig.Staff.Google.PasswordType
             GoogleGroupsProposed            = $proposedGroupListGoogle | Select-Object -Unique
 
-            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID])}
-            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).ID}
-            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).suspended}
-            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).CurrentGroups}
-
             ADObject                         = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID])}
             ADCurrentUserID                  = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).ObjectGUID}
             ADCurrentUserEnabledStatus       = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).Enabled}
             ADCurrentGroups                  = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).CurrentGroups}
+            ADDuplicateIDStatus              = if ($IDConfig.AD.enabled -eq $true -and ($item.PersonID -in $adData.DuplicateUsers.employeeID)) {"DUPLICATE_ID"}
+
+            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID])}
+            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).ID}
+            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).suspended}
+            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).CurrentGroups}
+            GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
         }
 
         foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {

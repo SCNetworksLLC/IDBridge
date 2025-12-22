@@ -257,7 +257,9 @@ function Get-TargetDataGoogle {
     $googleUsersLookupByID = @{}
     foreach ($gUser in $googleUsers) {
         foreach ($extId in $gUser.externalIDs) {
-            $googleUsersLookupByID[$extId.value] = $gUser
+            if ($extId.value -notin $duplicateUsers.OrgID) {
+                $googleUsersLookupByID[$extId.value] = $gUser
+            }
         }
     }
     #endregion Lookup Table Creation
@@ -268,6 +270,7 @@ function Get-TargetDataGoogle {
         Users             = $googleUsers
         Groups            = $googleGroups
         OrgUnits          = $googleOrgUnits
+        DuplicateUsers    = $duplicateUsers
         LookupByID        = $googleUsersLookupByID
     }
 }
