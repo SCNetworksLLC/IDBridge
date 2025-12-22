@@ -47,12 +47,13 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 if ($IDConfig.Staff.Enabled -eq $true) {
     try {
         $paramsStaff = @{
-            personType  = "Staff"
-            sheetID     = $IDConfig.GoogleSheet.staffSheetID
-            sheetRange  = $IDConfig.GoogleSheet.staffSheetRange
-            userCount   = $IDConfig.Staff.SafetyCheckCount
-            logFile     = $logFile
-            headers     = $headers
+            personType                  = "Staff"
+            sheetID                     = $IDConfig.GoogleSheet.staffSheetID
+            sheetRange                  = $IDConfig.GoogleSheet.staffSheetRange
+            userCount                   = $IDConfig.Staff.SafetyCheckCount
+            userCountSafetyPercentage   = $IDConfig.Staff.SafetyCheckPercentage
+            logFile                     = $logFile
+            headers                     = $headers
         }
 
         $dataStaff = Get-SourceDataGSheet @paramsStaff
@@ -62,8 +63,28 @@ if ($IDConfig.Staff.Enabled -eq $true) {
 #endregion Spreadsheet Data Staff
 
 
+#region Student - GSheet
+if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "GSheet") {
+    try {
+        $paramsStudent = @{
+            personType                  = "Student"
+            sheetID                     = $IDConfig.GoogleSheet.studentSheetID
+            sheetRange                  = $IDConfig.GoogleSheet.studentSheetRange
+            userCount                   = $IDConfig.Student.SafetyCheckCount
+            userCountSafetyPercentage   = $IDConfig.Student.SafetyCheckPercentage
+            logFile                     = $logFile
+            headers                     = $headers
+        }
+
+        $dataStudent = Get-SourceDataGSheet @paramsStudent
+    }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
+}
+#endregion Student - GSheet
+
+
 #region Student - Skyward SMS
-if ($IDConfig.Student.Enabled -eq $true) {
+if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "SkywardSMS") {
     try {
         $paramsStudent = @{
             BaseUrl                 = $IDConfig.SkywardSMS.BaseUrl
@@ -77,12 +98,12 @@ if ($IDConfig.Student.Enabled -eq $true) {
             VerboseLogging          = $IDConfig.Debug.verboseLogging
         }
 
-        $dataStudent = Get-SourceDataSkywardSMS @paramsStudent
+        $dataStudentSource = Get-SourceDataSkywardSMS @paramsStudent
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 
     #Transform Data to be compatible with IDBridge
-    $dataStudentFormatted = $dataStudent | ForEach-Object {
+    $dataStudent = $dataStudentSource | ForEach-Object {
         [PSCustomObject]@{
             PersonID             = $_.DisplayId
             NameFirst            = $_.FirstName
@@ -125,9 +146,9 @@ if ($IDConfig.AD.enabled -eq $true) {
 #region Data Modifcation
 #Add additional data to the user objects
 if ($IDConfig.Student.Enabled -eq $true) {
-    foreach ($item in $dataStudentFormatted) {
+    foreach ($item in $dataStudent) {
         $groupsAutomatic = $null
-        $groupsAutomatic = (Get-UserGroupsStudent -building $item.Building -grade $item.Grade -config $IDConfig.GroupsStudent)
+        $groupsAutomatic = if (Test-Path Function:\Get-CustomStudentGroups) {Get-CustomStudentGroups -building $item.Building -grade $item.Grade}
 
         #AD Proposed Groups
         $proposedGroupListAD = @()
@@ -146,6 +167,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
             UPN                             = "$($item.Username)@$($IDConfig.Student.DomainName)"
             Company                         = $IDConfig.Student.Company
             GroupsAutomatic                 = $groupsAutomatic
+            JobTitle                        = $item.JobTitle
 
             ADOrganizationalUnit            = "OU=Grade-$($item.Grade),OU=Students,$($IDConfig.AD.userRootOU)"
             ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
@@ -174,6 +196,17 @@ if ($IDConfig.Student.Enabled -eq $true) {
             GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
         }
 
+        #Custom Data Loaded from Custom Script
+        if ($IDConfig.Custom.Student.DataModification -and (Test-Path Function:\Get-CustomStudentDataModification)) {
+            try {
+                $additionalUserProperties = Get-CustomStudentDataModification -Item $item -AdditionalUserProperties $additionalUserProperties -IDConfig $IDConfig -logFile $logFile
+            }
+            catch {
+                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message "Custom Student Data Modification Script Error: $_" -WriteError)
+            }
+        }
+
+        #Add the additional properties to the user object
         foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
             $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
         }
@@ -183,7 +216,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
 if ($IDConfig.Staff.Enabled -eq $true) {
     foreach ($item in $dataStaff) {
         $groupsAutomatic = $null
-        $groupsAutomatic = (Get-UserGroupsStaff -building $item.Building -personType $item.PersonType -config $IDConfig.GroupsStaff)
+        $groupsAutomatic = if (Test-Path Function:\Get-CustomStaffGroups) {Get-CustomStaffGroups -building $item.Building -personType $item.PersonType}
 
         #AD Proposed Groups
         $proposedGroupListAD = @()
@@ -230,6 +263,17 @@ if ($IDConfig.Staff.Enabled -eq $true) {
             GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
         }
 
+        #Custom Data Loaded from Custom Script
+        if ($IDConfig.Custom.Staff.DataModification -and (Test-Path Function:\Get-CustomStaffDataModification)) {
+            try {
+                $additionalUserProperties = Get-CustomStaffDataModification -Item $item -AdditionalUserProperties $additionalUserProperties -IDConfig $IDConfig -logFile $logFile
+            }
+            catch {
+                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message "Custom Staff Data Modification Script Error: $_" -WriteError)
+            }
+        }
+
+        #Add the additional properties to the user object
         foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
             $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
         }
@@ -242,7 +286,7 @@ if ($IDConfig.Staff.Enabled -eq $true) {
 
 #region Combine Data
 #Combining this way so that blank datasets don't cause issues
-$filteredData = $(if($dataStaff) { $dataStaff }) + $(if($dataStudentFormatted) { $dataStudentFormatted })
+$filteredData = $(if($dataStaff) { $dataStaff }) + $(if($dataStudent) { $dataStudent })
 #endregion Combine Data
 
 

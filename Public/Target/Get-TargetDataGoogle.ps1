@@ -242,13 +242,6 @@ function Get-TargetDataGoogle {
     if ($duplicateUsers) {
         Write-Log -Path $logFile -Message ("Google: Users found with Duplicate External IDs: " + ($duplicateUsers | ConvertTo-Json -Compress))
     }
-
-    #Add identifier if duplicate users exist in Google with the same externalID
-    foreach ($item in $googleUsers) {
-        if ($item.primaryEmail -in $duplicateUsers.UPN) {
-            $item | Add-Member -MemberType NoteProperty -Name GoogleDuplicateIDStatus -Value "DUPLICATE_ID" -Force
-        }
-    }
     #endregion Get Duplicate IDs
 
 

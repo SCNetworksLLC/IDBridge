@@ -116,13 +116,6 @@ function Get-TargetDataAD {
         Write-Log -Path $logFile -Message ("AD: Users found with Duplicate External IDs: " + ($duplicateADUsers | ConvertTo-Json -Compress))
     }
 
-    #Add identifier if duplicate users exist in AD with the same employeeID
-    foreach ($item in $ADUsers) {
-        if ($item.UPN -in $duplicateADUsers.UserPrincipalName) {
-            $item | Add-Member -MemberType NoteProperty -Name ADDuplicateIDStatus -Value "DUPLICATE_ID" -Force
-        }
-    }
-
     # Build the lookup tables once to make the search faster
     $adUsersLookupByID = @{}
     foreach ($adUser in $ADUsers) {
