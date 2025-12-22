@@ -148,7 +148,7 @@ if ($IDConfig.AD.enabled -eq $true) {
 if ($IDConfig.Student.Enabled -eq $true) {
     foreach ($item in $dataStudent) {
         $groupsAutomatic = $null
-        $groupsAutomatic = if (Test-Path Function:\Get-CustomStudentGroups) {Get-CustomStudentGroups -building $item.Building -grade $item.Grade}
+        $groupsAutomatic = if ($IDConfig.Custom.Student.Groups -and (Test-Path Function:\Get-CustomStudentGroups)) {Get-CustomStudentGroups -building $item.Building -grade $item.Grade}
 
         #AD Proposed Groups
         $proposedGroupListAD = @()
@@ -167,7 +167,9 @@ if ($IDConfig.Student.Enabled -eq $true) {
             UPN                             = "$($item.Username)@$($IDConfig.Student.DomainName)"
             Company                         = $IDConfig.Student.Company
             GroupsAutomatic                 = $groupsAutomatic
+            Building                        = $item.Building
             JobTitle                        = $item.JobTitle
+            Word                            = $item.Word
 
             ADOrganizationalUnit            = "OU=Grade-$($item.Grade),OU=Students,$($IDConfig.AD.userRootOU)"
             ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
@@ -216,7 +218,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
 if ($IDConfig.Staff.Enabled -eq $true) {
     foreach ($item in $dataStaff) {
         $groupsAutomatic = $null
-        $groupsAutomatic = if (Test-Path Function:\Get-CustomStaffGroups) {Get-CustomStaffGroups -building $item.Building -personType $item.PersonType}
+        $groupsAutomatic = if ($IDConfig.Custom.Staff.Groups -and (Test-Path Function:\Get-CustomStaffGroups)) {Get-CustomStaffGroups -building $item.Building -personType $item.PersonType}
 
         #AD Proposed Groups
         $proposedGroupListAD = @()
@@ -235,6 +237,9 @@ if ($IDConfig.Staff.Enabled -eq $true) {
             UPN                             = "$($item.Username)@$($IDConfig.Staff.DomainName)"
             Company                         = $IDConfig.Staff.Company
             GroupsAutomatic                 = $groupsAutomatic
+            Building                        = $item.Building
+            JobTitle                        = $item.JobTitle
+            Word                            = $item.Word
 
             ADOrganizationalUnit            = "OU=$($item.PersonType),OU=Staff,$($IDConfig.AD.userRootOU)"
             ADOrganizationalUnitTrash       = "OU=$(Get-Date -Format yyyy),OU=Staff,OU=Trash,$($IDConfig.AD.userRootOU)"
