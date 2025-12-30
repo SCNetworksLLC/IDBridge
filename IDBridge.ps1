@@ -405,29 +405,35 @@ if ($IDConfig.Google.enabled -eq $true) {
     if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
         $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
     }
-
-    #Get Orphaned Google Users for Deactivation
-    if ($IDConfig.Staff.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStaff -eq $true) {
-
-        if ($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
-            $trashOU = "$($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
-        } else {
-            $trashOU = $IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath
-        }
-
-        $GoogleUsersOrphanedStaff = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Staff -TrashOU $trashOU -logFile $logFile
-    }
-
-    if ($IDConfig.Student.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStudent -eq $true) {
-        if ($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
-            $trashOU = "$($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
-        } else {
-            $trashOU = $IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath
-        }
-        $GoogleUsersOrphanedStudent = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Students -TrashOU $trashOU -logFile $logFile
-    }
 }
 #endregion Google Processing Lists
+
+
+
+
+#region Google Orphaned List
+#Get Orphaned Google Users for Deactivation
+if ($IDConfig.Staff.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStaff -eq $true) {
+
+    if ($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
+        $trashOU = "$($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
+    } else {
+        $trashOU = $IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath
+    }
+
+    $GoogleUsersOrphanedStaff = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Staff -TrashOU $trashOU -logFile $logFile
+}
+
+if ($IDConfig.Student.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStudent -eq $true) {
+    if ($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
+        $trashOU = "$($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
+    } else {
+        $trashOU = $IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath
+    }
+    
+    $GoogleUsersOrphanedStudent = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Students -TrashOU $trashOU -logFile $logFile
+}
+#endregion Google Orphaned List
 
 
 
