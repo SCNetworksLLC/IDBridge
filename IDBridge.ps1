@@ -77,6 +77,8 @@ if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "G
         }
 
         $dataStudent = Get-SourceDataGSheet @paramsStudent
+
+        $dataStudent | Export-CSV -NoTypeInformation -Path "C:\IDBridge\Exports\IDBridge_StudentData_$(Get-Date -Format yyyyMMdd_HHmmss).csv" -Force
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 }
@@ -116,6 +118,8 @@ if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "S
             Word                 = $_.FoodServiceKeyPadNumber
         }
     }
+
+    $dataStudent | Export-CSV -NoTypeInformation -Path "C:\IDBridge\Exports\IDBridge_StudentData_$(Get-Date -Format yyyyMMdd_HHmmss).csv" -Force
 }
 #endregion Student - Skyward SMS
 
@@ -167,6 +171,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
             UPN                             = "$($item.Username)@$($IDConfig.Student.DomainName)"
             Company                         = $IDConfig.Student.Company
             GroupsAutomatic                 = $groupsAutomatic
+
             Building                        = $item.Building
             JobTitle                        = $item.JobTitle
             Word                            = $item.Word
@@ -237,6 +242,7 @@ if ($IDConfig.Staff.Enabled -eq $true) {
             UPN                             = "$($item.Username)@$($IDConfig.Staff.DomainName)"
             Company                         = $IDConfig.Staff.Company
             GroupsAutomatic                 = $groupsAutomatic
+            
             Building                        = $item.Building
             JobTitle                        = $item.JobTitle
             Word                            = $item.Word
