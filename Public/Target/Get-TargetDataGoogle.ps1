@@ -58,7 +58,15 @@ function Get-TargetDataGoogle {
     catch {
         Throw $_
     }
+
+    #Get Students & Staff Only
+    $googleStudents = $googleUsers | Where-Object {$_.orgUnitPath -like "*/Students/*" -and $_.orgUnitPath -notlike "*Trash*"}
+    $googleStaff = $googleUsers | Where-Object {$_.orgUnitPath -like "*/Staff/*" -and $_.orgUnitPath -notlike "*Trash*"}
+
     #endregion Get Google Users
+
+
+
 
     #region Google Groups and Memberships
     #Get Google Groups - Stores data in $googleGroups
@@ -213,6 +221,9 @@ function Get-TargetDataGoogle {
     }
     #endregion Google Groups and Memberships
 
+
+
+
     #region Get Google Org Units
     try {
         $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
@@ -224,6 +235,8 @@ function Get-TargetDataGoogle {
         Throw $_
     }
     #endregion Get Google Org Units
+
+
 
 
     #region Get Duplicate IDs
@@ -245,6 +258,8 @@ function Get-TargetDataGoogle {
     #endregion Get Duplicate IDs
 
 
+
+
     #region Lookup Table Creation
     # Build the lookup tables once to make the search faster
     $googleUsersLookupByID = @{}
@@ -258,6 +273,8 @@ function Get-TargetDataGoogle {
     #endregion Lookup Table Creation
 
 
+
+
     #Return a single object with all data
     return [PSCustomObject]@{
         Users             = $googleUsers
@@ -265,5 +282,7 @@ function Get-TargetDataGoogle {
         OrgUnits          = $googleOrgUnits
         DuplicateUsers    = $duplicateUsers
         LookupByID        = $googleUsersLookupByID
+        Students          = $googleStudents
+        Staff             = $googleStaff
     }
 }

@@ -199,7 +199,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
             GoogleObject                     = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID])}
             GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).ID}
             GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).suspended}
-            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
+            GoogleCurrentGroups              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
             GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
         }
 
@@ -270,7 +270,7 @@ if ($IDConfig.Staff.Enabled -eq $true) {
             GoogleObject                     = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID])}
             GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).ID}
             GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).suspended}
-            GoogleCurrentUserGroups          = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).CurrentGroups}
+            GoogleCurrentGroups              = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).CurrentGroups}
             GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
         }
 
@@ -345,9 +345,6 @@ if ($IDConfig.Google.enabled -eq $true -and ($IDConfig.Google.enableGroupProcess
 if ($IDConfig.AD.enabled -eq $true) {
     #Org Units to Create
     $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.AD.userRootOU -CurrentOrgUnits $adData.OrgUnits -logFile $logFile
-
-    #Users to Deactivate
-    $ADUsersToDeactivate = Get-ADUsersToDeactivate -UserList $filteredData -logFile $logFile
     
     #Update filteredData list and ADLookupByID Table with AD User Info if No EmployeeID is Set and an existing user is found that matches
     $ADUsersToSetEmployeeID = Get-ADUsersToSetEmployeeID -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
@@ -359,6 +356,9 @@ if ($IDConfig.AD.enabled -eq $true) {
             $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserEnabledStatus' -Value ($ADUsersToSetEmployeeID[$item.personID].EnabledStatus) -Force
             $adData.LookupByID[$item.personID] = ($ADUsersToSetEmployeeID[$item.personID].User)
     }
+
+    #Users to Deactivate
+    $ADUsersToDeactivate = Get-ADUsersToDeactivate -UserList $filteredData -logFile $logFile
 
     #Users to Update
     $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $filteredData -LookupByID $adData.LookupByID -logFile $logFile
@@ -380,9 +380,6 @@ if ($IDConfig.AD.enabled -eq $true) {
 if ($IDConfig.Google.enabled -eq $true) {
     #Org Units to Create
     $GoogleOrgUnitsForProcessing = Get-GoogleOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.Google.userRootOU -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath -logFile $logFile
-
-    #Users to Deactivate
-    $GoogleUsersToDeactivate = Get-GoogleUsersToDeactivate -UserList $filteredData -logFile $logFile
     
     #Update filteredData list and GoogleLookupByID Table with Google User Info if No EmployeeID is Set and an existing user is found that matches
     $GoogleUsersToSetEmployeeID = Get-GoogleUsersToSetEmployeeID -UserList $filteredData -GoogleUsers $googleData.Users -logFile $logFile
@@ -398,12 +395,36 @@ if ($IDConfig.Google.enabled -eq $true) {
     #Users to Update
     $GoogleUsersToUpdate = Get-GoogleUsersToUpdate -UserList $filteredData -LookupByID $googleData.LookupByID -GoogleUsers $googleData.Users -logFile $logFile
 
+    #Users to Deactivate
+    $GoogleUsersToDeactivate = Get-GoogleUsersToDeactivate -UserList $filteredData -logFile $logFile
+
     #Users to Create
     $GoogleUsersToCreate = Get-GoogleUsersToCreate -UserList $filteredData -GoogleUsers $googleData.Users -logFile $logFile
 
     #Groups to Update
     if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
         $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
+    }
+
+    #Get Orphaned Google Users for Deactivation
+    if ($IDConfig.Staff.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStaff -eq $true) {
+
+        if ($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
+            $trashOU = "$($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
+        } else {
+            $trashOU = $IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath
+        }
+
+        $GoogleUsersOrphanedStaff = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Staff -TrashOU $trashOU -logFile $logFile
+    }
+
+    if ($IDConfig.Student.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStudent -eq $true) {
+        if ($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
+            $trashOU = "$($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
+        } else {
+            $trashOU = $IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath
+        }
+        $GoogleUsersOrphanedStudent = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Students -TrashOU $trashOU -logFile $logFile
     }
 }
 #endregion Google Processing Lists
