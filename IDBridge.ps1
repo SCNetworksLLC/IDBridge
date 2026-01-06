@@ -111,7 +111,9 @@ if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "S
             NameFirst            = $_.FirstName
             NameLast             = $_.LastName
             Username             = $_.DisplayId
-            Building             = (Get-Culture).TextInfo.ToTitleCase($($_.SchoolName).ToLower())
+            #Building             = (Get-Culture).TextInfo.ToTitleCase($($_.SchoolName).ToLower())
+            Building             = if ($IDConfig.Student.BuildingIDMapping[$_.SchoolID].Name) {$IDConfig.Student.BuildingIDMapping."$_.SchoolID".Name} else {$IDConfig.Student.BuildingIDMapping."000".Name}
+            BuildingID           = if ($IDConfig.Student.BuildingIDMapping[$_.SchoolID].Code) {$IDConfig.Student.BuildingIDMapping."$_.SchoolID".Code} else {$IDConfig.Student.BuildingIDMapping."000".Code}
             Grade                = (Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)
             GradYear             = $_.GradYr
             JobTitle             = "Student - Grade $(Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)"
