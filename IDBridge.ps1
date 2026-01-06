@@ -116,6 +116,7 @@ if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "S
             GradYear             = $_.GradYr
             JobTitle             = "Student - Grade $(Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)"
             Word                 = $_.FoodServiceKeyPadNumber
+            IDBActive            = if ($_.LastSeen -ge (Get-Date).AddDays(-7)) {$true} else {$false}
         }
     }
 

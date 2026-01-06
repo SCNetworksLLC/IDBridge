@@ -201,15 +201,18 @@ function Get-SourceDataSkywardSMS {
         $schoolIDTemp = $null
         if ($schoolLookup[$item.DefaultSchoolId]) {
             $item | Add-Member -MemberType NoteProperty -Name SchoolName -Value $($schoolLookup[$item.DefaultSchoolId]) -Force
+            $item | Add-Member -MemberType NoteProperty -Name SchoolID -Value $($item.DefaultSchoolId) -Force
         } else {
             $schoolIDTemp = $item.SchoolIds | Where-Object {$_ -notin $ExcludeEntityIDs} | Select-Object -First 1
             $item | Add-Member -MemberType NoteProperty -Name SchoolName -Value $($schoolLookup[$schoolIDTemp]) -Force
+            $item | Add-Member -MemberType NoteProperty -Name SchoolID -Value $($schoolIDTemp) -Force
         }
     }
 
-    #Add IDBActive Property and set to false by default
+    #Add LastSeen Property
+    $lastSeenDate = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     foreach ($item in $students) {
-        $item | Add-Member -MemberType NoteProperty -Name 'IDBActive' -Value $true -Force
+        $item | Add-Member -MemberType NoteProperty -Name 'LastSeen' -Value $lastSeenDate -Force
     }
 
     #Make Sure Data Returned is over the safety check count
@@ -219,6 +222,55 @@ function Get-SourceDataSkywardSMS {
 
     Write-Log -Path $logFile -Message "Finished fetching all students from Skyward SMS: $($students.Count)"
 
+
+
+
+    #region User State
+    #Import previous user state file
+    if (Test-Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv") {
+        $userState = Import-Csv -Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv"
+
+        #Convert LastSeen to DateTime
+        $userState = $userState | ForEach-Object { $_.LastSeen = [datetime]$_.LastSeen; $_ }
+    }
+
+    if ($userState) {
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message "Imported previous student user state with $($userState.Count) records"
+        }
+
+        #Combine current and previous user state to get latest LastSeen
+        $lookup = @{}
+
+        foreach ($item in ($students + $userState)) {
+            if (-not $lookup.ContainsKey($item.NameID.ToString()) -or [datetime]$item.LastSeen -gt [datetime]$lookup[$item.NameID.ToString()].LastSeen) {
+                $lookup[$item.NameID.ToString()] = $item
+            }
+        }
+
+        #Export updated user state
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message "User state comparison completed, merged to $($lookup.Count) unique records"
+            Write-Log -Path $logFile -Message "Exporting updated student user state"
+        }
+
+        $lookup.Values | Export-Csv -Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
+    } else {
+        if ($VerboseLogging) {
+            Write-Log -Path $logFile -Message "No previous student user state file found, skipping user state comparison"
+            Write-Log -Path $logFile -Message "Exporting current student user state with $($students.Count) records"
+        }
+
+        $students | Export-Csv -Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
+    }
+    #endregion User State
+
+
+
     # Return the collection of student objects
-    return $students
+    if ($UserState) {
+        return $lookup.Values
+    } else {
+        return $students
+    }
 }
