@@ -166,7 +166,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
         if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
 
         $additionalUserProperties = [PSCustomObject]@{
-            IDBActive                       = $IDConfig.Student.$($item.Grade).Enabled
+            IDBActive                       = if ($item.IDBActive -eq $true) { $IDConfig.Student.$($item.Grade).Enabled }
             PersonTypeID                    = "1"
             UPN                             = "$($item.Username)@$($IDConfig.Student.DomainName)"
             Company                         = $IDConfig.Student.Company

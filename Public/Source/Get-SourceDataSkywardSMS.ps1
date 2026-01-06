@@ -209,7 +209,7 @@ function Get-SourceDataSkywardSMS {
 
     #Add IDBActive Property and set to false by default
     foreach ($item in $students) {
-        $item | Add-Member -MemberType NoteProperty -Name 'IDBActive' -Value $false -Force
+        $item | Add-Member -MemberType NoteProperty -Name 'IDBActive' -Value $true -Force
     }
 
     #Make Sure Data Returned is over the safety check count
