@@ -71,6 +71,10 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["Enabled"] = $true
         }
 
+        if ($item.ForceDisable -eq "TRUE") {
+            $itemUpdateSplat["Enabled"] = $false
+        }
+
         if ($ADUser.EmployeeType -ne $item.PersonTypeID -or $ADUser.extensionAttribute1 -ne $item.PersonTypeID) {
             $itemUpdateSplat["Replace"] = @{ 'EmployeeType' = ($item.PersonTypeID) ; 'extensionAttribute1' = ($item.PersonTypeID)}
         }

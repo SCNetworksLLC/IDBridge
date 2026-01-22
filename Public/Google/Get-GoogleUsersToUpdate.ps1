@@ -56,7 +56,11 @@ function Get-GoogleUsersToUpdate {
             $itemUpdateSplat["Suspended"] = 'false'
         }
 
-        if ($googleUser.orgUnitPath -ne $item.GoogleOrganizationalUnit) {
+        if ($item.ForceDisable -eq "TRUE") {
+            $itemUpdateSplat["Suspended"] = 'true'
+        }
+
+        if ($googleUser.orgUnitPath -ne $item.GoogleOrganizationalUnit -and $item.GoogleOUOverride -ne "TRUE") {
             $itemUpdateSplat["OrgUnitPath"] = $item.GoogleOrganizationalUnit
         }
 
