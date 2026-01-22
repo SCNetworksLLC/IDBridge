@@ -77,8 +77,6 @@ if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "G
         }
 
         $dataStudent = Get-SourceDataGSheet @paramsStudent
-
-        $dataStudent | Export-CSV -NoTypeInformation -Path "C:\IDBridge\Exports\IDBridge_StudentData_$(Get-Date -Format yyyyMMdd_HHmmss).csv" -Force
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
 }
@@ -122,8 +120,6 @@ if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "S
             IDBActive            = if ($_.LastSeen -ge (Get-Date).AddDays(-$($IDConfig.Student.DaysLastSeen))) {$true} else {$false}
         }
     }
-
-    $dataStudent | Export-CSV -NoTypeInformation -Path "C:\IDBridge\Exports\IDBridge_StudentData_$(Get-Date -Format yyyyMMdd_HHmmss).csv" -Force
 }
 #endregion Student - Skyward SMS
 
@@ -169,8 +165,14 @@ if ($IDConfig.Student.Enabled -eq $true) {
         if ($groupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
         if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
 
+        #Check if Grade Exists in Config
+        if (-not $IDConfig.Student.GradeSettings.$($item.Grade)) {
+            $item.IDBActive = $false
+            Write-Log -Path $logFile -Message ("Student: Grade " + $item.Grade + " not found in configuration file for PersonID: " + $item.PersonID + ". Disabling user from processing.") -Level Warn
+        }
+
         $additionalUserProperties = [PSCustomObject]@{
-            IDBActive                       = if ($item.IDBActive -eq $true) { $IDConfig.Student.$($item.Grade).Enabled }
+            IDBActive                       = if ($item.IDBActive -eq $true) { $IDConfig.Student.GradeSettings.$($item.Grade).Enabled }
             PersonTypeID                    = "1"
             UPN                             = "$($item.Username)@$($IDConfig.Student.DomainName)"
             Company                         = $IDConfig.Student.Company
@@ -181,17 +183,19 @@ if ($IDConfig.Student.Enabled -eq $true) {
             Word                            = $item.Word
 
             ADOrganizationalUnit            = "OU=Grade-$($item.Grade),OU=Students,$($IDConfig.AD.userRootOU)"
-            ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
-            ADPassPrefix                    = $IDConfig.Student.$($item.Grade).AD.passPrefix
-            ADChangePasswordAtLogon         = $IDConfig.Student.$($item.Grade).AD.ChangePasswordAtLogon
-            ADPasswordType                  = $IDConfig.Student.$($item.Grade).AD.PasswordType
+            #ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
+            ADOrganizationalUnitTrash       = "OU=$(Get-Date -Format yyyy),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
+            ADPassPrefix                    = $IDConfig.Student.GradeSettings.$($item.Grade).AD.passPrefix
+            ADChangePasswordAtLogon         = $IDConfig.Student.GradeSettings.$($item.Grade).AD.ChangePasswordAtLogon
+            ADPasswordType                  = $IDConfig.Student.GradeSettings.$($item.Grade).AD.PasswordType
             ADGroupsProposed                = $proposedGroupListAD | Select-Object -Unique
 
             GoogleOrganizationalUnit        = "$($IDConfig.Google.userRootOU)/Students/Grade-$($item.Grade)"
-            GoogleOrganizationalUnitTrash   = "/Trash/Students/$($item.GradYear)"
-            GooglePassPrefix                = $IDConfig.Student.$($item.Grade).Google.passPrefix
-            GoogleChangePasswordAtLogon     = $IDConfig.Student.$($item.Grade).Google.ChangePasswordAtLogon
-            GooglePasswordType              = $IDConfig.Student.$($item.Grade).Google.PasswordType
+            #GoogleOrganizationalUnitTrash   = "/Trash/Students/$($item.GradYear)"
+            GoogleOrganizationalUnitTrash   = "/Trash/Students/$(Get-Date -Format yyyy)"
+            GooglePassPrefix                = $IDConfig.Student.GradeSettings.$($item.Grade).Google.passPrefix
+            GoogleChangePasswordAtLogon     = $IDConfig.Student.GradeSettings.$($item.Grade).Google.ChangePasswordAtLogon
+            GooglePasswordType              = $IDConfig.Student.GradeSettings.$($item.Grade).Google.PasswordType
             GoogleGroupsProposed            = $proposedGroupListGoogle | Select-Object -Unique
 
             ADObject                         = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID])}

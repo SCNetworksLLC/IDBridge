@@ -101,9 +101,12 @@ function Get-SourceDataGSheet {
                 $filteredData += $item
             }
         } else {
-            #Remove Users where the process field is false
-            #$skippedData += $item
-            Write-Log -Path $logFile -Message ("Skipping Person Due to process field set to false: " + $item.PersonID)
+            #Check if data actually exists before logging - need this due to blank rows in sheet being read as objects with empty properties
+            if ($item.PersonID -ne "") {
+                #Remove Users where the process field is false
+                #$skippedData += $item
+                Write-Log -Path $logFile -Message ("Skipping Person Due to process field set to false: " + $item.PersonID)
+            }
         }
     }
 
