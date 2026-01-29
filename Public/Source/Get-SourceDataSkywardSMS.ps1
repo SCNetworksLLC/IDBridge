@@ -261,6 +261,10 @@ function Get-SourceDataSkywardSMS {
             Write-Log -Path $logFile -Message "Exporting current student user state with $($students.Count) records"
         }
 
+        if (-not (Test-Path "C:\IDBridge\Data")) {
+            New-Item -Path "C:\IDBridge\Data" -ItemType Directory -Force | Out-Null
+        }
+        
         $students | Export-Csv -Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
     }
     #endregion User State
