@@ -57,8 +57,7 @@ function Test-IDBridgeConfiguration {
         "AD.json",
         "PersonTypeThree.json",
         "Staff.json",
-        "Student.json",
-        "Staff.json"
+        "Student.json"
     )
 
     Write-Host "Checking IDBridge configuration folder structure..." -ForegroundColor Cyan
