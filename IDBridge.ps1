@@ -718,9 +718,9 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
 
 
 
-#region Export User List
-$filteredData | Export-Csv -Path "C:\IDBridge\Exports\UserList-Staff.csv" -NoTypeInformation -Force
-#endregion Export User List
+#region Export User Staff List
+$filteredData | Where-Object {$_.PersonTypeID -ne "1"} | Export-Csv -Path "C:\IDBridge\Exports\UserList-Staff.csv" -NoTypeInformation -Force
+#endregion Export User Staff List
 
 
 
