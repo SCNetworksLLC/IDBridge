@@ -21,6 +21,7 @@ function Get-TargetDataAD {
         "DisplayName"
         "DistinguishedName"
         "Company"
+        "Department"
         "CN"
         "CanonicalName"
         "MemberOf"
