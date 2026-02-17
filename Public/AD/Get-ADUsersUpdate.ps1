@@ -67,6 +67,10 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["Company"] = $item.company
         }
 
+        if ($ADUser.Department -ne $item.Department) {
+            $itemUpdateSplat["Department"] = $item.Department
+        }
+
         if ($ADUser.Enabled -ne $true) {
             $itemUpdateSplat["Enabled"] = $true
         }

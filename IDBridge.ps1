@@ -181,6 +181,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
             Building                        = $item.Building
             JobTitle                        = $item.JobTitle
             Word                            = $item.Word
+            Department                      = "Grade-$($item.Grade)"
 
             ADOrganizationalUnit            = "OU=Grade-$($item.Grade),OU=Students,$($IDConfig.AD.userRootOU)"
             #ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"

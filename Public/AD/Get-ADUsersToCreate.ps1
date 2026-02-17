@@ -26,6 +26,7 @@ function Get-ADUsersToCreate {
             Title                 = $item.JobTitle
             Office                = $item.Building
             Company               = $item.Company
+            Department            = $item.Department
             Division              = (Get-Date -format yyyy-MM-dd-HH:mm)
             OtherAttributes       = @{ 'EmployeeType' = $item.PersonTypeID ; 'extensionAttribute1' = ($item.PersonTypeID)}
             Enabled               = $true
