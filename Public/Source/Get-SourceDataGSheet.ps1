@@ -110,5 +110,14 @@ function Get-SourceDataGSheet {
         }
     }
 
+    #Trim Whitespace from all string fields in the data
+    foreach ($item in $filteredData) {
+        foreach ($property in $item.PSObject.Properties) {
+            if ($property.Value -is [string]) {
+                $item.$($property.Name) = $item.$($property.Name).Trim()
+            }
+        }
+    }
+
     return $filteredData
 }
