@@ -106,6 +106,7 @@ if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "S
     $dataStudent = $dataStudentSource | ForEach-Object {
         [PSCustomObject]@{
             PersonID             = $_.DisplayId
+            InternalID           = $_.NameId
             NameFirst            = $_.FirstName
             NameLast             = $_.LastName
             Username             = $_.DisplayId
@@ -142,6 +143,23 @@ if ($IDConfig.AD.enabled -eq $true) {
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)}
 }
 #endregion Get Data AD
+
+
+#region Get Override Data
+if ($IDConfig.GoogleSheet.OverrideSheetEnabled -eq $true) {
+    try {
+        $paramsOverride = @{
+            sheetID                     = $IDConfig.GoogleSheet.OverrideSheetID
+            sheetRange                  = $IDConfig.GoogleSheet.OverrideSheetRange
+            logFile                     = $logFile
+            headers                     = $headers
+        }
+
+        #$dataOverride = Get-SourceDataGSheetOverride @paramsOverride
+    }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
+}
+#endregion Get Override Data
 #endregion Gather Data
 
 
@@ -226,6 +244,7 @@ if ($IDConfig.Student.Enabled -eq $true) {
         foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
             $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
         }
+
     }
 }
 

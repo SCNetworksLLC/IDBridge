@@ -36,6 +36,11 @@ function Get-ADUsersToCreate {
             ErrorAction           = "Stop"
         }
 
+        #Set EmployeeNumber if InternalID is present
+        if ($item.InternalID) {
+            $NewUserParams["EmployeeNumber"] = $item.InternalID
+        }
+
         if ($item.ADPasswordType -eq "Random") {
             $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
         } elseif ($item.ADPasswordType -eq "FSPIN") {
@@ -45,6 +50,7 @@ function Get-ADUsersToCreate {
         } else {
             $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
         }
+        
 
         Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). Adding user to create list.")
         Write-Log -Path $logFile -Message ($NewUserParams | ConvertTo-Json -Compress)

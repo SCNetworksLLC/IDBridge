@@ -43,6 +43,10 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["EmployeeID"] = $item.PersonID
         }
 
+        if ($item.InternalID -and $ADUser.EmployeeNumber -ne $item.InternalID) {
+            $itemUpdateSplat["EmployeeNumber"] = $item.InternalID
+        }
+
         if ($ADUser.Surname -ne $item.NameLast.trim()) {
             $itemUpdateSplat["Surname"] = $item.NameLast.trim()
         }
