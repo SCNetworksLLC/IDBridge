@@ -18,6 +18,7 @@ function Get-TargetDataAD {
         "GivenName"
         "employeeType"
         "EmployeeID"
+        "EmployeeNumber"
         "DisplayName"
         "DistinguishedName"
         "Company"
