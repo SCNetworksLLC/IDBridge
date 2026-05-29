@@ -70,7 +70,9 @@ function Get-GoogleSheetData() {
     $allData = @()
 
     # Process each subsequent row and map values to column headers
-    foreach($row in ($results.values | Select-Object -Skip 1) ) {
+    # Slice the values array from index 1 to the last index, skipping the header row (index 0).
+    # Unlike Select-Object -Skip 1, array slicing preserves each row as an Object[] rather than unwrapping it into individual elements.
+    foreach ($row in $results.values[1..($results.values.Count - 1)]) {
         if ($rowData) {Remove-Variable rowData}
 
         $rowData = New-Object -TypeName psobject
