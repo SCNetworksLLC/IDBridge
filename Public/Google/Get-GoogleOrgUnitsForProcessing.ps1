@@ -13,28 +13,27 @@ function Get-GoogleOrgUnitsForProcessing {
         [string]$logFile
     )
 
-    #Manual and Top Level OUs to Check
-    $OUList = @(
-        $UserRootOU
-        ($UserRootOU + "/Students")
-        ($UserRootOU + "/Staff")
-        ("/Trash")
-        ("/Trash/Students")
-        ("/Trash/Staff")
-    )
-
     #Add the OUs to check from only active users
-    $OUListAuto = @()
+    $OUList = @()
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true}) {
-        $OUListAuto += $item.GoogleOrganizationalUnit
-        $OUListAuto += $item.GoogleOrganizationalUnitTrash
+        $OUList += $item.GoogleOrganizationalUnit
+        $OUList += $item.GoogleOrganizationalUnitTrash
     }
 
-    #Combine Base and OU Lists - This is needed to be done this way so that the base OUs get processed first
-    $OUList += $OUListAuto | Sort-Object -Unique
+    #Expand all OUs to include every ancestor path
+    $OUListExpanded = @()
+    foreach ($ou in $OUList) {
+        $parts = $ou.TrimStart('/').Split('/')
+        for ($i = 1; $i -le $parts.Count; $i++) {
+            $OUListExpanded += '/' + ($parts[0..($i-1)] -join '/')
+        }
+    }
 
-    #Create list for processing
-    $OrgUnitsForProcessing = $OUList | Where-Object {$_ -notin $CurrentOrgUnits}
+    #Create list for processing - deduplicated, missing only, sorted by depth (parent-first)
+    $OrgUnitsForProcessing = $OUListExpanded |
+        Sort-Object -Unique |
+        Where-Object { $_ -notin $CurrentOrgUnits.orgUnitPath } |
+        Sort-Object { ($_ -split '/').Count }
 
     foreach ($item in $OrgUnitsForProcessing) {
         Write-Log -Path $logFile -Message "Google: Adding Org Unit to Process List: Create: $($item)"
