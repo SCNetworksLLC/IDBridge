@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.4.1.0'
+    ModuleVersion     = '26.5.29.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     Description       = 'IdentityBridge — automated account provisioning for Google Workspace and Active Directory from school SIS/GSheet data.'
@@ -9,19 +9,10 @@
     # Explicitly list public functions so the module surface is intentional.
     # Internal helpers (private functions called only within other functions) are NOT listed here.
     FunctionsToExport = @(
-        # Orchestration (called from IDBridge.ps1)
-        'Get-IDBridgeSourceData'
-        'Get-IDBridgeTargetData'
-        'Build-IDBridgeUserData'
-        'Get-IDBridgeProcessingLists'
-        'Invoke-IDBridgeADChanges'
-        'Invoke-IDBridgeGoogleChanges'
-        'Remove-IDBridgeDuplicateUsers'
-
         # Source data
         'Get-SourceDataGSheet'
         'Get-SourceDataSkywardSMS'
-        'Convert-SkywardSMSToIDBridge'
+        'Get-SourceDataInfiniteCampus'
 
         # Target data
         'Get-TargetDataGoogle'
@@ -39,6 +30,7 @@
         'Show-GroupsNotProcessedAD'
 
         # Google processing
+        'Get-GoogleData'
         'Get-GoogleOrgUnitsForProcessing'
         'Get-GoogleUsersToSetEmployeeID'
         'Get-GoogleUsersToDeactivate'
@@ -47,24 +39,36 @@
         'Get-GoogleUserGroupsToUpdate'
         'Get-GoogleUsersOrphaned'
         'New-IDBridgeGoogleOrgUnit'
-        'Update-IDBridgeGoogleUser'
         'New-IDBridgeGoogleUser'
+        'Update-IDBridgeGoogleUser'
         'Update-GoogleGroupMembers'
         'Show-GroupsNotProcessedGoogle'
+
+        # Google Sheets helpers
+        'Get-GoogleSheetData'
+        'Get-SheetIdByName'
+        'Get-ColumnLetter'
+        'Convert-CellToIndex'
+        'Set-GSheetData'
+        'Set-CheckboxesToFalse'
+        'Push-LogsToSheet'
 
         # Auth & Config
         'Get-GoogleApiAccessToken'
         'Get-IDBridgeConfiguration'
-        'Get-IDBridgeGoogleAuthFile'
+        'Get-OverrideProperties'
 
         # Logging & lifecycle
-        'Initialize-Logging'
         'Write-Log'
         'Start-ScriptEnd'
 
         # Helpers
         'Get-StudentGrade'
-        'Add-IDBridgePersonProperties'
+        'Get-RandomPassword'
+        'New-Passphrase'
+
+        # Plugins
+        "Invoke-Plugin*"
     )
 
     AliasesToExport   = @()
