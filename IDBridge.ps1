@@ -4,7 +4,7 @@
 
 #region Import Modules
 try {
-    Import-Module "C:\GIT\IDBridge\IDBridge.psm1" -Force -ErrorAction Stop
+    Import-Module "C:\GIT\IDBridge\IDBridge.psd1" -Force -ErrorAction Stop
 } catch { Throw $_ }
 #endregion Import Modules
 
