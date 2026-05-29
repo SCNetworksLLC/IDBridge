@@ -63,7 +63,7 @@ function Get-SourceDataSkywardSMS {
         [string]$BaseUrl,
 
         [Parameter(Mandatory = $true)]
-        [string]$ExcludeEntityIDs,
+        $ExcludeEntityIDs,
 
         [Parameter(Mandatory = $true)]
         [int]$SafetyCheckCount,
@@ -173,27 +173,7 @@ function Get-SourceDataSkywardSMS {
     #Filter for unique users based on NameID
     $students = $students | Sort-Object -Property NameID -Unique
 
-    # Output total number of users retrieved
-    if ($VerboseLogging) {
-        Write-Log -Path $logFile -Message ("Total users retrieved before filtering: $($students.Count)")
-    }
 
-    #Filter out students with FoodServiceKeyPadNumber greater than 0
-    if ($VerboseLogging) {
-        $studentsWithFoodService = $students | Where-Object {$_.FoodServiceKeyPadNumber -eq 0}
-        foreach ($item in $studentsWithFoodService) {
-            Write-Log -Path $logFile -Message "Excluding Student without Food Service Key Pad Number: $($item.DisplayId) - $($item.FirstName) $($item.LastName)"
-        }
-    }
-
-    $students = $students | Where-Object {$_.FoodServiceKeyPadNumber -gt 0}
-
-    #Set FoodServicePin to string to preserve leading zeros
-    $maxLength = ($students | ForEach-Object { $_.FoodServiceKeyPadNumber.ToString().Length } | Measure-Object -Maximum).Maximum
-
-    foreach ($item in $students) {
-        $item.FoodServiceKeyPadNumber = $item.FoodServiceKeyPadNumber.ToString().PadLeft($maxLength, '0')
-    }
 
     #Add school names to student objects
     foreach ($item in $students) {
@@ -227,8 +207,8 @@ function Get-SourceDataSkywardSMS {
 
     #region User State
     #Import previous user state file
-    if (Test-Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv") {
-        $userState = Import-Csv -Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv"
+    if (Test-Path "$($IDconfig.Paths.DataRoot)\SkywardSMS_Students_User_State.csv") {
+        $userState = Import-Csv -Path "$($IDconfig.Paths.DataRoot)\SkywardSMS_Students_User_State.csv"
 
         #Convert LastSeen to DateTime
         $userState = $userState | ForEach-Object { $_.LastSeen = [datetime]$_.LastSeen; $_ }
@@ -254,18 +234,18 @@ function Get-SourceDataSkywardSMS {
             Write-Log -Path $logFile -Message "Exporting updated student user state"
         }
 
-        $lookup.Values | Export-Csv -Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
+        $lookup.Values | Export-Csv -Path "$($IDconfig.Paths.DataRoot)\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
     } else {
         if ($VerboseLogging) {
             Write-Log -Path $logFile -Message "No previous student user state file found, skipping user state comparison"
             Write-Log -Path $logFile -Message "Exporting current student user state with $($students.Count) records"
         }
 
-        if (-not (Test-Path "C:\IDBridge\Data")) {
-            New-Item -Path "C:\IDBridge\Data" -ItemType Directory -Force | Out-Null
+        if (-not (Test-Path "$($IDconfig.Paths.DataRoot)")) {
+            New-Item -Path "$($IDconfig.Paths.DataRoot)" -ItemType Directory -Force | Out-Null
         }
         
-        $students | Export-Csv -Path "C:\IDBridge\Data\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
+        $students | Export-Csv -Path "$($IDconfig.Paths.DataRoot)\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
     }
     #endregion User State
 

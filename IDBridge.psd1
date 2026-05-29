@@ -1,21 +1,73 @@
 @{
+    RootModule        = 'IDBridge.psm1'
+    ModuleVersion     = '26.4.1.0'
+    GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
+    Author            = 'Sam Cattanach'
+    Description       = 'IdentityBridge — automated account provisioning for Google Workspace and Active Directory from school SIS/GSheet data.'
+    PowerShellVersion = '7.5'
 
-  # Script module or binary module file associated with this manifest.
-  RootModule = 'IDBridge.psm1'
+    # Explicitly list public functions so the module surface is intentional.
+    # Internal helpers (private functions called only within other functions) are NOT listed here.
+    FunctionsToExport = @(
+        # Orchestration (called from IDBridge.ps1)
+        'Get-IDBridgeSourceData'
+        'Get-IDBridgeTargetData'
+        'Build-IDBridgeUserData'
+        'Get-IDBridgeProcessingLists'
+        'Invoke-IDBridgeADChanges'
+        'Invoke-IDBridgeGoogleChanges'
+        'Remove-IDBridgeDuplicateUsers'
 
-  # Version number of this module.
-  ModuleVersion = '25.12.22.1'
+        # Source data
+        'Get-SourceDataGSheet'
+        'Get-SourceDataSkywardSMS'
+        'Convert-SkywardSMSToIDBridge'
 
-  # Author of this module
-  Author = 'Sam Cattanach'
+        # Target data
+        'Get-TargetDataGoogle'
+        'Get-TargetDataAD'
 
-  # Description of the functionality provided by this module
-  Description = 'IdentityBridge Module'
+        # AD processing
+        'Get-ADOrgUnitsForProcessing'
+        'Get-ADUsersToSetEmployeeID'
+        'Get-ADUsersToDeactivate'
+        'Get-ADUsersToUpdate'
+        'Get-ADUsersToCreate'
+        'Get-ADUserGroupsToUpdate'
+        'New-IDBridgeADOrgUnit'
+        'Disable-IDBridgeADUser'
+        'Show-GroupsNotProcessedAD'
 
-  # Minimum version of the PowerShell engine required by this module
-  PowerShellVersion = '7.5'
+        # Google processing
+        'Get-GoogleOrgUnitsForProcessing'
+        'Get-GoogleUsersToSetEmployeeID'
+        'Get-GoogleUsersToDeactivate'
+        'Get-GoogleUsersToUpdate'
+        'Get-GoogleUsersToCreate'
+        'Get-GoogleUserGroupsToUpdate'
+        'Get-GoogleUsersOrphaned'
+        'New-IDBridgeGoogleOrgUnit'
+        'Update-IDBridgeGoogleUser'
+        'New-IDBridgeGoogleUser'
+        'Update-GoogleGroupMembers'
+        'Show-GroupsNotProcessedGoogle'
 
-  # GUID used to uniquely identify this module
-  GUID = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
+        # Auth & Config
+        'Get-GoogleApiAccessToken'
+        'Get-IDBridgeConfiguration'
+        'Get-IDBridgeGoogleAuthFile'
 
+        # Logging & lifecycle
+        'Initialize-Logging'
+        'Write-Log'
+        'Start-ScriptEnd'
+
+        # Helpers
+        'Get-StudentGrade'
+        'Add-IDBridgePersonProperties'
+    )
+
+    AliasesToExport   = @()
+    CmdletsToExport   = @()
+    VariablesToExport = @()
 }

@@ -83,5 +83,14 @@ function Get-GoogleSheetData() {
         $allData += $rowData
     }
 
-    $allData
+    #Trim Whitespace from all string fields in the data
+    foreach ($item in $allData) {
+        foreach ($property in $item.PSObject.Properties) {
+            if ($property.Value -is [string]) {
+                $item.$($property.Name) = $item.$($property.Name).Trim()
+            }
+        }
+    }
+
+    return $allData
 }

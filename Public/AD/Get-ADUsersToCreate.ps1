@@ -7,6 +7,8 @@ function Get-ADUsersToCreate {
         [Parameter(Mandatory = $true)]
         $CurrentADUsers,
 
+        $Nonce,
+
         [Parameter(Mandatory = $true)]
         [string]$logFile
     )
@@ -41,14 +43,29 @@ function Get-ADUsersToCreate {
             $NewUserParams["EmployeeNumber"] = $item.InternalID
         }
 
-        if ($item.ADPasswordType -eq "Random") {
-            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
-        } elseif ($item.ADPasswordType -eq "FSPIN") {
-            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString ($item.ADPassPrefix + $item.FSPIN) -AsPlainText -Force)
-        } elseif ($item.ADPasswordType -eq "Word") {
-            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString ($item.ADPassPrefix + $item.Word) -AsPlainText -Force)
+        #Set AccountPassword
+        if ($item.ADPassphraseAPI) {
+            try {
+                $passphraseParams = @{
+                    Nonce = $item.ADPassphraseAPI.Nonce
+                    Username = $item.Username
+                    Mode = $item.ADPassphraseAPI.Mode
+                    WordCount = $item.ADPassphraseAPI.WordCount
+                    AuthToken = $item.ADPassphraseAPI.AuthToken
+                }
+
+                $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Passphrase @passphraseParams) -AsPlainText -Force)
+            }
+            catch {
+                Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  Password API Error. Skipping User Creation.") -Level "Warn"
+                Write-Log -Path $logFile -Message ("AD: Password API Error $($_)") -Level "Warn"
+                Continue
+            }
+        } elseif ($item.ADKey) {
+            $NewUserParams["AccountPassword"] = $item.ADKey
         } else {
-            $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
+            Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  ADKey is not set. Skipping User Creation.") -Level "Warn"
+            Continue
         }
         
 

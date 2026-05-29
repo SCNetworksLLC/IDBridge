@@ -1,36 +1,84 @@
 function Get-IDBridgeConfiguration {
     [CmdletBinding()]
-    param ()
+    param (
+        [string]$ConfigPath = "C:\IDBridge\Config"
+    )
 
-    #Test the configuration at C:\IDBridge
+    Write-Host "Importing config file from $($configPath)"
+
     try {
-        Test-IDBridgeConfiguration -ErrorAction Stop
+        if (Test-Path $configPath) {
+            $IDBridgeConfig = Import-PowerShellDataFile -Path (Join-Path $configPath "IDBridgeConfig.psd1") -ErrorAction Stop
+            Write-Host "Successfully imported IDBridgeConfig.psd1" -ForegroundColor Green
+        } else {
+            Throw "Config path not found: $configPath"
+        }
+    }
+    catch {
+        Throw "Error importing config file: $_"
+    }
+
+
+
+    #region Set Logging
+    Set-Variable -Name "logFile" -Value "$($IDBridgeConfig.Paths.LogsRoot)\IDBridge.log" -Scope global
+
+    if ((Test-Path $logFile) -and (Get-Item $logFile).Length -gt 50000000) {
+        Rename-Item $logFile ((Get-Item $logfile).BaseName + "_" + $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) + ".log")
+    }
+
+    Write-Log -Message "######## Begin of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########" -Path $logFile
+
+    if ($IDBridgeConfig.Debug.verboseLogging -eq $true) {
+        Write-Log -Message "Verbose logging is ENABLED" -Path $logFile
+        $Global:VerboseLogging = $true
+    }
+    #endregion Set Logging
+  
+
+
+    #region JSON Google Auth
+    # Check for exactly 1 JSON file in the Auth folder
+    try {
+        if (Test-Path $IDBridgeConfig.Paths.AuthRoot) {
+            $authJsonFiles = Get-ChildItem -Path $IDBridgeConfig.Paths.AuthRoot -Filter *.json -File
+            if ($authJsonFiles.Count -eq 1) {
+                Write-Host "Found 1 authentication JSON file: $($authJsonFiles[0].Name)" -ForegroundColor Green
+            } elseif ($authJsonFiles.Count -eq 0) {
+                Throw "No authentication JSON file found in 'Auth'"
+            } else {
+                Throw "Multiple authentication JSON files found in 'Auth'"
+            }
+        } else {
+            Throw "'Auth' folder not found"
+        }
     }
     catch {
         Throw $_
     }
+
+    # Get the full path to the single JSON file found in the Auth folder
+    $authFilePath = $authJsonFiles[0].FullName
     
-
-    $configPath = "C:\IDBridge\Config"
-
-    Write-Host "Importing all JSON config files from $($configPath)"
-
-    $IDBridgeConfig = @{}
-
-    # Load all .json config files in the Config folder
-    Get-ChildItem -Path $configPath -Filter *.json -File | ForEach-Object {
-        try {
-            $baseName = $_.BaseName -replace ' ', '_'  # Replace spaces with underscores
-            $jsonContent = Get-Content $_.FullName -Raw | ConvertFrom-Json -ErrorAction Stop
-            $IDBridgeConfig[$baseName] = $jsonContent
-            Write-Host "Loaded config: $($baseName)"
-        }
-        catch {
-            Throw "Error getting JSON for file $($baseName): $_"
-        }
+    # Validate if the file is a valid Google Service Account JSON by checking for a private key
+    try {
+        $googleAuthContent = Get-Content $authFilePath -Raw | ConvertFrom-Json
+    }
+    catch {
+        Throw "Invalid Google Auth JSON file at $($authFilePath). Error: $_"
+    }
+    
+    if ($googleAuthContent.PSObject.Properties.Name -notcontains "private_key") {
+        throw "The Google Auth JSON file does not contain a valid 'private_key'."
     }
 
-    Write-Host "All configuration files successfully loaded"
+    # Add the path to the config object hashtable for use in other functions
+    Write-Host "Loaded valid Google Auth JSON file: $($authFilePath)" -ForegroundColor Green
+    $IDBridgeConfig.GoogleToken.authFilePath = $authFilePath
+
+    #endregion JSON Google Auth
+
+
 
     #region Test Additional Modules
     if ($IDBridgeConfig.AD.enabled -eq $true) {
@@ -40,7 +88,7 @@ function Get-IDBridgeConfiguration {
             Write-Host "Imported Active Directory Module"
         }
         catch {
-            Write-Log -Message "AD Powershell Module does not exit on the local machine: $_" -Path $logFile
+            Write-Host "AD Powershell Module does not exit on the local machine: $($_)" -ForegroundColor Red
             if ($IDBridgeConfig.Debug.SkipADCHeck -ne $true) {
                 Throw "AD Powershell Module does not exit on the local machine: $_"
             }
@@ -48,9 +96,11 @@ function Get-IDBridgeConfiguration {
     }
     #endregion Test Additional Modules
 
+
+
     #region Check Active IDBridge Configurations
     #Check if Read Only Mode is active
-    if ($IDBridgeConfig.General.readOnly -eq $true) {
+    if ($IDBridgeConfig.Debug.readOnly -eq $true) {
         Write-Log -Path $logFile -Message "READ ONLY MODE: NO CHANGES WILL BE MADE"
     }
 
@@ -63,6 +113,8 @@ function Get-IDBridgeConfiguration {
         $IDBridgeConfig.AD.enableGroupProcessing = $false
     }
     #endregion Check Active IDBridge Configurations
+
+
 
     # Return the $IDBridgeConfig Variable
     return $IDBridgeConfig

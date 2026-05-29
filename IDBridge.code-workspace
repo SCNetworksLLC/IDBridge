@@ -11,6 +11,7 @@
         "files.exclude": {
             "**/.git": true,
             "**/.vscode": true
-        }
+		},
+		"powershell.cwd": "IDBridge"
 	}
 }

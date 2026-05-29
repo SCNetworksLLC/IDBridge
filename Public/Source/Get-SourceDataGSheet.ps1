@@ -1,10 +1,6 @@
 function Get-SourceDataGSheet {
     [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        [ValidateSet("Student","Staff", IgnoreCase = $true)]
-        [string]$personType,
-        
+    param (        
         [Parameter(Mandatory = $true)]
         [string]$sheetID,
 
@@ -28,10 +24,10 @@ function Get-SourceDataGSheet {
     #Get Data from Spreadsheet
     try {
         $data = Get-GoogleSheetData -GoogleSheetID $sheetID -GoogleSheetRange $sheetRange -tokenInformation $headers
-        Write-Log -Path $logFile -Message "Source Data $($personType): Successfully retrieved Google Sheet data"
+        Write-Log -Path $logFile -Message "Source Data: Successfully retrieved Google Sheet data"
     }
     catch {
-        Throw (Write-Log -Path $logFile -Message "Source Data $($personType): Failed to Retrieve Google Sheet Data" -Level Error)
+        Throw (Write-Log -Path $logFile -Message "Source Data: Failed to Retrieve Google Sheet Data" -Level Error)
     }
 
     #Required Columns in the Google Sheet
@@ -61,9 +57,9 @@ function Get-SourceDataGSheet {
 
     #Check data fetched count for safety
     if ($data.count -gt ([int]$userCount * ([int]$userCountSafetyPercentage / 100))) {
-        Write-Log -Path $logFile -Message "Source Data $($personType): Successfully retrieved $($data.count) Users"
+        Write-Log -Path $logFile -Message "Source Data: Successfully retrieved $($data.count) Users"
     } else {
-        Throw (Write-Log -Path $logFile -Message "Source Data $($personType): $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
+        Throw (Write-Log -Path $logFile -Message "Source Data: $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
     }
 
 
@@ -76,12 +72,9 @@ function Get-SourceDataGSheet {
 
     #Check to see if there is actually any data to process
     if ($data.Process -notcontains "TRUE") {
-        Throw (Write-Log -Path $logFile -Message "Source Data $($personType): Data fetched but no users are set to process" -Level Error)
+        Throw (Write-Log -Path $logFile -Message "Source Data: Data fetched but no users are set to process" -Level Error)
     }
 
-    foreach ($item in $data) {
-        $item | Add-Member -MemberType NoteProperty -Name "PersonTypeGeneric" -Value "$($personType)"
-    }
 
     #Remove Users who do not have data in all required fields except for terminationDate
     $filteredData = @()
@@ -110,6 +103,7 @@ function Get-SourceDataGSheet {
         }
     }
 
+    <#
     #Trim Whitespace from all string fields in the data
     foreach ($item in $filteredData) {
         foreach ($property in $item.PSObject.Properties) {
@@ -118,6 +112,7 @@ function Get-SourceDataGSheet {
             }
         }
     }
+    #>
 
     return $filteredData
 }

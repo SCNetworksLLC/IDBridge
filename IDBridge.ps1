@@ -1,32 +1,21 @@
 #### IDBridge ####
 #### Created by Sam Cattanach ####
 # Get-Content -Path "C:\IDBridge\Logs\IDBridge.log" -Tail 200 -Wait
-### TO DO:
-### Convert Config files to PSD1
 
 #region Import Modules
 try {
-    Import-Module (Get-Content "C:\IDBridge\Config\ModulePath.json" -Raw | ConvertFrom-Json) -Force -Verbose -ErrorAction Stop
+    Import-Module "C:\GIT\IDBridge\IDBridge.psm1" -Force -ErrorAction Stop
 } catch { Throw $_ }
 #endregion Import Modules
 
 
 
-#region Set Logging
-Initialize-Logging
-#endregion Set Logging
-
-
 
 #region Import Configuration
 try {
-    #Import the configuration
-    $IDConfig = Get-IDBridgeConfiguration -ErrorAction Stop
-
-    #Import the Google Authentication File
-    $googleJSONPath = Get-IDBridgeGoogleAuthFile -ErrorAction Stop
+    $global:IDConfig = Get-IDBridgeConfiguration -ErrorAction Stop
 }
-catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
+catch { Throw $_; Exit 1 }
 #endregion Import Configuration
 
 
@@ -34,7 +23,7 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 
 #region Google Authorization Token
 try {
-    $headers = Get-GoogleApiAccessToken -ServiceAccountKeyPath $googleJSONPath -Scope $IDConfig.GoogleToken.googleAuthScope -TargetUserEmail $IDConfig.GoogleToken.adminEmail
+    $headersGoogle = Get-GoogleApiAccessToken -ServiceAccountKeyPath $IDConfig.GoogleToken.authFilePath -Scope $IDConfig.GoogleToken.googleAuthScope -TargetUserEmail $IDConfig.GoogleToken.adminEmail
 }
 catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 #endregion Google Authorization Token
@@ -42,97 +31,72 @@ catch { Throw (Start-ScriptEnd -Message $_ -WriteError) }
 
 
 
+
+#region Source Plugins
+<#
+Check for enabled plugins and if the function exists for them, if not disable the plugin and log a warning
+For each plugin, run the funciton, and add the returned values to an array to be processed later in the script.
+This allows for dynamic data gathering and processing based on the plugins enabled in the configuration file.
+There are specific plugin types.
+Source plugins gather data that is used as the basis for processing in the script, such as user lists from a SIS or HR system.
+Override plugins gather data that is used to override or modify the source data before processing.
+#>
+$sourceData = @()
+$overrideData = @()
+foreach ($plugin in $IDConfig.Plugins.GetEnumerator() | Sort-Object Name) {
+    if ($plugin.Value.Enabled -ne $true) {
+        if ($IDConfig.Debug.verboseLogging -eq $true) {
+            Write-Log -Path $logFile -Message "Plugin: $($plugin.Value.Function) is disabled in config. Skipping plugin." -Level Info
+        }
+        Continue
+    }
+
+    if (-not (Get-Command $plugin.Value.Function -ErrorAction SilentlyContinue)) {
+        Write-Log -Path $logFile -Message "Plugin: $($plugin.Value.Function) is enabled in config but not found. Disabling plugin." -Level Warn
+        $plugin.Value.Enabled = $false
+        Continue
+    }
+
+    #If the plugin is enabled and the function exists, run the plugin to gather data and add it to the list of data to be processed later in the script.
+    try {
+        Write-Log -Path $logFile -Message "Running $($plugin.Value.Type) Plugin: $($plugin.Value.Function)" -Level Info
+        $pluginData = $null
+        $pluginData = & $plugin.Value.Function
+    }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle -Message $_ -WriteError) }
+
+    if ($pluginData) {
+        if ($plugin.Value.Type -eq "Source") {
+            $sourceData += $pluginData
+        }
+        if ($plugin.Value.Type -eq "Override") {
+            $overrideData += $pluginData
+        }
+    } else {
+        Write-Log -Path $logFile -Message "Plugin: $($plugin.Value.Function) did not return any data." -Level Warn
+    }
+}
+
+if ($sourceData.Count -eq 0) {
+    Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle -Message "No source data gathered from plugins. Please check plugin configurations and logs for details." -WriteError)
+}
+
+#endregion Source Plugins
+
+
+
+
 #region Gather Data
-#region Spreadsheet Data Staff
-if ($IDConfig.Staff.Enabled -eq $true) {
-    try {
-        $paramsStaff = @{
-            personType                  = "Staff"
-            sheetID                     = $IDConfig.GoogleSheet.staffSheetID
-            sheetRange                  = $IDConfig.GoogleSheet.staffSheetRange
-            userCount                   = $IDConfig.Staff.SafetyCheckCount
-            userCountSafetyPercentage   = $IDConfig.Staff.SafetyCheckPercentage
-            logFile                     = $logFile
-            headers                     = $headers
-        }
-
-        $dataStaff = Get-SourceDataGSheet @paramsStaff
-    }
-    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
-}
-#endregion Spreadsheet Data Staff
-
-
-#region Student - GSheet
-if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "GSheet") {
-    try {
-        $paramsStudent = @{
-            personType                  = "Student"
-            sheetID                     = $IDConfig.GoogleSheet.studentSheetID
-            sheetRange                  = $IDConfig.GoogleSheet.studentSheetRange
-            userCount                   = $IDConfig.Student.SafetyCheckCount
-            userCountSafetyPercentage   = $IDConfig.Student.SafetyCheckPercentage
-            logFile                     = $logFile
-            headers                     = $headers
-        }
-
-        $dataStudent = Get-SourceDataGSheet @paramsStudent
-    }
-    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
-}
-#endregion Student - GSheet
-
-
-#region Student - Skyward SMS
-if ($IDConfig.Student.Enabled -eq $true -and $IDConfig.Student.SourceType -eq "SkywardSMS") {
-    try {
-        $paramsStudent = @{
-            BaseUrl                 = $IDConfig.SkywardSMS.BaseUrl
-            TokenUrl                = $IDConfig.SkywardSMS.TokenUrl
-            ClientId                = $IDConfig.SkywardSMS.ClientId
-            ClientSecret            = $IDConfig.SkywardSMS.ClientSecret
-            ExcludeEntityIDs        = $IDConfig.SkywardSMS.ExcludeEntityIDs
-            SafetyCheckCount        = $IDConfig.Student.SafetyCheckCount
-            SafetyCheckPercentage   = $IDConfig.Student.SafetyCheckPercentage
-            LogFile                 = $logFile
-            VerboseLogging          = $IDConfig.Debug.verboseLogging
-        }
-
-        $dataStudentSource = Get-SourceDataSkywardSMS @paramsStudent
-    }
-    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
-
-    #Transform Data to be compatible with IDBridge
-    $dataStudent = $dataStudentSource | ForEach-Object {
-        [PSCustomObject]@{
-            PersonID             = $_.DisplayId
-            InternalID           = $_.NameId
-            NameFirst            = $_.FirstName
-            NameLast             = $_.LastName
-            Username             = $_.DisplayId
-            #Building             = (Get-Culture).TextInfo.ToTitleCase($($_.SchoolName).ToLower())
-            Building             = if ($IDConfig.Student.BuildingIDMapping.$($_.SchoolID).Name) {$IDConfig.Student.BuildingIDMapping.$($_.SchoolID).Name} else {$IDConfig.Student.BuildingIDMapping."000".Name}
-            BuildingCode         = if ($IDConfig.Student.BuildingIDMapping.$($_.SchoolID).Code) {$IDConfig.Student.BuildingIDMapping.$($_.SchoolID).Code} else {$IDConfig.Student.BuildingIDMapping."000".Code}
-            BuildingID           = $_.SchoolID
-            Grade                = (Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)
-            GradYear             = $_.GradYr
-            JobTitle             = "Student - Grade $(Get-StudentGrade -gradYear $_.GradYr -gradeAdvanceDate $IDConfig.Student.GradeAdvanceDate)"
-            FSPIN                = $_.FoodServiceKeyPadNumber
-            IDBActive            = if ($_.LastSeen -ge (Get-Date).AddDays(-$($IDConfig.Student.DaysLastSeen))) {$true} else {$false}
-        }
-    }
-}
-#endregion Student - Skyward SMS
-
-
 #region Get Google Data
 if ($IDConfig.Google.enabled -eq $true) {
     try {
-        $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headers -VerboseLogging $IDConfig.Debug.verboseLogging -ErrorAction Stop
+        $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headersGoogle -VerboseLogging $IDConfig.Debug.verboseLogging -ErrorAction Stop
     }
-    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle -Message $_ -WriteError) }
 }
 #endregion Get Google Data
+
+
 
 
 #region Get Data AD
@@ -140,216 +104,112 @@ if ($IDConfig.AD.enabled -eq $true) {
     try {
         $adData = Get-TargetDataAD -logFile $logFile -VerboseLogging $IDConfig.Debug.verboseLogging -ErrorAction Stop
     }
-    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)}
+    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle -Message $_ -WriteError)}
 }
 #endregion Get Data AD
-
-
-#region Get Override Data
-if ($IDConfig.GoogleSheet.OverrideSheetEnabled -eq $true) {
-    try {
-        $paramsOverride = @{
-            sheetID                     = $IDConfig.GoogleSheet.OverrideSheetID
-            sheetRange                  = $IDConfig.GoogleSheet.OverrideSheetRange
-            logFile                     = $logFile
-            headers                     = $headers
-        }
-
-        #$dataOverride = Get-SourceDataGSheetOverride @paramsOverride
-    }
-    catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError) }
-}
-#endregion Get Override Data
 #endregion Gather Data
-
-
-
-
-#region Data Modifcation
-#Add additional data to the user objects
-if ($IDConfig.Student.Enabled -eq $true) {
-    foreach ($item in $dataStudent) {
-        $groupsAutomatic = $null
-        $groupsAutomatic = if ($IDConfig.Custom.Student.Groups -and (Test-Path Function:\Get-CustomStudentGroups)) {Get-CustomStudentGroups -building $item.Building -grade $item.Grade}
-
-        #AD Proposed Groups
-        $proposedGroupListAD = @()
-        if ($groupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
-        if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {$proposedGroupListAD += ($item.ApplicationGroups -split ",").trim()}
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListAD += ($item.EmailGroups -split ",").trim()}
-
-        #Google Proposed Groups
-        $proposedGroupListGoogle = @()
-        if ($groupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
-
-        #Check if Grade Exists in Config
-        if (-not $IDConfig.Student.GradeSettings.$($item.Grade)) {
-            $item.IDBActive = $false
-            Write-Log -Path $logFile -Message ("Student: Grade " + $item.Grade + " not found in configuration file for PersonID: " + $item.PersonID + ". Disabling user from processing.") -Level Warn
-        }
-
-        $additionalUserProperties = [PSCustomObject]@{
-            IDBActive                       = if ($item.IDBActive -eq $true) { $IDConfig.Student.GradeSettings.$($item.Grade).Enabled }
-            PersonTypeID                    = "1"
-            UPN                             = "$($item.Username)@$($IDConfig.Student.DomainName)"
-            Company                         = $IDConfig.Student.Company
-            GroupsAutomatic                 = $groupsAutomatic
-
-            Building                        = $item.Building
-            JobTitle                        = $item.JobTitle
-            Word                            = $item.Word
-            Department                      = "Grade-$($item.Grade)"
-
-            ADOrganizationalUnit            = "OU=Grade-$($item.Grade),OU=Students,$($IDConfig.AD.userRootOU)"
-            #ADOrganizationalUnitTrash       = "OU=$($item.GradYear),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
-            ADOrganizationalUnitTrash       = "OU=$(Get-Date -Format yyyy),OU=Students,OU=Trash,$($IDConfig.AD.userRootOU)"
-            ADPassPrefix                    = $IDConfig.Student.GradeSettings.$($item.Grade).AD.passPrefix
-            ADChangePasswordAtLogon         = $IDConfig.Student.GradeSettings.$($item.Grade).AD.ChangePasswordAtLogon
-            ADPasswordType                  = $IDConfig.Student.GradeSettings.$($item.Grade).AD.PasswordType
-            ADGroupsProposed                = $proposedGroupListAD | Select-Object -Unique
-
-            GoogleOrganizationalUnit        = "$($IDConfig.Google.userRootOU)/Students/Grade-$($item.Grade)"
-            #GoogleOrganizationalUnitTrash   = "/Trash/Students/$($item.GradYear)"
-            GoogleOrganizationalUnitTrash   = "/Trash/Students/$(Get-Date -Format yyyy)"
-            GooglePassPrefix                = $IDConfig.Student.GradeSettings.$($item.Grade).Google.passPrefix
-            GoogleChangePasswordAtLogon     = $IDConfig.Student.GradeSettings.$($item.Grade).Google.ChangePasswordAtLogon
-            GooglePasswordType              = $IDConfig.Student.GradeSettings.$($item.Grade).Google.PasswordType
-            GoogleGroupsProposed            = $proposedGroupListGoogle | Select-Object -Unique
-
-            ADObject                         = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID])}
-            ADCurrentUserID                  = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).ObjectGUID}
-            ADCurrentUserEnabledStatus       = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).Enabled}
-            ADCurrentGroups                  = if ($IDConfig.AD.enabled -eq $true) {($adData.LookupByID[$item.personID]).CurrentGroups}
-            ADDuplicateIDStatus              = if ($IDConfig.AD.enabled -eq $true -and ($item.PersonID -in $adData.DuplicateUsers.employeeID)) {"DUPLICATE_ID"}
-
-            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID])}
-            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).ID}
-            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).suspended}
-            GoogleCurrentGroups              = if ($IDConfig.Google.enabled -eq $true) {($googleData.LookupByID[$item.personID]).CurrentGroups}
-            GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
-        }
-
-        #Custom Data Loaded from Custom Script
-        if ($IDConfig.Custom.Student.DataModification -and (Test-Path Function:\Get-CustomStudentDataModification)) {
-            try {
-                $additionalUserProperties = Get-CustomStudentDataModification -Item $item -AdditionalUserProperties $additionalUserProperties -IDConfig $IDConfig -logFile $logFile
-            }
-            catch {
-                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message "Custom Student Data Modification Script Error: $_" -WriteError)
-            }
-        }
-
-        #Add the additional properties to the user object
-        foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
-            $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
-        }
-
-    }
-}
-
-if ($IDConfig.Staff.Enabled -eq $true) {
-    foreach ($item in $dataStaff) {
-        $groupsAutomatic = $null
-        $groupsAutomatic = if ($IDConfig.Custom.Staff.Groups -and (Test-Path Function:\Get-CustomStaffGroups)) {Get-CustomStaffGroups -building $item.Building -personType $item.PersonType}
-
-        #AD Proposed Groups
-        $proposedGroupListAD = @()
-        if ($groupsAutomatic) {$proposedGroupListAD += $groupsAutomatic}
-        if (-not [string]::IsNullOrEmpty($item.ApplicationGroups)) {$proposedGroupListAD += ($item.ApplicationGroups -split ",").trim()}
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListAD += ($item.EmailGroups -split ",").trim()}
-
-        #Google Proposed Groups
-        $proposedGroupListGoogle = @()
-        if ($groupsAutomatic) {$proposedGroupListGoogle += $groupsAutomatic}
-        if (-not [string]::IsNullOrEmpty($item.EmailGroups)) {$proposedGroupListGoogle += ($item.EmailGroups -split ",").trim()}
-
-        $additionalUserProperties = [PSCustomObject]@{
-            IDBActive                       = if ($item.TerminationDate -and (Get-Date $item.TerminationDate -format "yyyy-MM-dd") -lt (Get-Date -format "yyyy-MM-dd")) {$false} else {$true}
-            PersonTypeID                    = if ($item.PersonType -in $IDConfig.PersonTypeThree) {"3"} else {"2"}
-            UPN                             = "$($item.Username)@$($IDConfig.Staff.DomainName)"
-            Company                         = $IDConfig.Staff.Company
-            GroupsAutomatic                 = $groupsAutomatic
-            
-            Building                        = $item.Building
-            JobTitle                        = $item.JobTitle
-            Word                            = $item.Word
-
-            ADOrganizationalUnit            = "OU=$($item.PersonType),OU=Staff,$($IDConfig.AD.userRootOU)"
-            ADOrganizationalUnitTrash       = "OU=$(Get-Date -Format yyyy),OU=Staff,OU=Trash,$($IDConfig.AD.userRootOU)"
-            ADPassPrefix                    = $IDConfig.Staff.AD.passPrefix
-            ADChangePasswordAtLogon         = $IDConfig.Staff.AD.ChangePasswordAtLogon
-            ADPasswordType                  = $IDConfig.Staff.AD.PasswordType
-            ADGroupsProposed                = $proposedGroupListAD | Select-Object -Unique
-
-            GoogleOrganizationalUnit        = "$($IDConfig.Google.userRootOU)/Staff/$($item.PersonType)"
-            GoogleOrganizationalUnitTrash   = "/Trash/Staff/$(Get-Date -Format yyyy)"
-            GooglePassPrefix                = $IDConfig.Staff.Google.passPrefix
-            GoogleChangePasswordAtLogon     = $IDConfig.Staff.Google.ChangePasswordAtLogon
-            GooglePasswordType              = $IDConfig.Staff.Google.PasswordType
-            GoogleGroupsProposed            = $proposedGroupListGoogle | Select-Object -Unique
-
-            ADObject                         = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID])}
-            ADCurrentUserID                  = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).ObjectGUID}
-            ADCurrentUserEnabledStatus       = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).Enabled}
-            ADCurrentGroups                  = if ($IDConfig.AD.enabled -eq $true -and $adData.LookupByID) {($adData.LookupByID[$item.personID]).CurrentGroups}
-            ADDuplicateIDStatus              = if ($IDConfig.AD.enabled -eq $true -and ($item.PersonID -in $adData.DuplicateUsers.employeeID)) {"DUPLICATE_ID"}
-
-            GoogleObject                     = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID])}
-            GoogleCurrentUserID              = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).ID}
-            GoogleCurrentUserSuspendedStatus = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).suspended}
-            GoogleCurrentGroups              = if ($IDConfig.Google.enabled -eq $true -and $googleData.LookupByID) {($googleData.LookupByID[$item.personID]).CurrentGroups}
-            GoogleDuplicateIDStatus          = if ($IDConfig.Google.enabled -eq $true -and ($item.PersonID -in $googleData.DuplicateUsers.OrgID)) {"DUPLICATE_ID"}
-        }
-
-        #Custom Data Loaded from Custom Script
-        if ($IDConfig.Custom.Staff.DataModification -and (Test-Path Function:\Get-CustomStaffDataModification)) {
-            try {
-                $additionalUserProperties = Get-CustomStaffDataModification -Item $item -AdditionalUserProperties $additionalUserProperties -IDConfig $IDConfig -logFile $logFile
-            }
-            catch {
-                Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message "Custom Staff Data Modification Script Error: $_" -WriteError)
-            }
-        }
-
-        #Add the additional properties to the user object
-        foreach ($itemProperty in $additionalUserProperties.PSObject.Properties) {
-            $item | Add-Member -MemberType NoteProperty -Name $itemProperty.Name -Value $itemProperty.Value -Force
-        }
-    }
-}
-#endregion Data Modifcation
-
-
-
-
-#region Combine Data
-#Combining this way so that blank datasets don't cause issues
-$filteredData = $(if($dataStaff) { $dataStaff }) + $(if($dataStudent) { $dataStudent })
-#endregion Combine Data
 
 
 
 
 #region Remove Duplicate IDs
 #Remove Users from Processing with Duplicate IDs from Google or AD
-if ($filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}) {
-    foreach ($item in $filteredData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}) {
+if ($sourceData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}) {
+    foreach ($item in $sourceData | Where-Object {$_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus}) {
         Write-Log -Path $logFile -Message ("Removing User from Processing with Duplicate Person ID: $($item.personID) - UPN: $($item.UPN) - AD Duplicate Status: $($item.ADDuplicateIDStatus) - Google Duplicate Status: $($item.GoogleDuplicateIDStatus)") -Level Info
     }
-    $filteredData = $filteredData | Where-Object {-not ($_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus) }
+    $sourceData = $sourceData | Where-Object {-not ($_.ADDuplicateIDStatus -or $_.GoogleDuplicateIDStatus) }
 }
 
 #Remove Users from Processing with Duplicate IDs from IDBridge Sources
-$duplicateIDs = $filteredData | Where-Object {-not [string]::IsNullOrWhiteSpace($_.personID)} | Group-Object -Property personID | Where-Object {$_.Count -gt 1} | Select-Object -ExpandProperty Name
+$duplicateIDs = $sourceData | Where-Object {-not [string]::IsNullOrWhiteSpace($_.personID)} | Group-Object -Property personID | Where-Object {$_.Count -gt 1} | Select-Object -ExpandProperty Name
 
 if ($duplicateIDs) {
-    foreach ($item in $filteredData | Where-Object { $_.personID -in $duplicateIDs }) {
+    foreach ($item in $sourceData | Where-Object { $_.personID -in $duplicateIDs }) {
         Write-Log -Path $logFile -Message ("Removing User from Processing with Duplicate Person ID: $($item.personID) - UPN: $($item.UPN) - IDBridge Duplicate Status: DUPLICATE_ID") -Level Info
     }
-      $filteredData = $filteredData | Where-Object {$_.personID -notin $duplicateIDs}
+      $sourceData = $sourceData | Where-Object {$_.personID -notin $duplicateIDs}
 }
 #endregion Remove Duplicate IDs
+
+
+
+
+
+#region Target Data Preparation
+$sourceData = foreach ($item in $sourceData) {
+    $obj = [ordered]@{}
+    foreach ($property in $item.PSObject.Properties) {
+        $obj[$property.Name] = $property.Value
+    }
+
+    if ($IDConfig.AD.enabled -eq $true) {
+        if ($adData.LookupByID) {
+            $obj["ADObject"] = ($adData.LookupByID[$item.personID])
+            $obj["ADCurrentUserID"] = ($adData.LookupByID[$item.personID]).ObjectGUID
+            $obj["ADCurrentUserEnabledStatus"] = ($adData.LookupByID[$item.personID]).Enabled
+            $obj["ADCurrentGroups"] = ($adData.LookupByID[$item.personID]).CurrentGroups
+        }
+        if ($item.PersonID -in $adData.DuplicateUsers.employeeID) {
+            $obj["ADDuplicateIDStatus"] = "DUPLICATE_ID"
+        }    
+    }
+
+    if ($IDConfig.Google.enabled -eq $true) {
+        if ($googleData.LookupByID) {
+            $obj["GoogleObject"] = ($googleData.LookupByID[$item.personID])
+            $obj["GoogleCurrentUserID"] = ($googleData.LookupByID[$item.personID]).ID
+            $obj["GoogleCurrentUserSuspendedStatus"] = ($googleData.LookupByID[$item.personID]).suspended
+            $obj["GoogleCurrentGroups"] = ($googleData.LookupByID[$item.personID]).CurrentGroups
+        }
+        if ($item.PersonID -in $googleData.DuplicateUsers.OrgID) {
+            $obj["GoogleDuplicateIDStatus"] = "DUPLICATE_ID"
+        }
+    }
+
+    [PSCustomObject]$obj
+}
+#endregion Target Data Preparation
+
+
+
+
+#region Process Override Data
+#Take the data from Data Overrides and apply it to the source data so that the override values are used in processing instead of the original source values.
+#This allows for dynamic overrides of source data based on the logic in the override plugins without having to modify the original source data gathering plugins.
+#Loop through the data and for each item, check if there is an override. If there is, apply it - don't check for existing data in that field. Skip empty overrides.
+if ($overrideData.Count -gt 0) {
+    foreach ($item in $sourceData) {
+        $overrideItems = $overrideData | Where-Object { $_.personID -eq $item.personID }
+        if ($overrideItems) {
+            foreach ($overrideItem in $overrideItems) {
+                foreach ($property in $overrideItem.PSObject.Properties) {
+                    if ($property.Name -eq "PersonID") {
+                        continue
+                    }
+
+                    if ($null -eq $property.Value -or [string]::IsNullOrWhiteSpace($property.Value)) {
+                        continue
+                    }
+
+                    if ($property.Name -eq "AddGroup") {
+                        $item | Add-Member -MemberType NoteProperty -Name GroupsProposed -Value $($item.GroupsProposed + $property.Value.Trim()) -Force
+                        continue
+                    }
+
+                    if ($property.Name -eq "RemoveGroup") {
+                        $item | Add-Member -MemberType NoteProperty -Name GroupsProposed -Value $(($item.GroupsProposed | Where-Object {$_ -ne $property.Value.Trim()})) -Force
+                        continue
+                    }
+
+                    $item | Add-Member -MemberType NoteProperty -Name $property.Name -Value $property.Value -Force
+                }
+            }
+        }
+    }
+}
+
+#endregion Process Override Data
 
 
 
@@ -357,12 +217,12 @@ if ($duplicateIDs) {
 #region Groups Not Processed
 #AD Checks
 if ($IDConfig.AD.enabled -eq $true -and ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) -and $IDConfig.Debug.verboseLogging -eq $true) {
-    Show-GroupsNotProcessedAD -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
+    Show-GroupsNotProcessedAD -UserList $sourceData -CurrentADGroups $adData.Groups -logFile $logFile
 }
 
 #Google Checks
 if ($IDConfig.Google.enabled -eq $true -and ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) -and $IDConfig.Debug.verboseLogging -eq $true) {
-    Show-GroupsNotProcessedGoogle -UserList $filteredData -CurrentGoogleGroups $googleData.Groups -logFile $logFile
+    Show-GroupsNotProcessedGoogle -UserList $sourceData -CurrentGoogleGroups $googleData.Groups -logFile $logFile
 }
 #endregion Groups Not Processed
 
@@ -372,11 +232,11 @@ if ($IDConfig.Google.enabled -eq $true -and ($IDConfig.Google.enableGroupProcess
 #region AD Processing Lists
 if ($IDConfig.AD.enabled -eq $true) {
     #Org Units to Create
-    $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.AD.userRootOU -CurrentOrgUnits $adData.OrgUnits -logFile $logFile
+    $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $sourceData -UserRootOU $IDConfig.AD.userRootOU -CurrentOrgUnits $adData.OrgUnits -logFile $logFile
     
     #Update filteredData list and ADLookupByID Table with AD User Info if No EmployeeID is Set and an existing user is found that matches
-    $ADUsersToSetEmployeeID = Get-ADUsersToSetEmployeeID -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
-    foreach ($item in $filteredData | Where-Object {$ADUsersToSetEmployeeID.ContainsKey($_.personID)}) {
+    $ADUsersToSetEmployeeID = Get-ADUsersToSetEmployeeID -UserList $sourceData -CurrentADUsers $adData.Users -logFile $logFile
+    foreach ($item in $sourceData | Where-Object {$ADUsersToSetEmployeeID.ContainsKey($_.personID)}) {
             Write-Log -Path $logFile -Message ("AD: Matched $($ADUsersToSetEmployeeID[$item.personID].User.UserPrincipalName) with EmployeeID: $($item.personID).")
             $item | Add-Member -MemberType NoteProperty -Name 'ADObject' -Value ($ADUsersToSetEmployeeID[$item.personID].User) -Force
             $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserID' -Value ($ADUsersToSetEmployeeID[$item.personID].ID) -Force
@@ -386,17 +246,17 @@ if ($IDConfig.AD.enabled -eq $true) {
     }
 
     #Users to Deactivate
-    $ADUsersToDeactivate = Get-ADUsersToDeactivate -UserList $filteredData -logFile $logFile
+    $ADUsersToDeactivate = Get-ADUsersToDeactivate -UserList $sourceData -logFile $logFile
 
     #Users to Update
-    $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $filteredData -LookupByID $adData.LookupByID -logFile $logFile
+    $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $sourceData -LookupByID $adData.LookupByID -logFile $logFile
 
     #Users to Create
-    $ADUsersToCreate = Get-ADUsersToCreate -UserList $filteredData -CurrentADUsers $adData.Users -logFile $logFile
+    $ADUsersToCreate = Get-ADUsersToCreate -UserList $sourceData -CurrentADUsers $adData.Users -logFile $logFile
 
     #Groups to Update
     if ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
-        $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
+        $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $sourceData -CurrentADGroups $adData.Groups -logFile $logFile
     }
 }
 #endregion AD Processing Lists
@@ -407,11 +267,11 @@ if ($IDConfig.AD.enabled -eq $true) {
 #region Google Processing Lists
 if ($IDConfig.Google.enabled -eq $true) {
     #Org Units to Create
-    $GoogleOrgUnitsForProcessing = Get-GoogleOrgUnitsForProcessing -UserList $filteredData -UserRootOU $IDConfig.Google.userRootOU -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath -logFile $logFile
+    $GoogleOrgUnitsForProcessing = Get-GoogleOrgUnitsForProcessing -UserList $sourceData -UserRootOU $IDConfig.Google.userRootOU -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath -logFile $logFile
     
     #Update filteredData list and GoogleLookupByID Table with Google User Info if No EmployeeID is Set and an existing user is found that matches
-    $GoogleUsersToSetEmployeeID = Get-GoogleUsersToSetEmployeeID -UserList $filteredData -GoogleUsers $googleData.Users -logFile $logFile
-    foreach ($item in $filteredData | Where-Object {$GoogleUsersToSetEmployeeID.ContainsKey($_.personID)}) {
+    $GoogleUsersToSetEmployeeID = Get-GoogleUsersToSetEmployeeID -UserList $sourceData -GoogleUsers $googleData.Users -logFile $logFile
+    foreach ($item in $sourceData | Where-Object {$GoogleUsersToSetEmployeeID.ContainsKey($_.personID)}) {
             Write-Log -Path $logFile -Message ("Google: Matched $($GoogleUsersToSetEmployeeID[$item.personID].User.primaryEmail) with EmployeeID: $($item.personID).")
             $item | Add-Member -MemberType NoteProperty -Name 'GoogleObject' -Value ($GoogleUsersToSetEmployeeID[$item.personID].User) -Force
             $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserID' -Value ($GoogleUsersToSetEmployeeID[$item.personID].ID) -Force
@@ -421,47 +281,20 @@ if ($IDConfig.Google.enabled -eq $true) {
     }
 
     #Users to Update
-    $GoogleUsersToUpdate = Get-GoogleUsersToUpdate -UserList $filteredData -LookupByID $googleData.LookupByID -GoogleUsers $googleData.Users -logFile $logFile
+    $GoogleUsersToUpdate = Get-GoogleUsersToUpdate -UserList $sourceData -LookupByID $googleData.LookupByID -GoogleUsers $googleData.Users -logFile $logFile
 
     #Users to Deactivate
-    $GoogleUsersToDeactivate = Get-GoogleUsersToDeactivate -UserList $filteredData -logFile $logFile
+    $GoogleUsersToDeactivate = Get-GoogleUsersToDeactivate -UserList $sourceData -logFile $logFile
 
     #Users to Create
-    $GoogleUsersToCreate = Get-GoogleUsersToCreate -UserList $filteredData -GoogleUsers $googleData.Users -logFile $logFile
+    $GoogleUsersToCreate = Get-GoogleUsersToCreate -UserList $sourceData -GoogleUsers $googleData.Users -logFile $logFile
 
     #Groups to Update
     if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
-        $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
+        $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
     }
 }
 #endregion Google Processing Lists
-
-
-
-
-#region Google Orphaned List
-#Get Orphaned Google Users for Deactivation
-if ($IDConfig.Staff.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStaff -eq $true) {
-
-    if ($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
-        $trashOU = "$($IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
-    } else {
-        $trashOU = $IDConfig.Staff.OrphanedUserDeactivation.Google.TrashOUPath
-    }
-
-    $GoogleUsersOrphanedStaff = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Staff -TrashOU $trashOU -logFile $logFile
-}
-
-if ($IDConfig.Student.OrphanedUserDeactivation.Google.Enabled -eq $true -or $IDConfig.Debug.OrphanedUsersStudent -eq $true) {
-    if ($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPathIncludesYear -eq $true) {
-        $trashOU = "$($IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath)/$(Get-Date -Format yyyy)"
-    } else {
-        $trashOU = $IDConfig.Student.OrphanedUserDeactivation.Google.TrashOUPath
-    }
-    
-    $GoogleUsersOrphanedStudent = Get-GoogleUsersOrphaned -UserList $filteredData -GoogleUsers $googleData.Students -TrashOU $trashOU -logFile $logFile
-}
-#endregion Google Orphaned List
 
 
 
@@ -475,7 +308,7 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
         }
         catch {
             Write-Log -Path $logFile -Message "AD: Error Creating Org Unit. Please check RunAS user permisisons in AD or Detailed Error for more information" -Level Error
-            Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
+            Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle -Message $_ -WriteError)
         }  
     }
 
@@ -536,7 +369,7 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
             $newUser = New-ADUser @itemSplat -ErrorAction Stop
 
             #Add the GUID to the data object
-            ($filteredData | Where-Object UPN -eq $itemSplat.UserPrincipalName).ADCurrentUserID = $newUser.ObjectGUID
+            ($sourceData | Where-Object UPN -eq $itemSplat.UserPrincipalName).ADCurrentUserID = $newUser.ObjectGUID
             
         }
         catch {
@@ -552,7 +385,7 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
             if ($IDConfig.Debug.verboseLogging -eq $true) {
                 Write-Log -Path $logFile -Message "AD: Refreshing AD User Groups to Update List to include newly created users." -Level Info
             }
-            $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $filteredData -CurrentADGroups $adData.Groups -logFile $logFile
+            $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $sourceData -CurrentADGroups $adData.Groups -logFile $logFile
         }
         #Process Group Membership Add
         foreach ($item in $ADUserGroupsToUpdate.Add) {
@@ -587,56 +420,17 @@ if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
 
 
 
-#region Report Non Data Users
-#### NEED TO ADD ADDITIONAL OPTIONS FOR TEST RUNS BEFORE GOING LIVE WITH THIS SECTION ####
-if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.verboseLogging -eq $true) {
-    #Get all AD Users to Find Users who are not in the data file.
-    $allADUsers = @()
-
-    #Manual and Top Level OUs to Check
-    $OUList = @(
-        $IDConfig.AD.userRootOU
-        ("OU=Student," + $IDConfig.AD.userRootOU)
-        ("OU=Staff," + $IDConfig.AD.userRootOU)
-        ("OU=Trash," + $IDConfig.AD.userRootOU)
-        ("OU=Student,OU=Trash," + $IDConfig.AD.userRootOU)
-        ("OU=Staff,OU=Trash," + $IDConfig.AD.userRootOU)
-    )
-
-    #Add the OUs to check from only active users
-    $OUListAuto = @()
-    foreach ($item in $filteredData | Where-Object {$_.IDBActive -eq $true}) {
-        $OUListAuto += $item.ADOrganizationalUnit
-        $OUListAuto += $item.ADOrganizationalUnitTrash
-    }
-
-    #Combine Base and OU Lists - This is needed to be done this way so that the base OUs get processed first
-    $OUList += $OUListAuto | Sort-Object -Unique
-
-    foreach ($item in $OUList | Where-Object {$_ -notlike "*,OU=Trash,*"}) {
-        $allADUsers += Get-ADUser -Filter * -SearchBase $item -Properties EmployeeID,Surname,GivenName -searchscope 1
-    }
-
-    foreach ($item in $allADUsers) {
-        if ($item.employeeID -notin $filteredData.personID) {
-            Write-Log -Path $logFile -Message "AD: $($item.GivenName) $($item.Surname) not in data file."
-        }
-    }
-}
-#endregion Report Non Data Users
-
-
 
 #region Process Google Changes
 if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
     #Create Org Units
     foreach ($item in $GoogleOrgUnitsForProcessing) {
         try {
-            New-IDBridgeGoogleOrgUnit -OrgUnit $item -tokenInformation $headers -logFile $logFile
+            New-IDBridgeGoogleOrgUnit -OrgUnit $item -tokenInformation $headersGoogle -logFile $logFile
         }
         catch {
             Write-Log -Path $logFile -Message "Google: Error Creating Org Unit. Please check API permissions in Google or Detailed Error for more information" -Level Error
-            Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers -Message $_ -WriteError)
+            Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle -Message $_ -WriteError)
         }
     }
 
@@ -645,7 +439,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
         try {
             Write-Log -Path $logFile -Message ("Google: Disabling account for " + $item.UPN)
             Write-Log -Path $logFile -Message  ("Google: Moving account to trash: " + $item.UPN)
-            Update-IDBridgeGoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true' -tokenInformation $headers -logFile $logFile
+            Update-IDBridgeGoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true' -tokenInformation $headersGoogle -logFile $logFile
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -655,7 +449,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             foreach ($group in $item.GoogleCurrentGroups) {
                 try {
                     Write-Log -Path $logFile -Message ("Google: Removing Group: $group from " + $item.personID)
-                    Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers -logFile $logFile
+                    Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headersGoogle -logFile $logFile
                 }
                 catch {
                     Write-Log -Path $logFile -Message $_ -Level Error
@@ -670,7 +464,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             Write-Log -Path $logFile -Message "Google: Updating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
             $itemSplat = $null
             $itemSplat = $item.splat
-            Update-IDBridgeGoogleUser @itemSplat -tokenInformation $headers -logFile $logFile
+            Update-IDBridgeGoogleUser @itemSplat -tokenInformation $headersGoogle -logFile $logFile
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -684,10 +478,10 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             $itemSplat = $null
             $itemSplat = $item.splat
             
-            $newUserResponse = New-IDBridgeGoogleUser @itemSplat -tokenInformation $headers -logFile $logFile -ErrorAction Stop
+            $newUserResponse = New-IDBridgeGoogleUser @itemSplat -tokenInformation $headersGoogle -logFile $logFile -ErrorAction Stop
 
             #Add the Google ID to the data object
-            ($filteredData | Where-Object UPN -eq $itemSplat.PrimaryEmail).GoogleCurrentUserID = $newUserResponse.ID
+            ($sourceData | Where-Object UPN -eq $itemSplat.PrimaryEmail).GoogleCurrentUserID = $newUserResponse.ID
         }
         catch {
             Write-Log -Path $logFile -Message $_ -Level Error
@@ -701,7 +495,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             if ($IDConfig.Debug.verboseLogging -eq $true) {
                 Write-Log -Path $logFile -Message "Google: Refreshing AD User Groups to Update List to include newly created users." -Level Info
             }
-            $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $filteredData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
+            $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName -logFile $logFile
         }
 
         #Process Group Membership Add
@@ -709,7 +503,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
             foreach ($group in $item.Groups) {
                 try {
                     Write-Log -Path $logFile -Message "Google: Adding Group: $group to $($item.PersonID)"
-                    Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headers -logFile $logFile
+                    Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -TokenInformation $headersGoogle -logFile $logFile
                 }
                 catch {
                     Write-Log -Path $logFile -Message $_ -Level Error
@@ -723,7 +517,7 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
                 foreach ($group in $item.Groups) {
                     try {
                         Write-Log -Path $logFile -Message "Google: Removing Group: $group from $($item.PersonID)"
-                        Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headers -logFile $logFile
+                        Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -TokenInformation $headersGoogle -logFile $logFile
                     }
                     catch {
                         Write-Log -Path $logFile -Message $_ -Level Error
@@ -739,10 +533,10 @@ if ($IDConfig.Google.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false)
 
 
 #region Export User Staff List
-$filteredData | Where-Object {$_.PersonTypeID -ne "1"} | Export-Csv -Path "C:\IDBridge\Exports\UserList-Staff.csv" -NoTypeInformation -Force
+$sourceData | Where-Object {$_.PersonTypeID -ne "1"} | Export-Csv -Path "$($IDconfig.Paths.ExportsRoot)\UserList-Staff.csv" -NoTypeInformation -Force
 #endregion Export User Staff List
 
 
 
 
-Start-ScriptEnd -UploadLogsSheetID $IDConfig.GoogleSheet.logSheetID -GoogleHeaders $headers
+Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle

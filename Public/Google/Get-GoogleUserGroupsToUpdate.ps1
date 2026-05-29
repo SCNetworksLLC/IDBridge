@@ -21,7 +21,7 @@ function Get-GoogleUserGroupsToUpdate {
         #Create list for adding groups
         $userGroupsAdd = @()
 
-        foreach ($group in $item.GoogleGroupsProposed | Where-Object {$_ -in $GoogleGroups.name}) {
+        foreach ($group in $item.GroupsProposed | Where-Object {$_ -in $GoogleGroups.name}) {
             if (("$group@$($GroupPrimaryDomainName)") -notin $item.GoogleCurrentGroups) {
                 $userGroupsAdd += $group
             }
@@ -40,7 +40,7 @@ function Get-GoogleUserGroupsToUpdate {
         $userGroupsRemove = @()
 
         foreach ($group in $item.GoogleCurrentGroups) {
-            if ($group.Split("@")[0] -notin $item.GoogleGroupsProposed) {
+            if ($group.Split("@")[0] -notin $item.GroupsProposed) {
                 $userGroupsRemove += $group
             }
         }

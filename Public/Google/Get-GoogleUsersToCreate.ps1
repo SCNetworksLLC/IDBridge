@@ -32,15 +32,30 @@ function Get-GoogleUsersToCreate {
             $itemCreateSplat["ChangeAtNextLogin"] = 'false'
         }
 
-        #Pass additional attributes if they exist`
-        if ($item.GooglePasswordType -eq "Random") {
-            $itemCreateSplat["Password"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
-        } elseif ($item.GooglePasswordType -eq "FSPIN") {
-            $itemCreateSplat["Password"] = (ConvertTo-SecureString ($item.GooglePassPrefix + $item.FSPIN) -AsPlainText -Force)
-        } elseif ($item.GooglePasswordType -eq "Word") {
-            $itemCreateSplat["Password"] = (ConvertTo-SecureString ($item.GooglePassPrefix + $item.Word) -AsPlainText -Force)
+
+        #Set AccountPassword
+        if ($item.GooglePassphraseAPI) {
+            try {
+                $passphraseParams = @{
+                    Nonce = $item.GooglePassphraseAPI.Nonce
+                    Username = $item.Username
+                    Mode = $item.GooglePassphraseAPI.Mode
+                    WordCount = $item.GooglePassphraseAPI.WordCount
+                    AuthToken = $item.GooglePassphraseAPI.AuthToken
+                }
+
+                $itemCreateSplat["Password"] = (ConvertTo-SecureString (New-Passphrase @passphraseParams) -AsPlainText -Force)
+            }
+            catch {
+                Write-Log -Path $logFile -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  Password API Error. Skipping User Creation.") -Level "Warn"
+                Write-Log -Path $logFile -Message ("Google: Password API Error $($_)") -Level "Warn"
+                Continue
+            }
+        } elseif ($item.GoogleKey) {
+            $itemCreateSplat["Password"] = $item.GoogleKey
         } else {
-            $itemCreateSplat["Password"] = (ConvertTo-SecureString (New-Guid).Guid -AsPlainText -Force)
+            Write-Log -Path $logFile -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  ADKey is not set. Skipping User Creation.") -Level "Warn"
+            Continue
         }
 
         Write-Log -Path $logFile -Message ("Google: No user found for $($item.PersonID). Adding user to create list.")

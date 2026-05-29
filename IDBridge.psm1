@@ -6,8 +6,12 @@ if (Test-Path "C:\IDBridge\Custom") {
     $Custom = @( Get-ChildItem -Path "C:\IDBridge\Custom\*.ps1" -ErrorAction SilentlyContinue -Recurse )
 }
 
+if (Test-Path "C:\IDBridge\Plugins") {
+    $Plugins = @( Get-ChildItem -Path "C:\IDBridge\Plugins\*.ps1" -ErrorAction SilentlyContinue -Recurse )
+}
+
 $FoundErrors = @(
-    foreach ($Import in @($Private + $Public + $Custom)) {
+    foreach ($Import in @($Private + $Public + $Custom + $Plugins)) {
         try { . $Import.Fullname}
         catch {
             Write-Error -Message "Failed to import functions from $($Import.Fullname): $_"

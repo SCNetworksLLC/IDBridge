@@ -33,7 +33,7 @@ function Start-ScriptEnd {
 
     #Upload Logs to Google Sheets
     if ($UploadLogsSheetID -and $GoogleHeaders) {
-        Push-LogsToSheet -logFile 'C:\IDBridge\Logs\IDBridge.log' -headers $GoogleHeaders -spreadsheetId $UploadLogsSheetID -sheetName 'Logs' -hasHeader
+        Push-LogsToSheet -logFile "$($IDconfig.Paths.LogsRoot)\IDBridge.log" -headers $GoogleHeaders -spreadsheetId $UploadLogsSheetID -sheetName 'Logs' -hasHeader
     }
 
     if ($Message) {

@@ -18,7 +18,7 @@ function Get-ADUserGroupsToUpdate {
         #Create list for adding groups
         $userGroupsAdd = @()
 
-        foreach ($groupAdd in $item.ADGroupsProposed | Where-Object {$_ -in $CurrentADGroups}) {
+        foreach ($groupAdd in $item.GroupsProposed | Where-Object {$_ -in $CurrentADGroups}) {
             if ($groupAdd -notin $item.ADCurrentGroups) {
                 $userGroupsAdd += $groupAdd
             }
@@ -37,7 +37,7 @@ function Get-ADUserGroupsToUpdate {
         $userGroupsRemove = @()
 
         foreach ($groupCurrent in $item.ADCurrentGroups) {
-            if ($groupCurrent -notin $item.ADGroupsProposed) {
+            if ($groupCurrent -notin $item.GroupsProposed) {
                 $userGroupsRemove += $groupCurrent
             }
         }
