@@ -20,6 +20,16 @@ function Get-IDBridgeConfiguration {
 
 
 
+    #region Validate Paths
+    foreach ($path in $IDBridgeConfig.Paths.GetEnumerator()) {
+        if (-not (Test-Path $path.Value)) {
+            New-Item -ItemType Directory -Path $path.Value -Force | Out-Null
+            Write-Host "Created missing directory: $($path.Value)" -ForegroundColor Yellow
+        }
+    }
+    #endregion Validate Paths
+
+
     #region Set Logging
     Set-Variable -Name "logFile" -Value "$($IDBridgeConfig.Paths.LogsRoot)\IDBridge.log" -Scope global
 
@@ -34,6 +44,7 @@ function Get-IDBridgeConfiguration {
         $Global:VerboseLogging = $true
     }
     #endregion Set Logging
+
   
 
 
@@ -77,6 +88,20 @@ function Get-IDBridgeConfiguration {
     $IDBridgeConfig.GoogleToken.authFilePath = $authFilePath
 
     #endregion JSON Google Auth
+
+
+
+    #region User Secrets Path
+    $userSecretsPath = Join-Path $IDBridgeConfig.Paths.AuthRoot $env:USERNAME
+    if (-not (Test-Path $userSecretsPath)) {
+        New-Item -ItemType Directory -Path $userSecretsPath -Force | Out-Null
+        Write-Host "Created user secrets directory for $env:USERNAME" -ForegroundColor Green
+    }
+
+    $IDBridgeConfig.Paths.UserSecretsRoot = $userSecretsPath
+    Write-Log -Message "User secrets path set to: $userSecretsPath" -Path $logFile
+    #endregion User Secrets Path
+
 
 
 
