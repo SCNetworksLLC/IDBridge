@@ -32,7 +32,7 @@ function Get-GoogleOrgUnitsForProcessing {
     #Create list for processing - deduplicated, missing only, sorted by depth (parent-first)
     $OrgUnitsForProcessing = $OUListExpanded |
         Sort-Object -Unique |
-        Where-Object { $_ -notin $CurrentOrgUnits.orgUnitPath } |
+        Where-Object { $_ -notin $CurrentOrgUnits } |
         Sort-Object { ($_ -split '/').Count }
 
     foreach ($item in $OrgUnitsForProcessing) {
