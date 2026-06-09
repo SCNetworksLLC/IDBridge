@@ -43,37 +43,37 @@ Override plugins gather data that is used to override or modify the source data 
 #>
 $sourceData = @()
 $overrideData = @()
-foreach ($plugin in $IDConfig.Plugins.GetEnumerator() | Sort-Object Name) {
-    if ($plugin.Value.Enabled -ne $true) {
+foreach ($plugin in $IDConfig.Plugins) {
+    if ($plugin.Enabled -ne $true) {
         if ($IDConfig.Debug.verboseLogging -eq $true) {
-            Write-Log -Path $logFile -Message "Plugin: $($plugin.Value.Function) is disabled in config. Skipping plugin." -Level Info
+            Write-Log -Path $logFile -Message "Plugin: $($plugin.Function) is disabled in config. Skipping plugin." -Level Info
         }
         Continue
     }
 
-    if (-not (Get-Command $plugin.Value.Function -ErrorAction SilentlyContinue)) {
-        Write-Log -Path $logFile -Message "Plugin: $($plugin.Value.Function) is enabled in config but not found. Disabling plugin." -Level Warn
-        $plugin.Value.Enabled = $false
+    if (-not (Get-Command $plugin.Function -ErrorAction SilentlyContinue)) {
+        Write-Log -Path $logFile -Message "Plugin: $($plugin.Function) is enabled in config but not found. Disabling plugin." -Level Warn
+        $plugin.Enabled = $false
         Continue
     }
 
     #If the plugin is enabled and the function exists, run the plugin to gather data and add it to the list of data to be processed later in the script.
     try {
-        Write-Log -Path $logFile -Message "Running $($plugin.Value.Type) Plugin: $($plugin.Value.Function)" -Level Info
+        Write-Log -Path $logFile -Message "Running $($plugin.Type) Plugin: $($plugin.Function)" -Level Info
         $pluginData = $null
-        $pluginData = & $plugin.Value.Function
+        $pluginData = & $plugin.Function
     }
     catch { Throw (Start-ScriptEnd -UploadLogsSheetID $IDConfig.Logging.SheetID -GoogleHeaders $headersGoogle -Message $_ -WriteError) }
 
     if ($pluginData) {
-        if ($plugin.Value.Type -eq "Source") {
+        if ($plugin.Type -eq "Source") {
             $sourceData += $pluginData
         }
-        if ($plugin.Value.Type -eq "Override") {
+        if ($plugin.Type -eq "Override") {
             $overrideData += $pluginData
         }
     } else {
-        Write-Log -Path $logFile -Message "Plugin: $($plugin.Value.Function) did not return any data." -Level Warn
+        Write-Log -Path $logFile -Message "Plugin: $($plugin.Function) did not return any data." -Level Warn
     }
 }
 
