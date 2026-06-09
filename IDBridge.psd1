@@ -57,6 +57,7 @@
         'Get-GoogleApiAccessToken'
         'Get-IDBridgeConfiguration'
         'Get-OverrideProperties'
+        'Invoke-IDBridge'
 
         # Logging & lifecycle
         'Write-Log'

@@ -8,10 +8,7 @@ function Get-GoogleUsersToUpdate {
         $LookupByID,
 
         [Parameter(Mandatory = $true)]
-        $GoogleUsers,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $GoogleUsers
     )
 
     $itemUpdateList = @()
@@ -30,10 +27,10 @@ function Get-GoogleUsersToUpdate {
                 if ($item.UPN -in ($GoogleUsers.emails | Select-Object -ExpandProperty address)) {
                     $aliasUser = $GoogleUsers | Where-Object {$item.UPN -in ($_.emails | Select-Object -ExpandProperty address)}
                     $itemUpdateSplat["RemoveAlias"] = $item.UPN
-                    Write-Log -Path $logFile -Message ("Google: User: $($item.personID) with new UPN: $($item.UPN). New UPN already in use as Alias, will remove alias from $($aliasUser.primaryEmail).") -Level Warn
+                    Write-Log -Message ("Google: User: $($item.personID) with new UPN: $($item.UPN). New UPN already in use as Alias, will remove alias from $($aliasUser.primaryEmail).") -Level Warn
                 }
             } else {
-                Write-Log -Path $logFile -Message ("Google: User: $($item.personID) with new UPN: $($item.UPN). New UPN already in use.") -Level Error
+                Write-Log -Message ("Google: User: $($item.personID) with new UPN: $($item.UPN). New UPN already in use.") -Level Error
                 continue
             }
         }
@@ -68,8 +65,8 @@ function Get-GoogleUsersToUpdate {
         if ($itemUpdateSplat.Count -gt 0) {
             $itemUpdateSplat["GoogleUserID"] = $item.GoogleCurrentUserID
 
-            Write-Log -Path $logFile -Message ("Google: Information that needs updating for: " + $item.UPN + " - " + $item.personID)
-            Write-Log -Path $logFile -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
+            Write-Log -Message ("Google: Information that needs updating for: " + $item.UPN + " - " + $item.personID)
+            Write-Log -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
 
             $itemUpdateList += [PSCustomObject]@{
                 UPN = $item.UPN

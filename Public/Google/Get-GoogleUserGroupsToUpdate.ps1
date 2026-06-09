@@ -8,10 +8,7 @@ function Get-GoogleUserGroupsToUpdate {
         $GoogleGroups,
 
         [Parameter(Mandatory = $true)]
-        $GroupPrimaryDomainName,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $GroupPrimaryDomainName
     )
 
     $itemListAdd = @()
@@ -28,7 +25,7 @@ function Get-GoogleUserGroupsToUpdate {
         }
 
         if ($userGroupsAdd.Count -gt 0) {
-            Write-Log -Path $logFile -Message "Google: Information that needs updating - Add Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsAdd -join ', ')"
+            Write-Log -Message "Google: Information that needs updating - Add Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsAdd -join ', ')"
             $itemListAdd += [PSCustomObject]@{
                 PersonID = $item.PersonID
                 GoogleCurrentUserID = $item.GoogleCurrentUserID
@@ -46,7 +43,7 @@ function Get-GoogleUserGroupsToUpdate {
         }
 
         if ($userGroupsRemove.Count -gt 0) {
-            Write-Log -Path $logFile -Message "Google: Information that needs updating - Remove Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsRemove -join ', ')"
+            Write-Log -Message "Google: Information that needs updating - Remove Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsRemove -join ', ')"
             $itemListRemove += [PSCustomObject]@{
                 PersonID = $item.PersonID
                 GoogleCurrentUserID = $item.GoogleCurrentUserID

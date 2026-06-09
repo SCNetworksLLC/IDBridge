@@ -1,9 +1,6 @@
 function Get-TargetDataAD {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [string]$logFile,
-
         $VerboseLogging = $false
     )
 
@@ -40,14 +37,14 @@ function Get-TargetDataAD {
 
         if ($ADUsers) {
             if ($VerboseLogging) {
-                Write-Log -Path $logFile -Message "AD: Successfully fetched Users"
+                Write-Log -Message "AD: Successfully fetched Users"
             }
         } else {
             Throw "AD: Connected to AD but no users fetched"
         }
     }
     catch {
-        Write-Log -Path $logFile -Message "AD: No users fetched" -Level Error
+        Write-Log -Message "AD: No users fetched" -Level Error
         Throw $_
     }
 
@@ -57,14 +54,14 @@ function Get-TargetDataAD {
 
         if ($ADGroups) {
             if ($VerboseLogging) {
-                Write-Log -Path $logFile -Message "AD: Successfully fetched Groups"
+                Write-Log -Message "AD: Successfully fetched Groups"
             }
         } else {
             Throw "AD: Connected to AD but no groups fetched"
         }
     }
     catch {
-        Write-Log -Path $logFile -Message "AD: No groups fetched" -Level Error
+        Write-Log -Message "AD: No groups fetched" -Level Error
         Throw $_
     }
 
@@ -96,14 +93,14 @@ function Get-TargetDataAD {
 
         if ($ADOrgUnits) {
             if ($VerboseLogging) {
-                Write-Log -Path $logFile -Message "AD: Successfully fetched Org Units"
+                Write-Log -Message "AD: Successfully fetched Org Units"
             }
         } else {
             Throw "AD: Connected to AD but no org units fetched"
         }
     }
     catch {
-        Write-Log -Path $logFile -Message "AD: No org units fetched" -Level Error
+        Write-Log -Message "AD: No org units fetched" -Level Error
         Throw $_
     }
 
@@ -115,7 +112,7 @@ function Get-TargetDataAD {
     ).group
 
     if ($duplicateADUsers) {
-        Write-Log -Path $logFile -Message ("AD: Users found with Duplicate External IDs: " + ($duplicateADUsers | ConvertTo-Json -Compress))
+        Write-Log -Message ("AD: Users found with Duplicate External IDs: " + ($duplicateADUsers | ConvertTo-Json -Compress))
     }
 
     # Build the lookup tables once to make the search faster

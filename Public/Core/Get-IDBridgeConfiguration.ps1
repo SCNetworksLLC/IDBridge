@@ -1,24 +1,33 @@
 function Get-IDBridgeConfiguration {
     [CmdletBinding()]
     param (
-        [string]$ConfigPath = "C:\IDBridge\Config"
+        [string]$RootPath = "C:\IDBridge"
     )
 
-    Write-Host "Importing config file from $($configPath)"
+    Write-Host "Importing config file from $RootPath"
 
     try {
-        if (Test-Path $configPath) {
-            $IDBridgeConfig = Import-PowerShellDataFile -Path (Join-Path $configPath "IDBridgeConfig.psd1") -ErrorAction Stop
+        $configFilePath = Join-Path $RootPath "Config\IDBridgeConfig.psd1"
+        if (Test-Path $configFilePath) {
+            $IDBridgeConfig = Import-PowerShellDataFile -Path $configFilePath -ErrorAction Stop
             Write-Host "Successfully imported IDBridgeConfig.psd1" -ForegroundColor Green
         } else {
-            Throw "Config path not found: $configPath"
+            Throw "Config file not found: $configFilePath"
         }
     }
     catch {
         Throw "Error importing config file: $_"
     }
 
-
+    $IDBridgeConfig.Paths = @{
+        Root        = $RootPath
+        ConfigRoot  = "$RootPath\Config"
+        AuthRoot    = "$RootPath\Auth"
+        LogsRoot    = "$RootPath\Logs"
+        ExportsRoot = "$RootPath\Exports"
+        PluginsRoot = "$RootPath\Plugins"
+        DataRoot    = "$RootPath\Data"
+    }
 
     #region Validate Paths
     foreach ($path in $IDBridgeConfig.Paths.GetEnumerator()) {
@@ -37,10 +46,10 @@ function Get-IDBridgeConfiguration {
         Rename-Item $logFile ((Get-Item $logfile).BaseName + "_" + $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) + ".log")
     }
 
-    Write-Log -Message "######## Begin of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########" -Path $logFile
+    Write-Log -Message "######## Begin of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
 
     if ($IDBridgeConfig.Debug.verboseLogging -eq $true) {
-        Write-Log -Message "Verbose logging is ENABLED" -Path $logFile
+        Write-Log -Message "Verbose logging is ENABLED"
         $Global:VerboseLogging = $true
     }
     #endregion Set Logging
@@ -99,7 +108,7 @@ function Get-IDBridgeConfiguration {
     }
 
     $IDBridgeConfig.Paths.UserSecretsRoot = $userSecretsPath
-    Write-Log -Message "User secrets path set to: $userSecretsPath" -Path $logFile
+    Write-Log -Message "User secrets path set to: $userSecretsPath"
     #endregion User Secrets Path
 
 
@@ -114,7 +123,7 @@ function Get-IDBridgeConfiguration {
         }
         catch {
             Write-Host "AD Powershell Module does not exit on the local machine: $($_)" -ForegroundColor Red
-            if ($IDBridgeConfig.Debug.SkipADCHeck -ne $true) {
+            if ($IDBridgeConfig.Debug.skipADCheck -ne $true) {
                 Throw "AD Powershell Module does not exit on the local machine: $_"
             }
         }
@@ -126,7 +135,7 @@ function Get-IDBridgeConfiguration {
     #region Check Active IDBridge Configurations
     #Check if Read Only Mode is active
     if ($IDBridgeConfig.Debug.readOnly -eq $true) {
-        Write-Log -Path $logFile -Message "READ ONLY MODE: NO CHANGES WILL BE MADE"
+        Write-Log -Message "READ ONLY MODE: NO CHANGES WILL BE MADE"
     }
 
     #Deactivate Groups if module isn't enabled

@@ -5,10 +5,7 @@ function Get-ADUserGroupsToUpdate {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $CurrentADGroups,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $CurrentADGroups
     )
 
     $itemListAdd = @()
@@ -25,7 +22,7 @@ function Get-ADUserGroupsToUpdate {
         }
 
         if ($userGroupsAdd.Count -gt 0) {
-            Write-Log -Path $logFile -Message "AD: Information that needs updating - Add Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsAdd -join ', ')"
+            Write-Log -Message "AD: Information that needs updating - Add Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsAdd -join ', ')"
             $itemListAdd += [PSCustomObject]@{
                 PersonID = $item.PersonID
                 ADCurrentUserID = $item.ADCurrentUserID
@@ -43,7 +40,7 @@ function Get-ADUserGroupsToUpdate {
         }
 
         if ($userGroupsRemove.Count -gt 0) {
-            Write-Log -Path $logFile -Message "AD: Information that needs updating - Remove Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsRemove -join ', ')"
+            Write-Log -Message "AD: Information that needs updating - Remove Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsRemove -join ', ')"
             $itemListRemove += [PSCustomObject]@{
                 PersonID = $item.PersonID
                 ADCurrentUserID = $item.ADCurrentUserID

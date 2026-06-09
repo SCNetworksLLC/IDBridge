@@ -19,11 +19,8 @@
 .PARAMETER BaseUrl
     The base URL for the OneRoster API (used to build the /users endpoint).
 
-.PARAMETER logFile
-    A PSObject representing the log file to use for logging events or errors (currently unused).
-
 .EXAMPLE
-    $students = Get-SourceDataInfiniteCampus -BaseUrl $IDConfig.InfiniteCampus.BaseURL -TokenUrl $IDConfig.InfiniteCampus.TokenURL -ClientId $IDConfig.InfiniteCampus.ClientID -ClientSecret $IDConfig.InfiniteCampus.ClientSecret -logFile $logFile
+    $students = Get-SourceDataInfiniteCampus -BaseUrl $IDConfig.InfiniteCampus.BaseURL -TokenUrl $IDConfig.InfiniteCampus.TokenURL -ClientId $IDConfig.InfiniteCampus.ClientID -ClientSecret $IDConfig.InfiniteCampus.ClientSecret
 
     Retrieves all active primary students from Infinite Campus and stores them in $students.
 
@@ -48,10 +45,7 @@ function Get-SourceDataInfiniteCampus {
         [string]$TokenUrl,
 
         [Parameter(Mandatory = $true)]
-        [string]$BaseUrl,
-
-        [Parameter(Mandatory = $true)]
-        [PSObject]$logFile
+        [string]$BaseUrl
     )
 
     # Prepare OAuth token request
@@ -65,10 +59,10 @@ function Get-SourceDataInfiniteCampus {
         Write-Verbose "Requesting access token from $TokenUrl"
         $tokenResponse = Invoke-RestMethod -Method Post -Uri $TokenUrl -Body $tokenBody -ErrorAction Stop
         $accessToken   = $tokenResponse.access_token
-        Write-Log -Path $logFile -Message "Access token for Infinite Campus retrieved successfully"
+        Write-Log -Message "Access token for Infinite Campus retrieved successfully"
     }
     catch {
-        Write-Log -Path $logFile -Message "Access token request failed: $_" -Level Error
+        Write-Log -Message "Access token request failed: $_" -Level Error
         return @()  # Return empty array on failure
     }
 
@@ -85,7 +79,7 @@ function Get-SourceDataInfiniteCampus {
         $responseSchools = Invoke-RestMethod -Method Get -Uri $urlSchools -Headers $headers  -ErrorAction Stop
     }
     catch {
-        Write-Log -Path $logFile -Message "School data request failed: $_" -Level Error
+        Write-Log -Message "School data request failed: $_" -Level Error
         return @()  # Return empty array on failure
     }
 
@@ -119,20 +113,20 @@ function Get-SourceDataInfiniteCampus {
                 $students += $response.users
                 # Increment offset by number of users returned
                 $offset += $response.users.Count
-                Write-Log -Path $logFile -Message ("Retrieved $($response.users.Count) users; total so far: $($students.Count)")
+                Write-Log -Message ("Retrieved $($response.users.Count) users; total so far: $($students.Count)")
             } else {
                 Write-Verbose "No more users returned; ending loop"
                 break
             }
         }
         catch {
-            Write-Log -Path $logFile -Message ("User data request failed: $_") -Level Error
+            Write-Log -Message ("User data request failed: $_") -Level Error
             return @()  # Return empty array on failure
         }
     } while ($response.users.Count -eq $limit)
 
     # Output total number of users retrieved
-    Write-Log -Path $logFile -Message ("Total users retrieved: $($students.Count)")
+    Write-Log -Message ("Total users retrieved: $($students.Count)")
 
     # Transform each student into a flattened object
     $studentsFiltered = $students | ForEach-Object {

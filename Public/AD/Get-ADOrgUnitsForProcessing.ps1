@@ -17,8 +17,6 @@
 .PARAMETER CurrentOrgUnits
     OUs that already exist in AD, used to filter out OUs that don't need creating.
 
-.PARAMETER logFile
-    Path to the log file.
 #>
 
 function Get-ADOrgUnitsForProcessing {
@@ -31,10 +29,7 @@ function Get-ADOrgUnitsForProcessing {
         $UserRootOU,
 
         [Parameter(Mandatory = $true)]
-        $CurrentOrgUnits,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $CurrentOrgUnits
     )
 
     # Collect every OU path referenced by active users (active OU + trash OU)
@@ -74,7 +69,7 @@ function Get-ADOrgUnitsForProcessing {
         Sort-Object { ($_ -split ',OU=').Count }
 
     foreach ($item in $OrgUnitsForProcessing) {
-        Write-Log -Path $logFile -Message "AD: Adding Org Unit to Process List: Create: $($item)"
+        Write-Log -Message "AD: Adding Org Unit to Process List: Create: $($item)"
     }
 
     return $OrgUnitsForProcessing

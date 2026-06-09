@@ -2,9 +2,6 @@ function Push-LogsToSheet {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$logFile,
-
-        [Parameter(Mandatory=$true)]
         [hashtable]$headers,
 
         [Parameter(Mandatory=$true)]
@@ -31,7 +28,7 @@ function Push-LogsToSheet {
         $runLines = if ($allLines.Count -ge $startLine) { $allLines[($startLine - 1)..($allLines.Count - 1)] } else { @() }
 
         if (-not $runLines -or $runLines.Count -eq 0) {
-            Write-Log -Path $logFile -Message "Push-RunLogsToSheet: No log lines found for current run (startLine=$startLine)." -Level Warning
+            Write-Log -Message "Push-RunLogsToSheet: No log lines found for current run (startLine=$startLine)." -Level Warning
             return $true
         }
 
@@ -104,11 +101,11 @@ function Push-LogsToSheet {
         # Use existing Set-GSheetData helper to write only the top inserted rows.
         Set-GSheetData -TokenInformation $headers -rangeA1 $rangeA1 -sheetName $sheetName -spreadSheetID $spreadsheetId -values $newRows
 
-        Write-Log -Path $logFile -Message ("Push-RunLogsToSheet: Inserted and wrote $numNew rows to '$sheetName' (sheetId=$sheetId).")
+        Write-Log -Message ("Push-RunLogsToSheet: Inserted and wrote $numNew rows to '$sheetName' (sheetId=$sheetId).")
         return $true
     }
     catch {
-        Write-Log -Path $logFile -Message ("Push-RunLogsToSheet: Failed: " + $_.Exception.Message) -Level Error
+        Write-Log -Message ("Push-RunLogsToSheet: Failed: " + $_.Exception.Message) -Level Error
         throw $_
     }
 }

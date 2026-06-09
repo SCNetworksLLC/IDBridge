@@ -109,10 +109,7 @@ function Update-IDBridgeGoogleUser() {
         [string]$RemoveAlias,
 
         [parameter(Mandatory=$true)]  # Hashtable containing OAuth authentication headers
-        [hashtable]$tokenInformation,
-
-        [parameter(Mandatory=$true)]
-        $logFile
+        [hashtable]$tokenInformation
     )
 
     # Create an empty hashtable to store fields that will be updated
@@ -148,7 +145,7 @@ function Update-IDBridgeGoogleUser() {
                 }
             )
         } else {
-            Write-Log -Path $logFile -Message "Error: Please specify both first AND last name" -Level Error
+            Write-Log -Message "Error: Please specify both first AND last name" -Level Error
             return
         }
     }
@@ -197,17 +194,17 @@ function Update-IDBridgeGoogleUser() {
             #Get the user that currently has the alias
             $aliasLookupUri = "https://admin.googleapis.com/admin/directory/v1/users/$($RemoveAlias)"
             $aliasUser = Invoke-RestMethod -Uri $aliasLookupUri -Headers $tokenInformation -Method GET
-            Write-Log -Path $logFile -Message "Google: Remove Alias User: $($aliasUser | ConvertTo-Json -Depth 5)"
+            Write-Log -Message "Google: Remove Alias User: $($aliasUser | ConvertTo-Json -Depth 5)"
 
             if ($aliasUser -and $RemoveAlias -ne $aliasUser.primaryEmail) {
                 #Remove alias from current owner
                 $removeAliasUri = "https://admin.googleapis.com/admin/directory/v1/users/$($aliasUser.id)/aliases/$($RemoveAlias)"
                 Invoke-RestMethod -Uri $removeAliasUri -Headers $tokenInformation -Method DELETE -ErrorAction Stop
-                Write-Log -Path $logFile -Message "Google: Alias: $($RemoveAlias) Removed from user $($aliasUser.primaryEmail)"
+                Write-Log -Message "Google: Alias: $($RemoveAlias) Removed from user $($aliasUser.primaryEmail)"
             } elseif ($RemoveAlias -eq $aliasUser.primaryEmail) {
-                Write-Log -Path $logFile -Message "Google: Can't Remove Alias $($RemoveAlias) - Alias is a primary email for $($aliasUser.name | ConvertTo-Json -Depth 5)" -Level Error
+                Write-Log -Message "Google: Can't Remove Alias $($RemoveAlias) - Alias is a primary email for $($aliasUser.name | ConvertTo-Json -Depth 5)" -Level Error
             } else {
-                Write-Log -Path $logFile -Message "Google: No alias user found for alias $RemoveAlias" -Level Warn
+                Write-Log -Message "Google: No alias user found for alias $RemoveAlias" -Level Warn
             }
         }
         catch {
@@ -226,10 +223,10 @@ function Update-IDBridgeGoogleUser() {
         # Send the PUT request to the API
         try {
             $response = Invoke-RestMethod -Uri $url -Method Put -Headers $tokenInformation -Body $body -ContentType "application/json"
-            Write-Log -Path $logFile -Message "Google: Update Response: $($response | ConvertTo-Json -Depth 5)"
+            Write-Log -Message "Google: Update Response: $($response | ConvertTo-Json -Depth 5)"
         } catch {
             # Log any errors that occur during the API request
-            Write-Log -Path $logFile -Message "Google: $($_.Exception.Message)" -Level Error
+            Write-Log -Message "Google: $($_.Exception.Message)" -Level Error
             return $_
         }
     }

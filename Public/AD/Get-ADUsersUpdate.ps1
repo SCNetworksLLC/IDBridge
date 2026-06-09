@@ -5,10 +5,7 @@ function Get-ADUsersToUpdate {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $LookupByID,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $LookupByID
     )
 
     $itemUpdateList = @()
@@ -25,13 +22,13 @@ function Get-ADUsersToUpdate {
             try {
                 Get-ADUser -Identity $item.UPN -ErrorAction Stop | Out-Null
 
-                Write-Log -Path $logFile -Message ("AD: Another user account has the username of " + $item.Username + ". Terminating updating person: " + $item.PersonID) -Level Error
+                Write-Log -Message ("AD: Another user account has the username of " + $item.Username + ". Terminating updating person: " + $item.PersonID) -Level Error
 
                 continue
             }
             catch {
                 if ($_.CategoryInfo.Reason -eq 'ADIdentityNotFoundException') {
-                    Write-Log -Path $logFile -Message ("AD: New Username found for " + $item.PersonID + ". Old username is " + $ADUser.SamAccountName + ". New username is " + $item.Username + ".")
+                    Write-Log -Message ("AD: New Username found for " + $item.PersonID + ". Old username is " + $ADUser.SamAccountName + ". New username is " + $item.Username + ".")
 
                     $itemUpdateSplat["SamAccountName"] = $item.Username
                     $itemUpdateSplat["UserPrincipalName"] = $item.UPN
@@ -91,8 +88,8 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["Identity"] = $item.ADCurrentUserID
             $itemUpdateSplat["Division"] = (Get-Date -format yyyy-MM-dd-HH:mm)
 
-            Write-Log -Path $logFile -Message ("AD: Information that needs updating for: " + $item.UPN + " - " + $item.personID)
-            Write-Log -Path $logFile -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
+            Write-Log -Message ("AD: Information that needs updating for: " + $item.UPN + " - " + $item.personID)
+            Write-Log -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
 
             $itemUpdateList += [PSCustomObject]@{
                 CN = $ADUser.CN
@@ -101,7 +98,7 @@ function Get-ADUsersToUpdate {
         }
 
         if ($ADUser.CN -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)) {
-            Write-Log -Path $logFile -Message ("AD: Canonical Name does not match for " + $item.PersonID + ".")
+            Write-Log -Message ("AD: Canonical Name does not match for " + $item.PersonID + ".")
 
             $itemRenameList += [PSCustomObject]@{
                 CN = $ADUser.CN
@@ -111,7 +108,7 @@ function Get-ADUsersToUpdate {
         }
 
         if ($ADUser.DistinguishedName.split(",",2)[1] -ne $item.ADOrganizationalUnit) {
-            Write-Log -Path $logFile -Message ("AD: Organization Unit does not match for " + $item.PersonID + ".")
+            Write-Log -Message ("AD: Organization Unit does not match for " + $item.PersonID + ".")
 
             $itemMoveList += [PSCustomObject]@{
                 CN = $ADUser.CN

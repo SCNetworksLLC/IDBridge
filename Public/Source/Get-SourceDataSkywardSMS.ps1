@@ -22,9 +22,6 @@
 .PARAMETER ExcludeEntityIDs
     The Entity ID to Exclude (used to filter results). Comman Separated if multiple.
 
-.PARAMETER logFile
-    A PSObject representing the log file to use for logging events or errors (currently unused).
-
 .EXAMPLE
     $params = @{
         BaseUrl      = "https://skyward.iscorp.com/APImarshfieldwiSTU/v1"
@@ -32,7 +29,6 @@
         ClientId     = "IDBridge"
         ClientSecret = "your_secret"   # <-- Replace with your real secret
         ExcludeEntityIDs = "your_census_entity_id"   # <-- Replace with your real census entity ID and other Entity IDs to exclude, comma-separated
-        logFile      = $logFile
     }
 
     $students = Get-SourceDataSkywardSMS @params
@@ -71,9 +67,6 @@ function Get-SourceDataSkywardSMS {
         [Parameter(Mandatory = $true)]
         [int]$SafetyCheckPercentage,
 
-        [Parameter(Mandatory = $true)]
-        [PSObject]$logFile,
-
         $VerboseLogging = $false
     )
 
@@ -88,11 +81,11 @@ function Get-SourceDataSkywardSMS {
         $tokenResponse = Invoke-RestMethod -Method Post -Uri $TokenUrl -Body $tokenBody -ErrorAction Stop
         $accessToken   = $tokenResponse.access_token
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message "Access token for Skyward SMS retrieved successfully"
+            Write-Log -Message "Access token for Skyward SMS retrieved successfully"
         }
     }
     catch {
-        Write-Log -Path $logFile -Message "Access token request failed: $_" -Level Error
+        Write-Log -Message "Access token request failed: $_" -Level Error
         return @()  # Return empty array on failure
     }
 
@@ -109,13 +102,13 @@ function Get-SourceDataSkywardSMS {
         $responseSchools = Invoke-RestMethod -Method Get -Uri $urlSchools -Headers $headers -ErrorAction Stop
     }
     catch {
-        Write-Log -Path $logFile -Message "School data request failed: $_" -Level Error
+        Write-Log -Message "School data request failed: $_" -Level Error
         return @()  # Return empty array on failure
     }
 
     # Output total number of users retrieved
     if ($VerboseLogging) {
-        Write-Log -Path $logFile -Message "Total schools retrieved: $($responseSchools.Count)"
+        Write-Log -Message "Total schools retrieved: $($responseSchools.Count)"
     }
 
     # Remove ExcludeEntityIDs schools from list
@@ -132,7 +125,7 @@ function Get-SourceDataSkywardSMS {
     $limit = 10000   # Number of users to request per API call
 
     if ($VerboseLogging) {
-        Write-Log -Path $logFile -Message "Beginning user student retrieval"
+        Write-Log -Message "Beginning user student retrieval"
     }
 
     # Loop through API paging to retrieve all users
@@ -145,7 +138,7 @@ function Get-SourceDataSkywardSMS {
                 $url = "$BaseUrl/schools/$($school.SchoolID)/students?limit=$limit&offset=$offset"
 
                 if ($VerboseLogging) {
-                    Write-Log -Path $logFile -Message "Requesting users from $url"
+                    Write-Log -Message "Requesting users from $url"
                 }
 
                 $response = Invoke-RestMethod -Method Get -Uri $url -Headers $headers
@@ -157,14 +150,14 @@ function Get-SourceDataSkywardSMS {
                     $offset += $response.Count
 
                     if ($VerboseLogging) {
-                        Write-Log -Path $logFile -Message ("Retrieved $($response.Count) users for school $($school.SchoolId); total so far: $($students.Count)")
+                        Write-Log -Message ("Retrieved $($response.Count) users for school $($school.SchoolId); total so far: $($students.Count)")
                     }
                 } else {
                     break
                 }
             }
             catch {
-                Write-Log -Path $logFile -Message ("User data request failed: $_") -Level Error
+                Write-Log -Message ("User data request failed: $_") -Level Error
                 return @()  # Return empty array on failure
             }
         } while ($response.Count -eq $limit)
@@ -200,7 +193,7 @@ function Get-SourceDataSkywardSMS {
         Throw "Skyward SMS: Retrieved user count: $($students.Count) is below the safety check count: $([int]$SafetyCheckCount * ([int]$SafetyCheckPercentage / 100)). Aborting processing to prevent potential data loss."
     }
 
-    Write-Log -Path $logFile -Message "Finished fetching all students from Skyward SMS: $($students.Count)"
+    Write-Log -Message "Finished fetching all students from Skyward SMS: $($students.Count)"
 
 
 
@@ -216,7 +209,7 @@ function Get-SourceDataSkywardSMS {
 
     if ($userState) {
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message "Imported previous student user state with $($userState.Count) records"
+            Write-Log -Message "Imported previous student user state with $($userState.Count) records"
         }
 
         #Combine current and previous user state to get latest LastSeen
@@ -230,15 +223,15 @@ function Get-SourceDataSkywardSMS {
 
         #Export updated user state
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message "User state comparison completed, merged to $($lookup.Count) unique records"
-            Write-Log -Path $logFile -Message "Exporting updated student user state"
+            Write-Log -Message "User state comparison completed, merged to $($lookup.Count) unique records"
+            Write-Log -Message "Exporting updated student user state"
         }
 
         $lookup.Values | Export-Csv -Path "$($IDconfig.Paths.DataRoot)\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
     } else {
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message "No previous student user state file found, skipping user state comparison"
-            Write-Log -Path $logFile -Message "Exporting current student user state with $($students.Count) records"
+            Write-Log -Message "No previous student user state file found, skipping user state comparison"
+            Write-Log -Message "Exporting current student user state with $($students.Count) records"
         }
 
         if (-not (Test-Path "$($IDconfig.Paths.DataRoot)")) {

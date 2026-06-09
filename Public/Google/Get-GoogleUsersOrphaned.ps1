@@ -8,10 +8,7 @@ function Get-GoogleUsersOrphaned {
         [PSObject[]]$GoogleUsers,
 
         [Parameter(Mandatory = $true)]
-        [string]$TrashOU,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        [string]$TrashOU
     )
 
     #Create lookup table of UserList by GoogleCurrentUserID for faster searching
@@ -23,7 +20,7 @@ function Get-GoogleUsersOrphaned {
     #$orphanedUsers = $GoogleUsers | Where-Object {$_.id -notin $userListLookupByID.Keys}
 
     $orphanedUsers = foreach ($item in $GoogleUsers | Where-Object {$_.id -notin $userListLookupByID.Keys}) {
-        Write-Log -Path $logFile -Message "Orphaned User Found in Google: $($item.primaryEmail) (ID: $($item.id))"
+        Write-Log -Message "Orphaned User Found in Google: $($item.primaryEmail) (ID: $($item.id))"
 
         [PSCustomObject]@{
             GoogleCurrentUserID             = $item.id

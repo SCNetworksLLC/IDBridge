@@ -7,10 +7,7 @@ function Get-GoogleOrgUnitsForProcessing {
         $UserRootOU,
 
         [Parameter(Mandatory = $true)]
-        $CurrentOrgUnits,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $CurrentOrgUnits
     )
 
     #Add the OUs to check from only active users
@@ -36,7 +33,7 @@ function Get-GoogleOrgUnitsForProcessing {
         Sort-Object { ($_ -split '/').Count }
 
     foreach ($item in $OrgUnitsForProcessing) {
-        Write-Log -Path $logFile -Message "Google: Adding Org Unit to Process List: Create: $($item)"
+        Write-Log -Message "Google: Adding Org Unit to Process List: Create: $($item)"
     }
 
     return $OrgUnitsForProcessing | Sort-Object -Unique

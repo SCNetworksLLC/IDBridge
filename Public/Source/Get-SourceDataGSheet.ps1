@@ -15,19 +15,16 @@ function Get-SourceDataGSheet {
         [bool]$testRun = $false,
 
         [Parameter(Mandatory = $true)]
-        [string]$logFile,
-
-        [Parameter(Mandatory = $true)]
         [PSObject]$headers
     )
 
     #Get Data from Spreadsheet
     try {
         $data = Get-GoogleSheetData -GoogleSheetID $sheetID -GoogleSheetRange $sheetRange -tokenInformation $headers
-        Write-Log -Path $logFile -Message "Source Data: Successfully retrieved Google Sheet data"
+        Write-Log -Message "Source Data: Successfully retrieved Google Sheet data"
     }
     catch {
-        Throw (Write-Log -Path $logFile -Message "Source Data: Failed to Retrieve Google Sheet Data" -Level Error)
+        Throw (Write-Log -Message "Source Data: Failed to Retrieve Google Sheet Data" -Level Error)
     }
 
     #Required Columns in the Google Sheet
@@ -50,29 +47,29 @@ function Get-SourceDataGSheet {
     $columnCheck = Compare-Object $columnsReturned $requiredColumnsConfig | Where-Object{$_.SideIndicator -eq '=>'} | Select-Object -ExpandProperty InputObject
 
     if($columnCheck) {
-        Write-Log -Path $logFile -Message "Required columns not found. Columns Needed: $columnCheck" -Level Error
+        Write-Log -Message "Required columns not found. Columns Needed: $columnCheck" -Level Error
         Throw "Required columns not found. Columns Needed: $columnCheck"
     }
 
 
     #Check data fetched count for safety
     if ($data.count -gt ([int]$userCount * ([int]$userCountSafetyPercentage / 100))) {
-        Write-Log -Path $logFile -Message "Source Data: Successfully retrieved $($data.count) Users"
+        Write-Log -Message "Source Data: Successfully retrieved $($data.count) Users"
     } else {
-        Throw (Write-Log -Path $logFile -Message "Source Data: $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
+        Throw (Write-Log -Message "Source Data: $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
     }
 
 
     #Limit data to 10 objects if Test Run is active
     if ($testRun -eq $true) {
         $data = $data | Select-Object -first 10
-        Write-Log -Path $logFile -Message "TEST RUN: LIMITING DATA SOURCE TO TEN USERS - $($data.PersonID)"
+        Write-Log -Message "TEST RUN: LIMITING DATA SOURCE TO TEN USERS - $($data.PersonID)"
     }
 
 
     #Check to see if there is actually any data to process
     if ($data.Process -notcontains "TRUE") {
-        Throw (Write-Log -Path $logFile -Message "Source Data: Data fetched but no users are set to process" -Level Error)
+        Throw (Write-Log -Message "Source Data: Data fetched but no users are set to process" -Level Error)
     }
 
 
@@ -88,7 +85,7 @@ function Get-SourceDataGSheet {
             }
             if ($dataCheckFailed) {
                 #$skippedData += $item
-                Write-Log -Path $logFile -Message ("Skipping Person Due to Missing Data in Required Columns: " + $item.PersonID)
+                Write-Log -Message ("Skipping Person Due to Missing Data in Required Columns: " + $item.PersonID)
                 Remove-Variable dataCheckFailed
             } else {
                 $filteredData += $item
@@ -98,7 +95,7 @@ function Get-SourceDataGSheet {
             if ($item.PersonID -ne "") {
                 #Remove Users where the process field is false
                 #$skippedData += $item
-                Write-Log -Path $logFile -Message ("Skipping Person Due to process field set to false: " + $item.PersonID)
+                Write-Log -Message ("Skipping Person Due to process field set to false: " + $item.PersonID)
             }
         }
     }

@@ -5,15 +5,12 @@ function Show-GroupsNotProcessedAD {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $CurrentADGroups,
-
-        [Parameter(Mandatory = $true)]
-        $logFile
+        $CurrentADGroups
     )
 
     foreach ($item in $UserList.GroupsProposed | Select-Object -Unique | Sort-Object) {
         if ($item -notin $CurrentADGroups) {
-            Write-Log -Path $logFile -Message ("AD: Not Processing Group: $item - Does Not Exist")
+            Write-Log -Message ("AD: Not Processing Group: $item - Does Not Exist")
         }
     }
 }

@@ -5,10 +5,7 @@ function Get-ADUsersToSetEmployeeID {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $CurrentADUsers,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $CurrentADUsers
     )
 
     #Set Users that need EmployeeID set in AD
@@ -19,7 +16,7 @@ function Get-ADUsersToSetEmployeeID {
 
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID}) {
         if ($item.personID -notin $CurrentADUsers.employeeID){
-            Write-Log -Path $logFile -Message ("AD: No user found with EmployeeID: " + $item.personID)
+            Write-Log -Message ("AD: No user found with EmployeeID: " + $item.personID)
             
             if ($item.username -in $CurrentADUsers.SamAccountName) {
                 $ADUser = $null
@@ -34,7 +31,7 @@ function Get-ADUsersToSetEmployeeID {
                         User = $ADUser
                     }
                 } else {
-                    Write-Log -Path $logFile -Message ("AD: Username " + $item.username + " for " + $item.personID + " is already taken with a different name of " + $ADUser.GivenName + " " + $ADUser.Surname) -Level Error
+                    Write-Log -Message ("AD: Username " + $item.username + " for " + $item.personID + " is already taken with a different name of " + $ADUser.GivenName + " " + $ADUser.Surname) -Level Error
                 }
             } 
         }

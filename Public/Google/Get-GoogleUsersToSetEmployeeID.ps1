@@ -5,10 +5,7 @@ function Get-GoogleUsersToSetEmployeeID {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $GoogleUsers,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $GoogleUsers
     )
 
     #Set Users that need EmployeeID set in Google
@@ -19,7 +16,7 @@ function Get-GoogleUsersToSetEmployeeID {
 
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID}) {
         $googleUser = $null
-        Write-Log -Path $logFile -Message ("Google: No user found with EmployeeID: " + $item.personID)
+        Write-Log -Message ("Google: No user found with EmployeeID: " + $item.personID)
 
         if ($item.UPN -in $GoogleUsers.primaryEmail) {
             $googleUser = ($GoogleUsers | Where-Object {$_.primaryEmail -eq $item.UPN})
@@ -32,7 +29,7 @@ function Get-GoogleUsersToSetEmployeeID {
                     User = $googleUser
                 }
             } else {
-                Write-Log -Path $logFile -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " is already taken with a different name of " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName) -Level Error
+                Write-Log -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " is already taken with a different name of " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName) -Level Error
             }
         }
     }

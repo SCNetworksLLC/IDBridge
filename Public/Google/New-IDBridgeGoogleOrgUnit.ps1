@@ -38,10 +38,7 @@ function New-IDBridgeGoogleOrgUnit() {
         [string]$OrgUnit,
 
         [parameter(Mandatory=$true)]  # Hashtable is mandatory and contains OAuth authentication headers
-        [hashtable]$tokenInformation,
-
-        [parameter(Mandatory=$true)]
-        [string]$logFile
+        [hashtable]$tokenInformation
     )
 
     # Split the NewOrgUnitFullPath into parts by "/" and remove any empty entries (because the path starts with "/")
@@ -56,7 +53,7 @@ function New-IDBridgeGoogleOrgUnit() {
         $lastOU = $parts
     }
 
-    Write-Log -Path $logFile -Message "Creating Google Org Unit $OrgUnit"
+    Write-Log -Message "Creating Google Org Unit $OrgUnit"
 
     # API URL for creating a new organizational unit
     $url = ("https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits")
@@ -70,10 +67,10 @@ function New-IDBridgeGoogleOrgUnit() {
     # Send the API request to create the new organizational unit
     try {
         $response = Invoke-RestMethod -Uri $url -Method Post -Headers $tokenInformation -Body $body -ContentType "application/json"
-        Write-Log -Path $logFile -Message "Response: $($response | ConvertTo-Json -Depth 5)"
+        Write-Log -Message "Response: $($response | ConvertTo-Json -Depth 5)"
     } catch {
         # Log any errors that occur during the API request
-        Write-Log -Path $logFile -Message "Error: $($_.Exception.Message)" -Level Error
+        Write-Log -Message "Error: $($_.Exception.Message)" -Level Error
         return $_
     }
 }

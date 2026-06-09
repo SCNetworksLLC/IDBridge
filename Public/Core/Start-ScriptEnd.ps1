@@ -23,17 +23,17 @@ function Start-ScriptEnd {
     
     if ($Message) {
         if ($WriteError) {
-            Write-Log -Message $Message -Path $logFile -Level Error
+            Write-Log -Message $Message -Level Error
         } else {
-            Write-Log -Message $Message -Path $logFile
+            Write-Log -Message $Message
         }
     }
 
-    Write-Log -Message "######## End of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########" -Path $logFile
+    Write-Log -Message "######## End of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
 
     #Upload Logs to Google Sheets
     if ($UploadLogsSheetID -and $GoogleHeaders) {
-        Push-LogsToSheet -logFile "$($IDconfig.Paths.LogsRoot)\IDBridge.log" -headers $GoogleHeaders -spreadsheetId $UploadLogsSheetID -sheetName 'Logs' -hasHeader
+        Push-LogsToSheet -headers $GoogleHeaders -spreadsheetId $UploadLogsSheetID -sheetName 'Logs' -hasHeader
     }
 
     if ($Message) {

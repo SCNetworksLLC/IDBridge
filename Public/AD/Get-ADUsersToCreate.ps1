@@ -7,10 +7,7 @@ function Get-ADUsersToCreate {
         [Parameter(Mandatory = $true)]
         $CurrentADUsers,
 
-        $Nonce,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $Nonce
     )
 
     $itemList = @()
@@ -57,20 +54,20 @@ function Get-ADUsersToCreate {
                 $NewUserParams["AccountPassword"] = (ConvertTo-SecureString (New-Passphrase @passphraseParams) -AsPlainText -Force)
             }
             catch {
-                Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  Password API Error. Skipping User Creation.") -Level "Warn"
-                Write-Log -Path $logFile -Message ("AD: Password API Error $($_)") -Level "Warn"
+                Write-Log -Message ("AD: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  Password API Error. Skipping User Creation.") -Level "Warn"
+                Write-Log -Message ("AD: Password API Error $($_)") -Level "Warn"
                 Continue
             }
         } elseif ($item.ADKey) {
             $NewUserParams["AccountPassword"] = $item.ADKey
         } else {
-            Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  ADKey is not set. Skipping User Creation.") -Level "Warn"
+            Write-Log -Message ("AD: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  ADKey is not set. Skipping User Creation.") -Level "Warn"
             Continue
         }
         
 
-        Write-Log -Path $logFile -Message ("AD: No user found for $($item.PersonID). Adding user to create list.")
-        Write-Log -Path $logFile -Message ($NewUserParams | ConvertTo-Json -Compress)
+        Write-Log -Message ("AD: No user found for $($item.PersonID). Adding user to create list.")
+        Write-Log -Message ($NewUserParams | ConvertTo-Json -Compress)
 
         $itemList += [PSCustomObject]@{
             PersonID = $item.PersonID

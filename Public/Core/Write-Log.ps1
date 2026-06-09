@@ -50,9 +50,9 @@ function Write-Log {
         [Alias("LogContent")] 
         [string]$Message, 
  
-        [Parameter(Mandatory=$false)] 
-        [Alias('LogPath')] 
-        [string]$Path='C:\Logs\PowerShellLog.log', 
+        [Parameter(Mandatory=$false)]
+        [Alias('LogPath')]
+        [string]$Path = $global:logFile,
          
         [Parameter(Mandatory=$false)] 
         [ValidateSet("Error","Warn","Info")] 
@@ -70,8 +70,12 @@ function Write-Log {
     Process 
     { 
          
-        # If the file already exists and NoClobber was specified, do not write to the log. 
-        if ((Test-Path $Path) -AND $NoClobber) { 
+        if ([string]::IsNullOrWhiteSpace($Path)) {
+            Throw "Write-Log: no log path specified and `$global:logFile is not set. Call Get-IDBridgeConfiguration first."
+        }
+
+        # If the file already exists and NoClobber was specified, do not write to the log.
+        if ((Test-Path $Path) -AND $NoClobber) {
             Write-Error "Log file $Path already exists, and you specified NoClobber. Either delete the file or specify a different name." 
             Return 
             } 

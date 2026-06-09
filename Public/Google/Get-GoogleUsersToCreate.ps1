@@ -5,10 +5,7 @@ function Get-GoogleUsersToCreate {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $GoogleUsers,
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile
+        $GoogleUsers
     )
 
     $itemList = @()
@@ -47,19 +44,19 @@ function Get-GoogleUsersToCreate {
                 $itemCreateSplat["Password"] = (ConvertTo-SecureString (New-Passphrase @passphraseParams) -AsPlainText -Force)
             }
             catch {
-                Write-Log -Path $logFile -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  Password API Error. Skipping User Creation.") -Level "Warn"
-                Write-Log -Path $logFile -Message ("Google: Password API Error $($_)") -Level "Warn"
+                Write-Log -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  Password API Error. Skipping User Creation.") -Level "Warn"
+                Write-Log -Message ("Google: Password API Error $($_)") -Level "Warn"
                 Continue
             }
         } elseif ($item.GoogleKey) {
             $itemCreateSplat["Password"] = $item.GoogleKey
         } else {
-            Write-Log -Path $logFile -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  ADKey is not set. Skipping User Creation.") -Level "Warn"
+            Write-Log -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  ADKey is not set. Skipping User Creation.") -Level "Warn"
             Continue
         }
 
-        Write-Log -Path $logFile -Message ("Google: No user found for $($item.PersonID). Adding user to create list.")
-        Write-Log -Path $logFile -Message ($itemCreateSplat | ConvertTo-Json -Compress)
+        Write-Log -Message ("Google: No user found for $($item.PersonID). Adding user to create list.")
+        Write-Log -Message ($itemCreateSplat | ConvertTo-Json -Compress)
 
         $itemList += [PSCustomObject]@{
             UPN = $item.UPN

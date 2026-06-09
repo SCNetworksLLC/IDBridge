@@ -96,10 +96,7 @@ function New-IDBridgeGoogleUser() {
         [String]$ChangeAtNextLogin, # Optional parameter to force password change at the next login
         
         [parameter(Mandatory=$true)]
-        [hashtable]$tokenInformation, # Mandatory hashtable parameter for OAuth token headers
-
-        [Parameter(Mandatory = $true)]
-        [string]$logFile # Mandatory parameter for log file path
+        [hashtable]$tokenInformation # Mandatory hashtable parameter for OAuth token headers
     )
 
     # Create a hashtable to store the new user's details
@@ -176,11 +173,11 @@ function New-IDBridgeGoogleUser() {
             $response = Invoke-RestMethod -Uri $url -Method Post -Headers $tokenInformation -Body $body -ContentType "application/json"
             
             # Log the response for debugging or tracking purposes
-            Write-Log -Path $logFile -Message "Response: $($response | ConvertTo-Json -Depth 5)"
+            Write-Log -Message "Response: $($response | ConvertTo-Json -Depth 5)"
             return $response
         } catch {
             # In case of an error, log the error details
-            Write-Log -Path $logFile -Message "Error: $($_.Exception.Message)" -Level Error
+            Write-Log -Message "Error: $($_.Exception.Message)" -Level Error
             return $_
         }
     }

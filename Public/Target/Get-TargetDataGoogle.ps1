@@ -12,9 +12,6 @@
     For each group, retrieves its members and builds a hashtable mapping user emails to their group memberships.
     Each user object in the returned collection has a CurrentGroups property containing the list of groups they belong to.
 
-.PARAMETER logFile
-    (Required) The path to the log file for error and process logging.
-
 .PARAMETER headers
     (Required) The authentication headers for Google API requests.
 
@@ -26,7 +23,7 @@
         - OrgUnits: Array of organizational unit objects.
 
 .EXAMPLE
-    $googleData = Get-TargetDataGoogle -logFile $logFile -headers $headers
+    $googleData = Get-TargetDataGoogle -headers $headers
     $googleData.Users
     $googleData.Groups
     $googleData.OrgUnits
@@ -40,9 +37,6 @@ function Get-TargetDataGoogle {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string]$logFile,
-
-        [Parameter(Mandatory = $true)]
         [PSObject]$headers,
 
         $VerboseLogging = $false
@@ -52,7 +46,7 @@ function Get-TargetDataGoogle {
     try {
         $googleUsers = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message "Google: Successfully retrieved users"
+            Write-Log -Message "Google: Successfully retrieved users"
         }
     }
     catch {
@@ -76,7 +70,7 @@ function Get-TargetDataGoogle {
         #Remove Classroom Teachers Group
         $googleGroups = $googleGroups | Where-Object {$_.email -notlike "classroom_teachers@*"}
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message "Google: Successfully retrieved groups"
+            Write-Log -Message "Google: Successfully retrieved groups"
         }
     }
     catch {
@@ -95,7 +89,7 @@ function Get-TargetDataGoogle {
     #Loop through each group and retrieve its members
     foreach ($item in $googleGroups | Where-Object {$_.directMembersCount -ne 0}) {
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message ("Google: Getting users for Group: " + $item.email)
+            Write-Log -Message ("Google: Getting users for Group: " + $item.email)
         }
         try {
             #Get group Memebers
@@ -113,11 +107,11 @@ function Get-TargetDataGoogle {
             }            
         }
         catch {
-            Throw (Write-Log -Path $logFile -Message ("Google: No users retrieved for Group: " + $item.email) -Level Error)
+            Throw (Write-Log -Message ("Google: No users retrieved for Group: " + $item.email) -Level Error)
         }
     }
 
-    Write-Log -Path $logFile -Message "Google: Successfully retrieved group memberships"
+    Write-Log -Message "Google: Successfully retrieved group memberships"
     #>
 
 
@@ -180,7 +174,7 @@ function Get-TargetDataGoogle {
     #Write Logs from Parallel Processing
     foreach ($logEntry in $sharedLogs.GetEnumerator() | Sort-Object Name) {
         $entry = $logEntry.Value
-        Write-Log -Path $logFile -Message $entry.Message -Level $entry.Level
+        Write-Log -Message $entry.Message -Level $entry.Level
     }
 
     #Check for errors during parallel processing
@@ -228,7 +222,7 @@ function Get-TargetDataGoogle {
     try {
         $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all&maxResults=500" -VerboseLogging $VerboseLogging -ErrorAction Stop
         if ($VerboseLogging) {
-            Write-Log -Path $logFile -Message ("Google: Retrieved $($googleOrgUnits.count) organizational units")
+            Write-Log -Message ("Google: Retrieved $($googleOrgUnits.count) organizational units")
         }
     }
     catch {
@@ -253,7 +247,7 @@ function Get-TargetDataGoogle {
     } | Group-Object -Property OrgID | Where-Object { $_.Count -gt 1 }).group
 
     if ($duplicateUsers) {
-        Write-Log -Path $logFile -Message ("Google: Users found with Duplicate External IDs: " + ($duplicateUsers | ConvertTo-Json -Compress))
+        Write-Log -Message ("Google: Users found with Duplicate External IDs: " + ($duplicateUsers | ConvertTo-Json -Compress))
     }
     #endregion Get Duplicate IDs
 
