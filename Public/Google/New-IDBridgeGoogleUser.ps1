@@ -44,9 +44,6 @@
     (Optional) A flag to indicate if the user should be prompted to change their password at the next login.
     If specified, the user's password will be flagged for change.
 
-.PARAMETER tokenInformation
-    A hashtable containing OAuth authentication headers for the API request. This is a mandatory parameter.
-
 .EXAMPLE
     New-IDBridgeGoogleUser -PrimaryEmail "newuser@example.com" -PersonID "12345" -FirstName "John" -LastName "Doe" 
                         -OrgUnitPath "/students" -Password "SecurePassword123" -tokenInformation $authToken
@@ -57,7 +54,7 @@
 .NOTES
     Version: 1.0
     Author: Sam Cattanach
-    Date: 2025-03-06
+    Date: 2026-06-13
     Purpose: To automate the creation of new users in Google Workspace Directory.
 
 .LINK
@@ -93,11 +90,11 @@ function New-IDBridgeGoogleUser() {
         
         [parameter(Mandatory=$false)]
         [ValidateSet("true", "false")]
-        [String]$ChangeAtNextLogin, # Optional parameter to force password change at the next login
-        
-        [parameter(Mandatory=$true)]
-        [hashtable]$tokenInformation # Mandatory hashtable parameter for OAuth token headers
+        [String]$ChangeAtNextLogin # Optional parameter to force password change at the next login
     )
+
+    #Import Google API Headers (with access token)
+    try { $headers = Get-GoogleHeaders } catch { Throw $_ }
 
     # Create a hashtable to store the new user's details
     $newUserFields = @{}
@@ -170,7 +167,7 @@ function New-IDBridgeGoogleUser() {
         # Send the POST request to the Google Admin API
         try {
             # Attempt to invoke the API request with the provided token headers and body
-            $response = Invoke-RestMethod -Uri $url -Method Post -Headers $tokenInformation -Body $body -ContentType "application/json"
+            $response = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body -ContentType "application/json"
             
             # Log the response for debugging or tracking purposes
             Write-Log -Message "Response: $($response | ConvertTo-Json -Depth 5)"

@@ -20,7 +20,14 @@
     The base URL for the OneRoster API (used to build the /users endpoint).
 
 .EXAMPLE
-    $students = Get-SourceDataInfiniteCampus -BaseUrl $IDConfig.InfiniteCampus.BaseURL -TokenUrl $IDConfig.InfiniteCampus.TokenURL -ClientId $IDConfig.InfiniteCampus.ClientID -ClientSecret $IDConfig.InfiniteCampus.ClientSecret
+    $paramsStudent = @{
+        BaseUrl                 = "https://sampleschoolwi.infinitecampus.org/campus/api/oneroster/v1p2/sample/ims/oneroster/rostering/v1p2"
+        TokenUrl                = "https://sampleschoolwi.infinitecampus.org/campus/oauth2/token?appName=sample"
+        ClientId                = "your-client-id"
+        ClientSecret            = "your-client-secret"
+    }
+    
+    $students = Get-SourceDataInfiniteCampus @paramsStudent
 
     Retrieves all active primary students from Infinite Campus and stores them in $students.
 
@@ -56,10 +63,10 @@ function Get-SourceDataInfiniteCampus {
     }
 
     try {
-        Write-Verbose "Requesting access token from $TokenUrl"
+        Write-Log "Requesting access token from $TokenUrl" -Level Trace
         $tokenResponse = Invoke-RestMethod -Method Post -Uri $TokenUrl -Body $tokenBody -ErrorAction Stop
         $accessToken   = $tokenResponse.access_token
-        Write-Log -Message "Access token for Infinite Campus retrieved successfully"
+        Write-Log -Message "Access token for Infinite Campus retrieved successfully" -Level Trace
     }
     catch {
         Write-Log -Message "Access token request failed: $_" -Level Error
@@ -84,7 +91,7 @@ function Get-SourceDataInfiniteCampus {
     }
 
     # Output total number of users retrieved
-    Write-Verbose "Total schools retrieved: $($responseSchools.orgs.Count)"
+    Write-Log "Total schools retrieved: $($responseSchools.orgs.Count)" -Level Trace
 
     # Build hash map for quick lookup by sourcedId
     $schoolLookup = @{}
@@ -100,12 +107,12 @@ function Get-SourceDataInfiniteCampus {
     $limit = 100   # Number of users to request per API call
     $offset = 0    # Starting offset for paging
 
-    Write-Verbose "Starting user retrieval loop from $BaseUrl/users"
+    Write-Log "Starting user retrieval loop from $BaseUrl/users" -Level Trace
     # Loop through API paging to retrieve all users
     do {
         try {
             $url = "$BaseUrl/students?limit=$limit&offset=$offset"
-            Write-Verbose "Requesting users from $url"
+            Write-Log "Requesting users from $url" -Level Trace
             $response = Invoke-RestMethod -Method Get -Uri $url -Headers $headers
 
             if ($null -ne $response.users) {
@@ -115,7 +122,7 @@ function Get-SourceDataInfiniteCampus {
                 $offset += $response.users.Count
                 Write-Log -Message ("Retrieved $($response.users.Count) users; total so far: $($students.Count)")
             } else {
-                Write-Verbose "No more users returned; ending loop"
+                Write-Log "No more users returned; ending loop" -Level Trace
                 break
             }
         }
@@ -185,7 +192,7 @@ function Get-SourceDataInfiniteCampus {
         }
     }
     
-    Write-Verbose "Finished processing all students"
+    Write-Log "Finished processing all students" -Level Trace
 
     # Return the collection of filtered student objects
     return $studentsFiltered

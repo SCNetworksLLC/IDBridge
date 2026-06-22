@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.5.29.0'
+    ModuleVersion     = '26.6.20.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     Description       = 'IdentityBridge — automated account provisioning for Google Workspace and Active Directory from school SIS/GSheet data.'
@@ -13,10 +13,14 @@
         'Get-SourceDataGSheet'
         'Get-SourceDataSkywardSMS'
         'Get-SourceDataInfiniteCampus'
+        'Remove-IDBridgeDuplicateID'
+        'Show-GroupsNotProcessed'
 
         # Target data
         'Get-TargetDataGoogle'
+        'Add-TargetDataGoogle'
         'Get-TargetDataAD'
+        'Add-TargetDataAD'
 
         # AD processing
         'Get-ADOrgUnitsForProcessing'
@@ -27,7 +31,6 @@
         'Get-ADUserGroupsToUpdate'
         'New-IDBridgeADOrgUnit'
         'Disable-IDBridgeADUser'
-        'Show-GroupsNotProcessedAD'
 
         # Google processing
         'Get-GoogleData'
@@ -42,7 +45,6 @@
         'New-IDBridgeGoogleUser'
         'Update-IDBridgeGoogleUser'
         'Update-GoogleGroupMembers'
-        'Show-GroupsNotProcessedGoogle'
 
         # Google Sheets helpers
         'Get-GoogleSheetData'
@@ -54,14 +56,17 @@
         'Push-LogsToSheet'
 
         # Auth & Config
-        'Get-GoogleApiAccessToken'
-        'Get-IDBridgeConfiguration'
-        'Get-OverrideProperties'
         'Invoke-IDBridge'
+        'Initialize-IDBridge'
+        'Get-IDBridgeConfig'  # This is the public accessor for the config object after initialization. It will throw an error if called before Initialize-IDBridge.
+
+        #Auth
+        'Get-GoogleApiAccessToken'
+        'Get-GoogleHeaders'
 
         # Logging & lifecycle
         'Write-Log'
-        'Start-ScriptEnd'
+        'Get-IDBridgeLogs' # This is the public accessor for the logs after initialization. It will throw an error if called before Initialize-IDBridge.
 
         # Helpers
         'Get-StudentGrade'
@@ -69,7 +74,8 @@
         'New-Passphrase'
 
         # Plugins
-        "Invoke-Plugin*"
+        'Invoke-SourcePlugins'
+        'Merge-IDBridgeOverrideData'
     )
 
     AliasesToExport   = @()

@@ -5,6 +5,7 @@ function Get-GoogleUserGroupsToUpdate {
         $UserList,
 
         [Parameter(Mandatory = $true)]
+        [AllowNull()]
         $GoogleGroups,
 
         [Parameter(Mandatory = $true)]

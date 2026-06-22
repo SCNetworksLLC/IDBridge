@@ -13,9 +13,6 @@
     The full path of the new organizational unit to be created, starting with the root (e.g., "/School/Grade5"). 
     This is a mandatory parameter and must be a valid organizational unit path.
 
-.PARAMETER tokenInformation
-    A hashtable containing OAuth authentication headers. This is a mandatory parameter and is used for API request authentication.
-
 .EXAMPLE
     New-IDBridgeGoogleOrgUnit -NewOrgUnitFullPath "/School/Grade5" -tokenInformation $authToken
 
@@ -35,11 +32,11 @@ function New-IDBridgeGoogleOrgUnit() {
     [cmdletbinding()]
     Param(
         [parameter(Mandatory=$true)]  # OrgUnit is mandatory to specify the full path of the new organizational unit
-        [string]$OrgUnit,
-
-        [parameter(Mandatory=$true)]  # Hashtable is mandatory and contains OAuth authentication headers
-        [hashtable]$tokenInformation
+        [string]$OrgUnit
     )
+
+    #Import Google API Headers (with access token)
+    try { $headers = Get-GoogleHeaders } catch { Throw $_ }
 
     # Split the NewOrgUnitFullPath into parts by "/" and remove any empty entries (because the path starts with "/")
     $parts = $OrgUnit -split "/" | Where-Object { $_ -ne "" }
@@ -66,7 +63,7 @@ function New-IDBridgeGoogleOrgUnit() {
 
     # Send the API request to create the new organizational unit
     try {
-        $response = Invoke-RestMethod -Uri $url -Method Post -Headers $tokenInformation -Body $body -ContentType "application/json"
+        $response = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body -ContentType "application/json"
         Write-Log -Message "Response: $($response | ConvertTo-Json -Depth 5)"
     } catch {
         # Log any errors that occur during the API request

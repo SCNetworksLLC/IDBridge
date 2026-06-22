@@ -1,8 +1,6 @@
 function Get-TargetDataAD {
     [CmdletBinding()]
-    param (
-        $VerboseLogging = $false
-    )
+    param ()
 
     #User Properties to load
     $userPropertyAD = @(
@@ -31,14 +29,15 @@ function Get-TargetDataAD {
         "extensionAttribute5"
     )
 
+    Write-Log -Message "AD: Starting Google Target Data Retrieval" -Level Info
+
     #Get all Users from AD
     try {
+        Write-Log -Message "AD: Fetching Users" -Level Trace
         $ADUsers = Get-ADUser -Filter * -Properties $userPropertyAD
 
         if ($ADUsers) {
-            if ($VerboseLogging) {
-                Write-Log -Message "AD: Successfully fetched Users"
-            }
+            Write-Log -Message "AD: Successfully fetched Users" -Level Trace
         } else {
             Throw "AD: Connected to AD but no users fetched"
         }
@@ -50,12 +49,11 @@ function Get-TargetDataAD {
 
     #Get all Groups from AD
     try {
+        Write-Log -Message "AD: Fetching Groups" -Level Trace
         $ADGroups = Get-ADGroup -Filter * -Properties DistinguishedName | Select-Object Name, DistinguishedName
 
         if ($ADGroups) {
-            if ($VerboseLogging) {
-                Write-Log -Message "AD: Successfully fetched Groups"
-            }
+            Write-Log -Message "AD: Successfully fetched Groups" -Level Trace
         } else {
             Throw "AD: Connected to AD but no groups fetched"
         }
@@ -89,12 +87,11 @@ function Get-TargetDataAD {
 
     #Get all OUs from AD
     try {
+        Write-Log -Message "AD: Fetching Org Units" -Level Trace
         $ADOrgUnits = Get-ADOrganizationalUnit -LDAPFilter '(name=*)' | Select-Object -ExpandProperty DistinguishedName
 
         if ($ADOrgUnits) {
-            if ($VerboseLogging) {
-                Write-Log -Message "AD: Successfully fetched Org Units"
-            }
+            Write-Log -Message "AD: Successfully fetched Org Units" -Level Trace
         } else {
             Throw "AD: Connected to AD but no org units fetched"
         }
@@ -122,6 +119,8 @@ function Get-TargetDataAD {
             $adUsersLookupByID[$adUser.EmployeeID] = $adUser
         }
     }
+
+    Write-Log -Message "AD: Finished Google Target Data Retrieval" -Level Info
 
     #Return a single object with all data
     return [PSCustomObject]@{

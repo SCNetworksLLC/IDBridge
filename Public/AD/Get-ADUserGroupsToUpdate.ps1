@@ -5,6 +5,7 @@ function Get-ADUserGroupsToUpdate {
         $UserList,
 
         [Parameter(Mandatory = $true)]
+        [AllowNull()]
         $CurrentADGroups
     )
 

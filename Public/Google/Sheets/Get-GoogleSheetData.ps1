@@ -12,10 +12,6 @@
       - sheetId: The unique identifier of the Google Sheet.
       - sheetRange: The range of cells to retrieve (e.g., "Sheet1!A1:D10" or "Sheet1").
 
-.PARAMETER tokenInformation
-    A hashtable containing the authorization headers, typically including an OAuth token 
-    required to authenticate API requests.
-
 .OUTPUTS
     Returns an array of PowerShell objects where each object represents a row from 
     the Google Sheet, with column names as property names.
@@ -51,17 +47,17 @@ function Get-GoogleSheetData() {
         [string]$GoogleSheetID,  # sheet ID
 
         [parameter(Mandatory=$true)]
-        [string]$GoogleSheetRange,  # Sheet Range
-
-        [parameter(Mandatory=$true)]
-        [hashtable]$tokenInformation  # Hashtable containing OAuth authentication headers
+        [string]$GoogleSheetRange  # Sheet Range
     )
+
+    #region Import Configuration
+    try { $headers = Get-GoogleHeaders } catch { Throw $_ }
 
     # Construct the API request URL using the sheet ID and range
     $uri = "https://sheets.googleapis.com/v4/spreadsheets/{0}/values/{1}?majorDimension=ROWS" -f $googleSheetID, $googleSheetRange
 
     # Send GET request to Google Sheets API
-    $results = Invoke-RestMethod -Uri $uri -Method GET -Headers $tokenInformation -Verbose:$false
+    $results = Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -Verbose:$false
 
     # Extract column headers from the first row
     $columns = $results.values[0]

@@ -65,10 +65,12 @@ function Get-SourceDataSkywardSMS {
         [int]$SafetyCheckCount,
 
         [Parameter(Mandatory = $true)]
-        [int]$SafetyCheckPercentage,
-
-        $VerboseLogging = $false
+        [int]$SafetyCheckPercentage
     )
+
+    #region Import Configuration
+    try { $IDConfig = Get-IDBridgeConfig } catch { Throw $_ }
+    #endregion Import Configuration
 
     # Prepare OAuth token request
     $tokenBody = @{
@@ -80,9 +82,8 @@ function Get-SourceDataSkywardSMS {
     try {
         $tokenResponse = Invoke-RestMethod -Method Post -Uri $TokenUrl -Body $tokenBody -ErrorAction Stop
         $accessToken   = $tokenResponse.access_token
-        if ($VerboseLogging) {
-            Write-Log -Message "Access token for Skyward SMS retrieved successfully"
-        }
+
+        Write-Log -Message "Access token for Skyward SMS retrieved successfully" -Level Trace
     }
     catch {
         Write-Log -Message "Access token request failed: $_" -Level Error
@@ -107,9 +108,7 @@ function Get-SourceDataSkywardSMS {
     }
 
     # Output total number of users retrieved
-    if ($VerboseLogging) {
-        Write-Log -Message "Total schools retrieved: $($responseSchools.Count)"
-    }
+    Write-Log -Message "Total schools retrieved: $($responseSchools.Count)" -Level Trace
 
     # Remove ExcludeEntityIDs schools from list
     $responseSchools = $responseSchools | Where-Object { $_.SchoolId -notin $ExcludeEntityIDs }
@@ -124,9 +123,7 @@ function Get-SourceDataSkywardSMS {
     $students = @()
     $limit = 10000   # Number of users to request per API call
 
-    if ($VerboseLogging) {
-        Write-Log -Message "Beginning user student retrieval"
-    }
+    Write-Log -Message "Beginning user student retrieval" -Level Trace
 
     # Loop through API paging to retrieve all users
     # Using Schools endpoint to get students by school to remove ExcludeEntityIDs schools
@@ -137,9 +134,7 @@ function Get-SourceDataSkywardSMS {
             try {
                 $url = "$BaseUrl/schools/$($school.SchoolID)/students?limit=$limit&offset=$offset"
 
-                if ($VerboseLogging) {
-                    Write-Log -Message "Requesting users from $url"
-                }
+                Write-Log -Message "Requesting users from $url" -Level Trace
 
                 $response = Invoke-RestMethod -Method Get -Uri $url -Headers $headers
 
@@ -149,9 +144,7 @@ function Get-SourceDataSkywardSMS {
                     # Increment offset by number of users returned
                     $offset += $response.Count
 
-                    if ($VerboseLogging) {
-                        Write-Log -Message ("Retrieved $($response.Count) users for school $($school.SchoolId); total so far: $($students.Count)")
-                    }
+                    Write-Log -Message ("Retrieved $($response.Count) users for school $($school.SchoolId); total so far: $($students.Count)") -Level Trace
                 } else {
                     break
                 }
@@ -208,9 +201,7 @@ function Get-SourceDataSkywardSMS {
     }
 
     if ($userState) {
-        if ($VerboseLogging) {
-            Write-Log -Message "Imported previous student user state with $($userState.Count) records"
-        }
+        Write-Log -Message "Imported previous student user state with $($userState.Count) records" -Level Trace
 
         #Combine current and previous user state to get latest LastSeen
         $lookup = @{}
@@ -222,17 +213,13 @@ function Get-SourceDataSkywardSMS {
         }
 
         #Export updated user state
-        if ($VerboseLogging) {
-            Write-Log -Message "User state comparison completed, merged to $($lookup.Count) unique records"
-            Write-Log -Message "Exporting updated student user state"
-        }
+        Write-Log -Message "User state comparison completed, merged to $($lookup.Count) unique records" -Level Trace
+        Write-Log -Message "Exporting updated student user state" -Level Trace
 
         $lookup.Values | Export-Csv -Path "$($IDconfig.Paths.DataRoot)\SkywardSMS_Students_User_State.csv" -NoTypeInformation -Force
     } else {
-        if ($VerboseLogging) {
-            Write-Log -Message "No previous student user state file found, skipping user state comparison"
-            Write-Log -Message "Exporting current student user state with $($students.Count) records"
-        }
+        Write-Log -Message "No previous student user state file found, skipping user state comparison" -Level Trace
+        Write-Log -Message "Exporting current student user state with $($students.Count) records" -Level Trace
 
         if (-not (Test-Path "$($IDconfig.Paths.DataRoot)")) {
             New-Item -Path "$($IDconfig.Paths.DataRoot)" -ItemType Directory -Force | Out-Null

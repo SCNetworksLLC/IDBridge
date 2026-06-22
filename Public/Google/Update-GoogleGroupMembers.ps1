@@ -9,18 +9,18 @@ function Update-GoogleGroupMembers() {
 
         [parameter(Mandatory=$true)]  # UpdateType is mandatory to specify adding users to the group or removing users from the group
         [ValidateSet("Add", "Remove")]
-        [string]$UpdateType,
-
-        [parameter(Mandatory=$true)]  # Hashtable is mandatory and contains OAuth authentication headers
-        [hashtable]$tokenInformation
+        [string]$UpdateType
     )
+
+    #Import Google API Headers (with access token)
+    try { $headers = Get-GoogleHeaders } catch { Throw $_ }
 
     $updateParams = @{}
 
     if ($UpdateType -eq "Add") {
         $updateParams["Uri"] = ("https://admin.googleapis.com/admin/directory/v1/groups/$GroupEmail/members")
         $updateParams["Method"] = 'Post'
-        $updateParams["Headers"] = $tokenInformation
+        $updateParams["Headers"] = $headers
         $updateParams["ContentType"] = 'application/json'
         $updateParams["Body"] = @{
             "id" = $PersonID
@@ -31,7 +31,7 @@ function Update-GoogleGroupMembers() {
     if ($UpdateType -eq "Remove") {
         $updateParams["Uri"] = ("https://admin.googleapis.com/admin/directory/v1/groups/$GroupEmail/members/$PersonID")
         $updateParams["Method"] = 'Delete'
-        $updateParams["Headers"] = $tokenInformation
+        $updateParams["Headers"] = $headers
     }
 
     # Send the API request

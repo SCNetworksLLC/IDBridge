@@ -45,17 +45,17 @@ function Write-Log {
     Param 
     ( 
         [Parameter(Mandatory=$true, 
-                   ValueFromPipelineByPropertyName=$true)] 
+            ValueFromPipelineByPropertyName=$true)] 
         [ValidateNotNullOrEmpty()] 
         [Alias("LogContent")] 
         [string]$Message, 
  
         [Parameter(Mandatory=$false)]
         [Alias('LogPath')]
-        [string]$Path = $global:logFile,
+        [string]$Path,
          
         [Parameter(Mandatory=$false)] 
-        [ValidateSet("Error","Warn","Info")] 
+        [ValidateSet("Error","Warn","Info","Trace")] 
         [string]$Level="Info", 
          
         [Parameter(Mandatory=$false)] 
@@ -66,32 +66,46 @@ function Write-Log {
     { 
         # Set VerbosePreference to Continue so that verbose messages are displayed. 
         $VerbosePreference = 'Continue' 
-    } 
-    Process 
-    { 
-         
+
+        #Import Configuration
+        try { $IDConfig = Get-IDBridgeConfig } catch { Throw $_ }
+
+        # Apply Trace override if specified. This allows us to write trace messages without enabling verbose logging for the entire script.
+        if ($Level -eq "Trace" -and (-not $IDConfig.Debug.TraceLogging -or $IDConfig.Debug.TraceLogging -eq $false)) {
+            $skip = $true
+            return
+        }
+
         if ([string]::IsNullOrWhiteSpace($Path)) {
-            Throw "Write-Log: no log path specified and `$global:logFile is not set. Call Get-IDBridgeConfiguration first."
+            $Path = $IDConfig.Paths.LogFile
         }
 
         # If the file already exists and NoClobber was specified, do not write to the log.
-        if ((Test-Path $Path) -AND $NoClobber) {
-            Write-Error "Log file $Path already exists, and you specified NoClobber. Either delete the file or specify a different name." 
-            Return 
-            } 
- 
+        if ((Test-Path $Path) -and $NoClobber) {
+            throw "Log file $Path already exists and NoClobber was specified."
+        }
+
         # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path. 
-        elseif (!(Test-Path $Path)) { 
+        if (-not (Test-Path $Path)) {
             Write-Verbose "Creating $Path." 
             New-Item $Path -Force -ItemType File | Out-Null
-            } 
- 
-        else { 
-            # Nothing to see here yet. 
-            } 
- 
+        }
+
+        # In-memory log buffer for this run (e.g. for Google Sheet logging) so we
+        # don't have to re-read the file. Ordered, append-only, one object per entry.
+        if ($null -eq $script:Logs) {
+            $script:Logs = [System.Collections.Generic.List[PSCustomObject]]::new()
+        }
+
+    } 
+    Process 
+    { 
+        # If verbose logging is disabled and the log level is set to Info or Trace, skip writing to the log file. This allows us to write Info messages without enabling verbose logging for the entire script.
+        if ($skip) { return }
+
         # Format Date for our Log File 
-        $FormattedDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss" 
+        $MessageTime = Get-Date
+        $FormattedDate = $MessageTime.ToString("yyyy-MM-dd HH:mm:ss")
  
         # Write message to error, warning, or verbose pipeline and specify $LevelText 
         switch ($Level) { 
@@ -104,10 +118,21 @@ function Write-Log {
                 $LevelText = 'WARNING:' 
             } 
             'Info' { 
-                Write-Verbose $Message 
                 $LevelText = 'INFO:' 
+                Write-Verbose "$($LevelText) $($Message)"
             } 
-        } 
+            'Trace' {
+                $LevelText = 'TRACE:'
+                Write-Verbose "$($LevelText) $($Message)"
+            }
+        }
+
+        # Add to log variable for potential use elsewhere in the script (e.g. for Google Sheet logging) without having to read from the log file.
+        $script:Logs.Add([PSCustomObject]@{
+            Timestamp = $FormattedDate
+            Level     = $Level
+            Message   = $Message
+        })
          
         # Write log entry to $Path 
         "$FormattedDate $LevelText $Message" | Out-File -FilePath $Path -Append 

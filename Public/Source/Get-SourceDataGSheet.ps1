@@ -12,15 +12,12 @@ function Get-SourceDataGSheet {
 
         [int]$userCountSafetyPercentage = 75,
 
-        [bool]$testRun = $false,
-
-        [Parameter(Mandatory = $true)]
-        [PSObject]$headers
+        [bool]$testRun = $false
     )
 
     #Get Data from Spreadsheet
     try {
-        $data = Get-GoogleSheetData -GoogleSheetID $sheetID -GoogleSheetRange $sheetRange -tokenInformation $headers
+        $data = Get-GoogleSheetData -GoogleSheetID $sheetID -GoogleSheetRange $sheetRange
         Write-Log -Message "Source Data: Successfully retrieved Google Sheet data"
     }
     catch {

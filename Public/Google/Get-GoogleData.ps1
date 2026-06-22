@@ -47,9 +47,7 @@ function Get-GoogleData {
         [hashtable]$GoogleHeaders,  # Authentication headers for the Google API request
 
         [Parameter(Mandatory)]
-        [string]$APIUri,  # The Google API endpoint URI
-
-        $VerboseLogging = $false
+        [string]$APIUri  # The Google API endpoint URI
     )
 
     # Validate GoogleHeaders - Ensure it's not empty
