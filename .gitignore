@@ -1,0 +1,22 @@
+# Editor / IDE artifacts
+*.code-workspace
+.vs/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.user
+
+# Build / publish output
+Output/
+*.nupkg
+
+# Test & coverage output
+testResults*.xml
+coverage*.xml
+
+# Logs and local overrides
+*.log
+*.local.psd1
+
+# NOTE: IDBridge runtime/secret directories (Config, Auth, Logs, Exports, Data, Plugins)
+# live OUTSIDE this repo under C:\IDBridge\ (or your -RootPath), so they are not tracked here.

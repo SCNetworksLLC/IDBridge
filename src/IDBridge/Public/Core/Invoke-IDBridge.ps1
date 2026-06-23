@@ -277,7 +277,7 @@ function Invoke-IDBridge {
                 #If there are users to create, refresh the group membership updates to ensure any new users are included in the group processing
                 if ($ADUsersToCreate.Count -gt 0) {
                     #Refresh AD User Groups to Update List to include newly created users
-                    Write-Log -Message "AD: Refreshing AD User Groups to Update List to include newly created users." -Level Trace
+                    Write-Log -Message "AD: Refreshing User Groups to Update List to include newly created users." -Level Trace
 
                     $ADUserGroupsToUpdate = Get-ADUserGroupsToUpdate -UserList $sourceData -CurrentADGroups $adData.Groups
                 }
@@ -386,7 +386,7 @@ function Invoke-IDBridge {
             if ($IDConfig.Google.enableGroupProcessing -eq $true) {
                 if ($GoogleUsersToCreate.Count -gt 0) {
                     #Refresh Google User Groups to Update List to include newly created users
-                    Write-Log -Message "Google: Refreshing AD User Groups to Update List to include newly created users." -Level Trace
+                    Write-Log -Message "Google: Refreshing User Groups to Update List to include newly created users." -Level Trace
                     
                     $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName
                 }

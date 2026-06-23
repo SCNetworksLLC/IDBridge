@@ -29,7 +29,7 @@ function Get-TargetDataAD {
         "extensionAttribute5"
     )
 
-    Write-Log -Message "AD: Starting Google Target Data Retrieval" -Level Info
+    Write-Log -Message "AD: Starting Target Data Retrieval" -Level Info
 
     #Get all Users from AD
     try {
@@ -120,7 +120,7 @@ function Get-TargetDataAD {
         }
     }
 
-    Write-Log -Message "AD: Finished Google Target Data Retrieval" -Level Info
+    Write-Log -Message "AD: Finished Target Data Retrieval" -Level Info
 
     #Return a single object with all data
     return [PSCustomObject]@{

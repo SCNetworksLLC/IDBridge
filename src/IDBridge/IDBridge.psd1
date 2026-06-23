@@ -1,8 +1,10 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.6.20.0'
+    ModuleVersion     = '26.6.22.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
+    CompanyName       = 'SC Networks LLC'
+    Copyright         = '(c) 2026 SC Networks LLC. All rights reserved.'
     Description       = 'IdentityBridge — automated account provisioning for Google Workspace and Active Directory from school SIS/GSheet data.'
     PowerShellVersion = '7.5'
 
@@ -59,6 +61,7 @@
         'Invoke-IDBridge'
         'Initialize-IDBridge'
         'Get-IDBridgeConfig'  # This is the public accessor for the config object after initialization. It will throw an error if called before Initialize-IDBridge.
+        'Get-IDBridgeSecret'  # Resolves a named secret from a SecretManagement vault, falling back to the per-user file store.
 
         #Auth
         'Get-GoogleApiAccessToken'
@@ -81,4 +84,13 @@
     AliasesToExport   = @()
     CmdletsToExport   = @()
     VariablesToExport = @()
+
+    PrivateData = @{
+        PSData = @{
+            Tags         = @('ActiveDirectory', 'GoogleWorkspace', 'Identity', 'Provisioning', 'SIS')
+            ProjectUri   = 'https://github.com/SCNetworksLLC/IDBridge'
+            LicenseUri   = 'https://github.com/SCNetworksLLC/IDBridge/blob/main/LICENSE'
+            ReleaseNotes = 'See CHANGELOG.md'
+        }
+    }
 }
