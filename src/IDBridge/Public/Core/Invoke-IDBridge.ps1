@@ -522,14 +522,14 @@ function Invoke-IDBridge {
         # Group-update lists are only assigned when group processing is on; .Where filters the lone
         # $null that @() wraps when the variable is unset, so a disabled group sync reports 0 (not 1).
         if ($IDConfig.AD.enabled -eq $true) {
-            Write-Log -Message ("  AD: Create={0} Update={1} Rename={2} Move={3} Deactivate={4} GroupAdd={5} GroupRemove={6}" -f `
+            Write-Log -Message ("AD: Create={0} Update={1} Rename={2} Move={3} Deactivate={4} GroupAdd={5} GroupRemove={6}" -f `
                 @($ADUsersToCreate).Count, @($ADUsersToUpdate.UpdateList).Count, @($ADUsersToUpdate.RenameList).Count, `
                 @($ADUsersToUpdate.MoveList).Count, @($ADUsersToDeactivate).Count, `
                 @($ADUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count, @($ADUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count)
         }
 
         if ($IDConfig.Google.enabled -eq $true) {
-            Write-Log -Message ("  Google: Create={0} Update={1} Deactivate={2} GroupAdd={3} GroupRemove={4}" -f `
+            Write-Log -Message ("Google: Create={0} Update={1} Deactivate={2} GroupAdd={3} GroupRemove={4}" -f `
                 @($GoogleUsersToCreate).Count, @($GoogleUsersToUpdate).Count, @($GoogleUsersToDeactivate).Count, `
                 @($GoogleUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count, @($GoogleUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count)
         }
