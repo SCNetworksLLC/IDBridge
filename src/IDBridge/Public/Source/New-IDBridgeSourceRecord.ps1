@@ -94,7 +94,7 @@ function New-IDBridgeSourceRecord {
         [AllowNull()][string]$EmailAddress = $null,
         [AllowNull()][string[]]$GroupsProposed = @(),
 
-        # --- Control flags (override-driven) ---
+        # --- Control flags ---
         [bool]$ForceDisable = $false,
         [bool]$GoogleOUOverride = $false,
 

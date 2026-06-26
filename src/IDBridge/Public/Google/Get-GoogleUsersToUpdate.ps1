@@ -39,7 +39,8 @@ function Get-GoogleUsersToUpdate {
             $itemUpdateSplat["PersonID"] = $item.PersonID
         }
 
-        if ($googleUser.Name.givenName -ne $item.NameFirst -or $googleUser.Name.familyName -ne $item.NameLast) {
+        # Names compare case-sensitively (-cne) so a casing fix from the plugin is applied.
+        if ($googleUser.Name.givenName -cne $item.NameFirst -or $googleUser.Name.familyName -cne $item.NameLast) {
             $itemUpdateSplat["FirstName"] = $item.NameFirst.trim()
             $itemUpdateSplat["LastName"] = $item.NameLast.trim()
         }

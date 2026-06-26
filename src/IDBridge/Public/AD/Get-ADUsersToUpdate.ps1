@@ -44,15 +44,17 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["EmployeeNumber"] = $item.InternalID
         }
 
-        if ($ADUser.Surname -ne $item.NameLast.trim()) {
+        # Names compare case-sensitively (-cne) so a casing fix from the plugin (e.g. ALL-CAPS ->
+        # Title-Case) is applied, not just content changes.
+        if ($ADUser.Surname -cne $item.NameLast.trim()) {
             $itemUpdateSplat["Surname"] = $item.NameLast.trim()
         }
 
-        if ($ADUser.GivenName -ne $item.NameFirst.trim()) {
+        if ($ADUser.GivenName -cne $item.NameFirst.trim()) {
             $itemUpdateSplat["GivenName"] = $item.NameFirst.trim()
         }
 
-        if ($ADUser.DisplayName -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim())) {
+        if ($ADUser.DisplayName -cne ($item.NameFirst.trim() + " " + $item.NameLast.trim())) {
             $itemUpdateSplat["DisplayName"] = ($item.NameFirst.trim() + " " + $item.NameLast.trim())
         }
 
@@ -122,7 +124,7 @@ function Get-ADUsersToUpdate {
             }
         }
 
-        if ($ADUser.CN -ne ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)) {
+        if ($ADUser.CN -cne ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)) {
             Write-Log -Message ("AD: Canonical Name does not match for " + $item.PersonID + ".")
 
             $itemRenameList += [PSCustomObject]@{

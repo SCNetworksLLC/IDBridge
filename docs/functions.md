@@ -58,6 +58,13 @@ POSTs to `<FunctionUrl>/api/generate`. **Returns:** phrase string(s).
 **Params:** `-gradYear` (2000–2099), `-gradeAdvanceDate`. **Returns:** grade code
 (`12`..`01`, `KG`, `K4`, `PK`, or `GD`) from birth year vs. school-year rollover.
 
+### `Format-IDBridgeName`
+**Params:** `-Name` (pipeline-friendly). Title-cases a name, capitalizing after spaces,
+hyphens, and apostrophes (`JOSHUA MOIN`→`Joshua Moin`, `O'BRIEN`→`O'Brien`); null/empty passed
+through. Can't infer intentional internal caps (`McDonald`→`Mcdonald`). The Skyward plugin uses
+it on `NameFirst`/`NameLast`; paired with the update functions' case-sensitive name compare, the
+casing fix reaches existing accounts too.
+
 ### `Remove-IDBridgeDuplicateID` 🧮
 **Params:** `-SourceData` (nullable/empty allowed). Two passes: drop records flagged
 `ADDuplicateIDStatus`/`GoogleDuplicateIDStatus`, then drop *all* records sharing a
@@ -86,7 +93,7 @@ Canonical factory for a source record — the shape plugins must emit. **Params:
 (`Department`/`InternalID` → `$null`, `GroupsProposed` → `@()`, the AD/Google OU/password
 fields). **Returns:** an ordered `PSCustomObject` with the full 35-field contract (incl. optional
 AD attributes `Description`/`TelephoneNumber`/`EmailAddress`/`PasswordNeverExpires`/
-`ExtensionAttribute2-4` and the override flags `ForceDisable`/`GoogleOUOverride`). Construction
+`ExtensionAttribute2-4`, and the override flags `ForceDisable`/`GoogleOUOverride`). Construction
 enforces presence + type; cross-field rules live in `Test-IDBridgeSourceData`.
 
 ### `Test-IDBridgeSourceData` 🧮
@@ -173,7 +180,8 @@ expands ancestors, removes existing, sorts parents-first. **Returns:** ordered O
 **Params:** `-UserList`, `-LookupByID`. **Predicate:** `IDBActive=true` AND `ProvisionAD=true`
 AND has `ADCurrentUserID` + any delta (name, username/UPN, EmployeeID, office/title/company/
 dept, description/phone/email, enabled state, employeeType/ext-attr, passwordNeverExpires, CN,
-OU). **Returns:** `@{ UpdateList; RenameList; MoveList }`.
+OU). Name comparisons are **case-sensitive** (`-cne`) so a casing fix from the plugin (e.g.
+ALL-CAPS→Title-Case) is applied. **Returns:** `@{ UpdateList; RenameList; MoveList }`.
 
 ### `Get-ADUsersToDeactivate` 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionAD=false)` AND

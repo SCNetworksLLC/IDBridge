@@ -147,6 +147,9 @@ entity `800`; safety floor 3700 @ 75%).
 - **Per-directory provisioning:** `ProvisionAD = [bool]$GradeSettings.<grade>.AD.Enabled` and
   `ProvisionGoogle = [bool]…Google.Enabled` — so "younger grades = Google only" is set by adding
   a `GradeOverrides` entry with `AD = @{ Enabled = $false }`.
+- **Name casing:** `NameFirst`/`NameLast` are run through the module's `Format-IDBridgeName`
+  (Skyward returns ALL-CAPS → Title Case). Because the update functions compare names
+  case-sensitively (`-cne`), existing accounts get the casing fix too, not just new ones.
 - `IDBActive`: false if not seen within `DaysLastSeen` (14), or if the grade is missing/
   disabled in settings.
 - Groups = `Get-CustomStudentGroups -building -grade` (bundled: `Students`, optional

@@ -7,6 +7,17 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 
 ## [Unreleased]
 
+## [26.6.26.0] - 2026-06-26
+
+### Added
+- `Format-IDBridgeName` — title-cases a name (handles spaces, hyphens, apostrophes; null/empty
+  safe; pipeline-friendly). The Skyward plugin runs `NameFirst`/`NameLast` through it.
+
+### Changed
+- Name comparisons in `Get-ADUsersToUpdate` / `Get-GoogleUsersToUpdate` are now
+  **case-sensitive** (`-cne`), so a casing fix from a plugin is applied to existing accounts
+  (not just new ones) — the plugin output is the source of truth for name casing.
+
 ## [26.6.25.0] - 2026-06-25
 
 ### Added
