@@ -9,12 +9,12 @@
     is created under a parent OU, which is determined based on the provided full path. The function will also handle logging 
     of responses and errors.
 
-.PARAMETER NewOrgUnitFullPath
-    The full path of the new organizational unit to be created, starting with the root (e.g., "/School/Grade5"). 
+.PARAMETER OrgUnit
+    The full path of the new organizational unit to be created, starting with the root (e.g., "/School/Grade5").
     This is a mandatory parameter and must be a valid organizational unit path.
 
 .EXAMPLE
-    New-IDBridgeGoogleOrgUnit -NewOrgUnitFullPath "/School/Grade5" -tokenInformation $authToken
+    New-IDBridgeGoogleOrgUnit -OrgUnit "/School/Grade5"
 
     Creates a new organizational unit "Grade5" under the "School" organizational unit in Google Workspace.
 

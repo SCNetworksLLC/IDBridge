@@ -1,3 +1,28 @@
+<#
+.SYNOPSIS
+Drop source records with duplicate person IDs from the processing set.
+
+.DESCRIPTION
+Two-pass de-duplication run after target data is attached. Pass 1 removes records already
+flagged with ADDuplicateIDStatus/GoogleDuplicateIDStatus (a personID that matches more than one
+existing target account). Pass 2 removes every record that shares a personID with another record
+in the remaining set (duplicates introduced by the source plugins). Each removal is logged at
+Info. The result is always returned as an array, even for zero or one survivor, so that
+downstream .Count and indexing stay safe.
+
+.PARAMETER SourceData
+The collected source records. Null or an empty collection is allowed.
+
+.OUTPUTS
+[object[]] the records that survived de-duplication.
+
+.EXAMPLE
+$sourceData = Remove-IDBridgeDuplicateID -SourceData $sourceData
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Remove-IDBridgeDuplicateID {
     [CmdletBinding()]
     param(

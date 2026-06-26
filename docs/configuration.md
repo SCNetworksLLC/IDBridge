@@ -26,6 +26,23 @@ files under `C:\IDBridge\Auth\<username>\` (see [Secrets](#secrets-not-in-the-co
 | `SkipADCheck`  | bool | Don't throw if the `ActiveDirectory` module fails to import. | `Initialize-IDBridge` |
 | `TraceLogging` | bool | Emit `Trace`-level logs (and enables parallel-logging path in `Get-TargetDataGoogle`). | `Write-Log`, `Invoke-IDBridge`, `Get-TargetDataGoogle` |
 
+### `ChangeThreshold` (change-volume safety guard)
+Optional block. After the change lists are computed (read-only) and **before any writes**,
+`Invoke-IDBridge` compares each enabled directory's proposed lifecycle changes
+(create/update/rename/move/deactivate — group churn excluded) against that directory's existing
+**managed** population (users under `AD.userRootOU` / `Google.userRootOU`). If the percentage
+exceeds `Percentage`, the run **aborts before writing anything**. Omit the whole block to leave
+the guard off (older configs keep working).
+
+| Key | Type | Effect | Read by |
+|-----|------|--------|---------|
+| `Enabled`    | bool   | Master switch for the guard. `$false` (or `-SkipChangeThreshold`) bypasses it. | `Invoke-IDBridge` |
+| `Percentage` | number | Max allowed change % of the managed population, per directory (def `25`). | `Invoke-IDBridge` → `Test-IDBridgeChangeThreshold` |
+
+> A directory whose managed population is **0** (fresh tenant / empty root OU) is skipped with a
+> `Warn` rather than tripping the guard, so a legitimate first run isn't blocked by a zero
+> denominator. The `-SkipChangeThreshold` switch sets `Enabled = $false` for that run.
+
 ### `GoogleToken` (API authentication)
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
@@ -140,3 +157,7 @@ values.**
   scopes only group changes to log-only while other writes still happen (when not ReadOnly).
 - **Safe default:** the shipped config has `Debug.ReadOnly = $true` and AD/Google group
   `WhatIf = $true` — a fresh run reports intended changes without modifying anything.
+- **Change-volume guard:** `ChangeThreshold` aborts the whole run (before any writes) if a
+  directory's proposed lifecycle changes exceed `Percentage` of its managed population. It fires
+  regardless of `ReadOnly`, so even a preview run that breaches the limit stops at the guard.
+  Bypass with `ChangeThreshold.Enabled = $false` or the `-SkipChangeThreshold` switch.

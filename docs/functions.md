@@ -12,8 +12,8 @@ Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (
 
 ### `Invoke-IDBridge` 🌐
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
--TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle`. Runs the full pipeline (see
-architecture.md). **Returns:** nothing; side effects + CSV export + log push.
+-TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold`. Runs the full
+pipeline (see architecture.md). **Returns:** nothing; side effects + CSV export + log push.
 
 ### `Initialize-IDBridge` 🌐
 Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), acquires Google
@@ -73,6 +73,14 @@ duplicate `personID`. **Returns:** array (guaranteed).
 ### `Show-GroupsNotProcessed` 🧮
 **Params:** `-ProposedGroups`, `-TargetGroups`. Trace-logs each proposed group missing
 from the target. No return.
+
+### `Test-IDBridgeChangeThreshold` 🧮
+**Params:** `-Directory` (`AD`/`Google`, log context), `-ChangeCount`, `-PopulationCount`,
+`-ThresholdPercent` (0–100). Computes `ChangeCount / PopulationCount` as a percentage and flags
+whether it exceeds `ThresholdPercent`; a `PopulationCount` of 0 is **skipped** (logged Warn, not
+a breach). Pure compute + log — the caller (`Invoke-IDBridge`) decides whether to abort.
+**Returns:** `[pscustomobject]@{ Directory; ChangeCount; PopulationCount; Percent; Exceeded;
+Skipped }`. Used by the change-volume safety guard between the compute and execute regions.
 
 ---
 

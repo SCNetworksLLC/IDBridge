@@ -1,10 +1,25 @@
 <#
-Check for enabled plugins and if the function exists for them, if not disable the plugin and log a warning
-For each plugin, run the funciton, and add the returned values to an array to be processed later in the script.
-This allows for dynamic data gathering and processing based on the plugins enabled in the configuration file.
-There are specific plugin types.
-Source plugins gather data that is used as the basis for processing in the script, such as user lists from a SIS or HR system.
-Override plugins gather data that is used to override or modify the source data before processing.
+.SYNOPSIS
+Discover and run the configured source and override plugins, returning their data.
+
+.DESCRIPTION
+Iterates the Plugins array from the configuration in order. For each enabled descriptor it
+verifies <PluginsRoot>\<Function>.ps1 exists, dot-sources it, and confirms the function resolves
+— disabling the plugin with a Warn if the file fails to load or the function is missing. Each
+plugin is invoked with no arguments. Source plugin output is passed through
+Test-IDBridgeSourceData before being collected; Override output is collected as-is. Throws if no
+source data was gathered after all plugins run.
+
+.OUTPUTS
+[pscustomobject] @{ SourceData; OverrideData } — the combined results split by plugin Type.
+
+.EXAMPLE
+$plugins = Invoke-SourcePlugins
+$sourceData = $plugins.SourceData
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
 #>
 function Invoke-SourcePlugins {
     [CmdletBinding()]

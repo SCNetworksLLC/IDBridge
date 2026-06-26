@@ -1,3 +1,24 @@
+<#
+.SYNOPSIS
+Convert an A1-style cell reference to zero-based row/column indexes.
+
+.DESCRIPTION
+Parses a cell reference like 'A1' or 'B2' and returns a hashtable with zero-based row and column
+indexes (suitable for a Sheets API GridRange). Throws on an invalid cell format.
+
+.PARAMETER cell
+The A1-style cell reference (e.g. 'A1', 'M63').
+
+.OUTPUTS
+[hashtable] @{ row; column } (both zero-based).
+
+.EXAMPLE
+Convert-CellToIndex -cell 'B2'   # -> @{ row = 1; column = 1 }
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Convert-CellToIndex {
     param (
         [string]$cell

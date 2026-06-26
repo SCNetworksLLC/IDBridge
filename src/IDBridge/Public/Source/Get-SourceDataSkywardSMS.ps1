@@ -20,7 +20,14 @@
     The client secret for OAuth authentication.
 
 .PARAMETER ExcludeEntityIDs
-    The Entity ID to Exclude (used to filter results). Comman Separated if multiple.
+    The Entity ID(s) to exclude (used to filter results). Comma-separated if multiple.
+
+.PARAMETER SafetyCheckCount
+    The expected baseline student count used for the safety-floor calculation.
+
+.PARAMETER SafetyCheckPercentage
+    The percentage of SafetyCheckCount that must be met for the run to proceed; the run aborts
+    (throws) below this floor to prevent mass changes from a truncated source pull.
 
 .EXAMPLE
     $params = @{

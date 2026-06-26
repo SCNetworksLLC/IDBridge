@@ -1,18 +1,32 @@
-function Merge-IDBridgeOverrideData {
-    <#
-    .SYNOPSIS
-        Applies override data onto source data so override values win during processing.
-    .DESCRIPTION
-        For each source item, finds matching overrides by personID and applies any non-empty
-        override property. Override values are applied unconditionally (no check for existing
-        data in the target field). Empty/whitespace overrides are skipped. AddGroup/RemoveGroup
-        are treated specially, mutating GroupsProposed rather than overwriting it.
+<#
+.SYNOPSIS
+Apply override rows onto the source records, matched by person ID.
 
-        This lets override plugins reshape source data dynamically without touching the original
-        source-gathering plugins.
-    .OUTPUTS
-        The source objects, with overrides applied (also mutated in place).
-    #>
+.DESCRIPTION
+For each source record, finds the override rows with the same personID and applies their
+non-empty values. Scalar properties overwrite the source field unconditionally; AddGroup and
+RemoveGroup mutate GroupsProposed instead of overwriting it; PersonID and null/blank values are
+skipped. Records are mutated in place and also returned. Lets override plugins reshape source
+data without touching the source-gathering plugins.
+
+.PARAMETER SourceData
+The source records to apply overrides to. An empty collection is allowed.
+
+.PARAMETER OverrideData
+The override rows (each a PersonID plus one or more override keys). An empty collection returns
+SourceData unchanged.
+
+.OUTPUTS
+[object[]] the source records with overrides applied.
+
+.EXAMPLE
+$sourceData = Merge-IDBridgeOverrideData -SourceData $sourceData -OverrideData $overrideData
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
+function Merge-IDBridgeOverrideData {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

@@ -1,3 +1,28 @@
+<#
+.SYNOPSIS
+Add or remove a single user's membership in a Google group.
+
+.DESCRIPTION
+Adds the user (by id) to the group as a MEMBER (POST .../groups/{email}/members) when UpdateType is
+'Add', or removes them (DELETE .../groups/{email}/members/{id}) when 'Remove'. Auth headers come
+from Get-GoogleHeaders. On error the error record is returned rather than thrown.
+
+.PARAMETER GroupEmail
+The group's email address.
+
+.PARAMETER PersonID
+The Google user id to add or remove (the member id).
+
+.PARAMETER UpdateType
+'Add' to add the member, 'Remove' to remove them.
+
+.EXAMPLE
+Update-GoogleGroupMembers -GroupEmail 'staff@example.org' -PersonID $googleUserId -UpdateType 'Add'
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Update-GoogleGroupMembers() {
     [cmdletbinding()]
     Param(

@@ -1,3 +1,34 @@
+<#
+.SYNOPSIS
+Compute the Google update/move/rename list for linked, active users.
+
+.DESCRIPTION
+For each active, Google-provisioned source user linked to a Google account, diffs the desired state
+against the current user and builds an Update-IDBridgeGoogleUser splat for the changed fields:
+primaryEmail (with alias-conflict handling -> RemoveAlias, or skip when the new email is already a
+primary), externalId/personID, given/family name (case-sensitive), department/title, suspended
+state (including ForceDisable), and OU path (unless GoogleOUOverride). Only users with a delta are
+returned.
+
+.PARAMETER UserList
+The enriched source records.
+
+.PARAMETER LookupByID
+The Google LookupByID hashtable (externalId -> Google user) from Get-TargetDataGoogle.
+
+.PARAMETER GoogleUsers
+All current Google users (used for primaryEmail and alias conflict checks).
+
+.OUTPUTS
+[object[]] of @{ UPN; Splat } for changed users only.
+
+.EXAMPLE
+$toUpdate = Get-GoogleUsersToUpdate -UserList $sourceData -LookupByID $googleData.LookupByID -GoogleUsers $googleData.Users
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-GoogleUsersToUpdate {
     [CmdletBinding()]
     param (

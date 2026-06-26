@@ -7,6 +7,35 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 
 ## [Unreleased]
 
+## [26.6.26.2] - 2026-06-26
+
+### Changed
+- **Comment-based help on every public function.** All 53 exported functions now carry consistent
+  `.SYNOPSIS/.DESCRIPTION/.PARAMETER/.OUTPUTS/.EXAMPLE/.NOTES` help, so `Get-Help <function>` works
+  across the whole module. No function logic was changed.
+
+### Fixed
+- `Get-Help` now resolves help for `Remove-IDBridgeDuplicateID` (a description line beginning with
+  `.Count` was parsed as an invalid help directive, voiding the block) and `New-Passphrase` (its
+  leading `#Requires` bound the help to the script rather than the function; help moved into the
+  function body).
+- Corrected stale parameter docs referencing non-existent parameters: `New-Passphrase` (removed
+  `InputFile`/`OutputFile`/`ChunkSize`), `Update-IDBridgeGoogleUser` (documented `RemoveAlias`,
+  dropped `tokenInformation`), `New-IDBridgeGoogleOrgUnit` (`OrgUnit`), `Get-GoogleSheetData`
+  (`GoogleSheetID`/`GoogleSheetRange`), and added the Skyward safety-check params.
+
+## [26.6.26.1] - 2026-06-26
+
+### Added
+- **Change-volume safety guard** (`ChangeThreshold` config block) — after the AD/Google change
+  lists are computed and before any writes, the run aborts if a directory's proposed lifecycle
+  changes (create/update/rename/move/deactivate) exceed a percentage (default `25`) of its
+  managed root-OU population. Protects against a broken source feed mass-changing a directory.
+- `Test-IDBridgeChangeThreshold` — pure helper that computes the change percentage and flags a
+  breach (population `0` is skipped, not a breach).
+- `-SkipChangeThreshold` switch on `Invoke-IDBridge` to bypass the guard for an intentional mass
+  run (mirrors `ChangeThreshold.Enabled = $false`).
+
 ## [26.6.26.0] - 2026-06-26
 
 ### Added

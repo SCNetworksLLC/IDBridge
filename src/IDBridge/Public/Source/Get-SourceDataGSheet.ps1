@@ -1,3 +1,40 @@
+<#
+.SYNOPSIS
+Read and validate source rows from a Google Sheet.
+
+.DESCRIPTION
+Retrieves the given sheet range via Get-GoogleSheetData, verifies the required columns are
+present, and enforces a safety floor on the row count — aborting if the sheet returns fewer rows
+than userCount * userCountSafetyPercentage% (protection against a truncated or empty sheet).
+Returns only rows flagged Process = 'TRUE' that have every required column populated
+(TerminationDate excepted); rows missing data or not flagged to process are logged and skipped.
+When testRun is set, the result is capped at the first 10 rows.
+
+.PARAMETER sheetID
+The Google Spreadsheet ID to read.
+
+.PARAMETER sheetRange
+The sheet name or range to read (e.g. a named range like 'Staff').
+
+.PARAMETER userCount
+The expected baseline row count used for the safety-floor calculation.
+
+.PARAMETER userCountSafetyPercentage
+The percentage of userCount that must be exceeded for the run to proceed. Default 75.
+
+.PARAMETER testRun
+When $true, limit the returned rows to the first 10 for faster iteration. Default $false.
+
+.OUTPUTS
+[object[]] the validated rows flagged to process.
+
+.EXAMPLE
+Get-SourceDataGSheet -sheetID '1qrZ...' -sheetRange 'Staff' -userCount 650
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-SourceDataGSheet {
     [CmdletBinding()]
     param (        

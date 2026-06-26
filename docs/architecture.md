@@ -29,8 +29,8 @@ which prepares all global state:
    `Google.enabled = $false`; disabling Google/AD also disables their group processing.
 
 Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig` and applies **runtime
-switch overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle`),
-logging each as `OVERRIDE: <key> = <value>`. Switches win over the config file.
+switch overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
+-SkipChangeThreshold`), logging each as `OVERRIDE: <key> = <value>`. Switches win over the config file.
 
 ## The ordered pipeline
 
@@ -69,6 +69,11 @@ Invoke-IDBridge
        Get-GoogleUsersToDeactivate                           │
        Get-GoogleUsersToCreate                               │
        Get-GoogleUserGroupsToUpdate (if group processing on) ┘
+        │
+9b. Change-threshold guard (if ChangeThreshold.Enabled): per directory, count proposed
+       lifecycle changes (create/update/rename/move/deactivate) vs the managed root-OU
+       population via Test-IDBridgeChangeThreshold; Throw (abort before any writes) if any
+       directory exceeds ChangeThreshold.Percentage. Bypass: -SkipChangeThreshold.
         │
  10. EXECUTE AD changes      (only if AD.enabled    AND Debug.readOnly = $false)
        New-IDBridgeADOrgUnit → Disable-IDBridgeADUser → Set-ADUser (update) →

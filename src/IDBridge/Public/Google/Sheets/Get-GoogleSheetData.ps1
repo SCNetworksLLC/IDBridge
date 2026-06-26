@@ -7,29 +7,21 @@
     information and authentication token. It fetches the specified sheet's 
     data and returns it as an array of PowerShell objects.
 
-.PARAMETER googleSheetInformation
-    A hashtable containing:
-      - sheetId: The unique identifier of the Google Sheet.
-      - sheetRange: The range of cells to retrieve (e.g., "Sheet1!A1:D10" or "Sheet1").
+.PARAMETER GoogleSheetID
+    The unique identifier of the Google Sheet to read.
+
+.PARAMETER GoogleSheetRange
+    The range of cells to retrieve (e.g., "Sheet1!A1:D10" or a named range / sheet like "Staff").
 
 .OUTPUTS
-    Returns an array of PowerShell objects where each object represents a row from 
+    Returns an array of PowerShell objects where each object represents a row from
     the Google Sheet, with column names as property names.
 
 .EXAMPLE
-    $sheetInfo = @{
-        sheetId = "1aBcD2EfGhIjKlMnOpQrStUvWxYz1234567890"
-        sheetRange = "Sheet1!A1:D10"
-    }
-    $tokenInfo = @{
-        "Authorization" = "Bearer YOUR_ACCESS_TOKEN"
-        "Accept" = "application/json"
-    }
+    $data = Get-GoogleSheetData -GoogleSheetID "1aBcD2EfGhIjKlMnOpQrStUvWxYz1234567890" -GoogleSheetRange "Staff"
 
-    $data = Get-GoogleSheetData -googleSheetInformation $sheetInfo -tokenInformation $tokenInfo
-
-    This example retrieves the data from a specific range in a Google Sheet and 
-    returns it as structured PowerShell objects.
+    This example retrieves the data from the "Staff" range in a Google Sheet and
+    returns it as structured PowerShell objects. Auth headers are obtained internally via Get-GoogleHeaders.
 
 .NOTES
     - Requires valid OAuth 2.0 credentials with permission to access the specified Google Sheet.

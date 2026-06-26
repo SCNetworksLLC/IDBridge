@@ -1,3 +1,31 @@
+<#
+.SYNOPSIS
+Uncheck (set to FALSE) one or more checkbox cells via the Sheets batchUpdate API.
+
+.DESCRIPTION
+For each supplied A1 cell reference, builds a repeatCell request that sets the cell's boolean value
+to false, then sends them in a single batchUpdate. Resolves the numeric sheetId with
+Get-SheetIdByName and converts each cell with Convert-CellToIndex.
+
+.PARAMETER cells
+The A1-style cell references to uncheck (e.g. @('M63','M65')).
+
+.PARAMETER spreadSheetID
+The spreadsheet id.
+
+.PARAMETER sheetName
+The sheet/tab name containing the cells.
+
+.PARAMETER TokenInformation
+The Google API auth headers.
+
+.EXAMPLE
+Set-CheckboxesToFalse -cells @('M63','M65') -spreadSheetID $id -sheetName 'Staff' -TokenInformation $headers
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Set-CheckboxesToFalse {
     param (
         $cells,           # Array of cell references like ["M63", "M65"]

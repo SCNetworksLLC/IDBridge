@@ -1,3 +1,34 @@
+<#
+.SYNOPSIS
+Build the New-ADUser creation list for source users that have no AD account yet.
+
+.DESCRIPTION
+Selects active, AD-provisioned source users that are not yet linked (no ADCurrentUserID) and whose
+UPN is absent from AD, and builds a New-ADUser splat for each — identity, org attributes,
+EmployeeID/Number, EmployeeType/extensionAttribute1, optional Description/OfficePhone/Email and
+extensionAttributes 2-4, and the account password. The password comes from the passphrase API
+(ADPassphraseAPI -> New-Passphrase) or a pre-set ADKey; a user with neither is logged and skipped.
+
+.PARAMETER UserList
+The enriched source records.
+
+.PARAMETER CurrentADUsers
+All current AD users; used to skip UPNs already present in AD.
+
+.PARAMETER Nonce
+Optional nonce value. Currently unused by the body — passphrase nonces are read per-record from
+each record's ADPassphraseAPI. Retained for signature compatibility.
+
+.OUTPUTS
+[object[]] of @{ PersonID; Splat } where Splat is the New-ADUser parameter hashtable.
+
+.EXAMPLE
+$toCreate = Get-ADUsersToCreate -UserList $sourceData -CurrentADUsers $adData.Users
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-ADUsersToCreate {
     [CmdletBinding()]
     param (

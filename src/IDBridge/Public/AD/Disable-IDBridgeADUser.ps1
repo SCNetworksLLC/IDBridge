@@ -1,3 +1,28 @@
+<#
+.SYNOPSIS
+Disable an AD user, stamp it, move it to trash, and optionally strip its groups.
+
+.DESCRIPTION
+Disables the account (recording the timestamp in Division), moves it to its
+ADOrganizationalUnitTrash, and logs its current group memberships. When
+GroupRemovalProcessingStatus is $true, also removes the user from all of its current groups;
+otherwise the memberships are left in place. On error the error record is returned rather than thrown.
+
+.PARAMETER User
+The source record for the user to deactivate (uses ADCurrentUserID, ADOrganizationalUnitTrash,
+ADCurrentGroups, and PersonID).
+
+.PARAMETER GroupRemovalProcessingStatus
+When $true, remove the user from all current groups as part of deactivation (driven by the AD
+enableGroupProcessingTrash setting).
+
+.EXAMPLE
+Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Disable-IDBridgeADUser {
     [CmdletBinding()]
     param (

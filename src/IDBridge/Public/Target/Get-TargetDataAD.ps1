@@ -1,3 +1,24 @@
+<#
+.SYNOPSIS
+Retrieve current Active Directory users, groups, and OUs as the AD target snapshot.
+
+.DESCRIPTION
+Pulls every AD user with a rich property set (UPN, EmployeeID, MemberOf, extensionAttribute1-5,
+etc.), all groups, and all organizational units. Resolves each user's MemberOf into a
+CurrentGroups name list, detects duplicate EmployeeIDs, and builds a LookupByID hashtable keyed by
+EmployeeID (excluding duplicates) for fast source-to-target matching. Throws if AD returns no
+users, groups, or OUs.
+
+.OUTPUTS
+[pscustomobject] @{ Users; Groups; OrgUnits; DuplicateUsers; LookupByID }.
+
+.EXAMPLE
+$adData = Get-TargetDataAD
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-TargetDataAD {
     [CmdletBinding()]
     param ()

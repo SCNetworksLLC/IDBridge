@@ -46,16 +46,17 @@
     (Optional) A flag to indicate if the user should be prompted to change their password at the next login. 
     Accepts "true" or "false".
 
-.PARAMETER tokenInformation
-    A hashtable containing OAuth authentication headers for the API request. This is a mandatory parameter and is 
-    used for authenticating the request to the Google Admin API.
+.PARAMETER RemoveAlias
+    (Optional) An email alias to remove from whichever user currently holds it before applying the
+    update (used when a new primaryEmail collides with an existing alias). The alias is not removed
+    if it is that user's primary email. Auth headers are obtained internally via Get-GoogleHeaders.
 
 .EXAMPLE
-    Update-IDBridgeGoogleUser -GoogleUserID "user12345" -PrimaryEmail "newemail@example.com" -Suspended "false" 
-                           -FirstName "John" -LastName "Doe" -Password "NewPassword123" -tokenInformation $authToken
+    Update-IDBridgeGoogleUser -GoogleUserID "user12345" -PrimaryEmail "newemail@example.com" -Suspended "false"
+                           -FirstName "John" -LastName "Doe"
 
-    Updates the user with the Google user ID "user12345", changing the email to "newemail@example.com", 
-    un-suspending the user, updating the user's name, and setting a new password.
+    Updates the user with the Google user ID "user12345", changing the email to "newemail@example.com",
+    un-suspending the user, and updating the user's name.
 
 .NOTES
     Version: 1.0

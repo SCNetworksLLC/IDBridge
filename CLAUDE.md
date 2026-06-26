@@ -57,6 +57,7 @@ Switches (override the config file at runtime):
 | `-TraceLogging`  | Enable verbose/trace logging                                     |
 | `-SkipAD`        | Disable all AD processing for this run                           |
 | `-SkipGoogle`    | Disable all Google processing for this run                       |
+| `-SkipChangeThreshold` | Bypass the change-volume safety guard (`ChangeThreshold`) for this run    |
 
 ## Safety model (read this before changing behavior)
 
@@ -67,6 +68,11 @@ Switches (override the config file at runtime):
    `enableGroupProcessingWhatIf` (log-only), `enableGroupProcessingRemove`
    (allow removals), and `enableGroupProcessingTrash` (strip groups on deactivate).
 3. A run that loses Google auth **auto-disables** Google processing rather than erroring out.
+4. **Change-volume guard.** After the change lists are computed and before any writes, the
+   `ChangeThreshold` config block aborts the whole run if a directory's proposed lifecycle
+   changes (create/update/rename/move/deactivate) exceed a percentage (default `25`) of its
+   managed root-OU population — protection against a broken source feed mass-changing the
+   directory. Bypass with `ChangeThreshold.Enabled = $false` or `-SkipChangeThreshold`.
 
 ## Conventions
 

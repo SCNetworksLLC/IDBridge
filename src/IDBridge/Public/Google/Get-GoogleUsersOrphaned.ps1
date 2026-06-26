@@ -1,3 +1,32 @@
+<#
+.SYNOPSIS
+Find Google users that are absent from the source data (orphans).
+
+.DESCRIPTION
+Builds a lookup of linked GoogleCurrentUserIDs from the source records and returns each Google user
+whose id is not present — i.e. accounts that exist in Google but no longer have a matching source
+record. Each orphan is returned with the supplied trash OU for optional cleanup. Not called by the
+main pipeline; available for orphan handling.
+
+.PARAMETER UserList
+The enriched source records (linked users provide GoogleCurrentUserID).
+
+.PARAMETER GoogleUsers
+All current Google users to scan for orphans.
+
+.PARAMETER TrashOU
+The trash OU path to record on each orphan for a later move.
+
+.OUTPUTS
+[object[]] of @{ GoogleCurrentUserID; GoogleOrganizationalUnitTrash; Groups }.
+
+.EXAMPLE
+$orphans = Get-GoogleUsersOrphaned -UserList $sourceData -GoogleUsers $googleData.Users -TrashOU $trashOU
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-GoogleUsersOrphaned {
     [CmdletBinding()]
     param (

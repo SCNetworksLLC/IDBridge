@@ -1,3 +1,55 @@
+<#
+.SYNOPSIS
+Top-level orchestrator: provision and synchronize AD and Google Workspace accounts from source data.
+
+.DESCRIPTION
+Entry point for an IDBridge run. Calls Initialize-IDBridge, applies the runtime switch
+overrides, then runs the ordered pipeline: gather source data from the configured plugins, read
+current AD/Google state, enrich and de-duplicate the source records, apply override rows, match
+person IDs to existing accounts, and compute every change list (org units, deactivations,
+updates/renames/moves, creates, and group membership) read-only. Before any writes it runs the
+change-volume safety guard (ChangeThreshold). It then executes the AD and Google changes only
+when the directory is enabled and Debug.readOnly is $false, exports the staff CSV, and (in the
+finally block) pushes the run log to a Google Sheet when configured. Per-user write errors are
+logged and skipped; startup/OU-creation failures and a tripped change threshold abort the run.
+
+.PARAMETER RootPath
+Base directory for Config/Auth/Logs/Exports/Plugins/Data. Defaults to C:\IDBridge.
+
+.PARAMETER ReadOnly
+Override Debug.readOnly for this run. When set, every change list is computed but nothing is written.
+
+.PARAMETER TestRun
+Override Debug.testRun; plugins process a small subset for faster iteration.
+
+.PARAMETER SkipADCheck
+Override Debug.skipADCheck; do not throw if the ActiveDirectory module fails to import.
+
+.PARAMETER TraceLogging
+Override Debug.TraceLogging; emit Trace-level logging.
+
+.PARAMETER SkipAD
+Disable all AD processing (and AD group processing) for this run.
+
+.PARAMETER SkipGoogle
+Disable all Google processing (and Google group processing) for this run.
+
+.PARAMETER SkipChangeThreshold
+Bypass the change-volume safety guard (ChangeThreshold) for this run.
+
+.OUTPUTS
+None. Side effects: AD/Google mutations (unless ReadOnly), the UserList-Staff.csv export, and log output.
+
+.EXAMPLE
+Invoke-IDBridge -ReadOnly -TraceLogging
+
+.EXAMPLE
+Invoke-IDBridge -RootPath 'C:\IDBridge'
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Invoke-IDBridge {
     [CmdletBinding()]
     param (
@@ -8,7 +60,8 @@ function Invoke-IDBridge {
         [switch]$SkipADCheck,
         [switch]$TraceLogging,
         [switch]$SkipAD,
-        [switch]$SkipGoogle
+        [switch]$SkipGoogle,
+        [switch]$SkipChangeThreshold
     )
 
     try{
@@ -27,6 +80,7 @@ function Invoke-IDBridge {
         if ($PSBoundParameters.ContainsKey('TraceLogging'))   { $IDConfig.Debug.TraceLogging   = [bool]$TraceLogging }
         if ($SkipAD)      { $IDConfig.AD.enabled     = $false; $IDConfig.AD.enableGroupProcessing     = $false }
         if ($SkipGoogle)  { $IDConfig.Google.enabled = $false; $IDConfig.Google.enableGroupProcessing = $false }
+        if ($SkipChangeThreshold -and $IDConfig.ContainsKey('ChangeThreshold')) { $IDConfig.ChangeThreshold.Enabled = $false }
 
         foreach ($key in $PSBoundParameters.Keys | Where-Object { $_ -ne 'RootPath' }) {
             Write-Log -Message "OVERRIDE: $key = $($PSBoundParameters[$key])" -Level Info
@@ -190,6 +244,38 @@ function Invoke-IDBridge {
             }
         }
         #endregion Google Processing Lists
+
+
+
+
+        #region Change Threshold Safety Check
+        # Guard against a broken source feed mass-changing a directory: if the proposed lifecycle
+        # changes exceed a percentage of the existing managed (root-OU) population, abort before any
+        # writes. Bypassed by ChangeThreshold.Enabled = $false in config or the -SkipChangeThreshold switch.
+        if ($IDConfig.ContainsKey('ChangeThreshold') -and $IDConfig.ChangeThreshold.Enabled -eq $true) {
+            $thresholdResults = [System.Collections.Generic.List[object]]::new()
+
+            if ($IDConfig.AD.enabled -eq $true) {
+                $adManagedPopulation = @($adData.Users | Where-Object { $_.DistinguishedName -like "*,$($IDConfig.AD.userRootOU)" }).Count
+                $adChangeCount = @($ADUsersToCreate).Count + @($ADUsersToDeactivate).Count +
+                    @($ADUsersToUpdate.UpdateList).Count + @($ADUsersToUpdate.RenameList).Count + @($ADUsersToUpdate.MoveList).Count
+                $thresholdResults.Add( (Test-IDBridgeChangeThreshold -Directory 'AD' -ChangeCount $adChangeCount -PopulationCount $adManagedPopulation -ThresholdPercent $IDConfig.ChangeThreshold.Percentage) )
+            }
+
+            if ($IDConfig.Google.enabled -eq $true) {
+                $googleManagedPopulation = @($googleData.Users | Where-Object { $_.orgUnitPath -eq $IDConfig.Google.userRootOU -or $_.orgUnitPath -like "$($IDConfig.Google.userRootOU)/*" }).Count
+                $googleChangeCount = @($GoogleUsersToCreate).Count + @($GoogleUsersToDeactivate).Count + @($GoogleUsersToUpdate).Count
+                $thresholdResults.Add( (Test-IDBridgeChangeThreshold -Directory 'Google' -ChangeCount $googleChangeCount -PopulationCount $googleManagedPopulation -ThresholdPercent $IDConfig.ChangeThreshold.Percentage) )
+            }
+
+            $breaches = @($thresholdResults | Where-Object { $_.Exceeded })
+            if ($breaches.Count -gt 0) {
+                $breachSummary = ($breaches | ForEach-Object { "$($_.Directory) $($_.Percent)%" }) -join ', '
+                Write-Log -Message "Change threshold exceeded ($breachSummary > $($IDConfig.ChangeThreshold.Percentage)%). Aborting run before any writes. Set ChangeThreshold.Enabled = `$false or run with -SkipChangeThreshold to override." -Level Error
+                Throw "Change threshold exceeded: $breachSummary (limit $($IDConfig.ChangeThreshold.Percentage)%)."
+            }
+        }
+        #endregion Change Threshold Safety Check
 
 
 

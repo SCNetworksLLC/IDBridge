@@ -1,3 +1,33 @@
+<#
+.SYNOPSIS
+Compute the AD update, rename, and move lists for linked, active users.
+
+.DESCRIPTION
+For each active, AD-provisioned source user linked to an AD account, diffs the desired state
+against the current AD user and produces three lists: an UpdateList of Set-ADUser splats for
+changed attributes (username/UPN, EmployeeID/Number, name fields, office/title/company/department,
+optional Description/OfficePhone/Email, passwordNeverExpires, enabled state including ForceDisable,
+and EmployeeType/extensionAttributes); a RenameList when the CN differs from "First Last PersonID";
+and a MoveList when the user is in the wrong OU. Name comparisons are case-sensitive so a casing
+fix from the plugin is applied. A username change that collides with a different existing account
+is logged and skipped.
+
+.PARAMETER UserList
+The enriched source records.
+
+.PARAMETER LookupByID
+The AD LookupByID hashtable (EmployeeID -> AD user) from Get-TargetDataAD.
+
+.OUTPUTS
+[pscustomobject] @{ UpdateList; RenameList; MoveList }.
+
+.EXAMPLE
+$toUpdate = Get-ADUsersToUpdate -UserList $sourceData -LookupByID $adData.LookupByID
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-ADUsersToUpdate {
     [CmdletBinding()]
     param (

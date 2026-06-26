@@ -1,3 +1,27 @@
+<#
+.SYNOPSIS
+Write the in-memory run log to a Google Sheet, newest entries on top.
+
+.DESCRIPTION
+Pulls the structured log buffer (Get-IDBridgeLogs), reverses it so the newest entry lands first, and
+writes it to the named sheet. Resolves the target sheet's id — creating the sheet with a
+Timestamp/Level/Message header if it doesn't exist — then inserts blank rows under the header and
+writes the entries via Set-GSheetData. Throws on failure. Typically called from the Invoke-IDBridge
+finally block when Logging.GoogleSheetLoggingEnabled is set.
+
+.PARAMETER spreadsheetId
+The target spreadsheet id.
+
+.PARAMETER sheetName
+The sheet/tab name to write to (created if missing).
+
+.EXAMPLE
+Push-LogsToSheet -spreadsheetId $IDConfig.Logging.SheetID -sheetName 'Logs'
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Push-LogsToSheet {
     [CmdletBinding()]
     param(

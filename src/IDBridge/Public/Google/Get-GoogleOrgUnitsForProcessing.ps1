@@ -1,3 +1,31 @@
+<#
+.SYNOPSIS
+Return the Google OU paths that need creating, ordered parents-first.
+
+.DESCRIPTION
+Collects the OU paths referenced by active users (their org OU + trash OU), expands each path to
+include every ancestor (e.g. /A/B/C -> /A, /A/B, /A/B/C), removes paths that already exist, and
+sorts shallowest-first so parents are created before children.
+
+.PARAMETER UserList
+The enriched source records. Only active users are considered.
+
+.PARAMETER UserRootOU
+The Google root OU path. Retained for consistency; ancestor expansion covers it automatically.
+
+.PARAMETER CurrentOrgUnits
+The OU paths that already exist in Google, used to filter out OUs that don't need creating.
+
+.OUTPUTS
+[string[]] the OU paths to create, parents-first.
+
+.EXAMPLE
+$ous = Get-GoogleOrgUnitsForProcessing -UserList $sourceData -UserRootOU $IDConfig.Google.userRootOU -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-GoogleOrgUnitsForProcessing {
     param (
         [Parameter(Mandatory = $true)]

@@ -1,3 +1,30 @@
+<#
+.SYNOPSIS
+Match unlinked source users to existing Google accounts by primary email and name.
+
+.DESCRIPTION
+For each source user without a GoogleCurrentUserID, looks for a Google user whose primaryEmail
+equals the source UPN and whose given/family name match. A match is returned so the source record
+can be linked to (and its externalId set on) that existing account — letting unlinked or
+deprovisioned accounts be reconciled and, if inactive, deactivated. A primaryEmail that matches a
+different person is logged as an error and skipped.
+
+.PARAMETER UserList
+The source records (the in-progress user list).
+
+.PARAMETER GoogleUsers
+All current Google users (from Get-TargetDataGoogle .Users).
+
+.OUTPUTS
+[hashtable] personID -> @{ ID; Groups; SuspendedStatus; User }.
+
+.EXAMPLE
+$matches = Get-GoogleUsersToSetEmployeeID -UserList $sourceData -GoogleUsers $googleData.Users
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-GoogleUsersToSetEmployeeID {
     [CmdletBinding()]
     param (

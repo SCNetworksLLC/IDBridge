@@ -1,3 +1,30 @@
+<#
+.SYNOPSIS
+Resolve a student's current grade code from their graduation year.
+
+.DESCRIPTION
+Determines the active school year by comparing today's date against the grade-advance rollover
+date, then maps the supplied graduation year to a grade code. Returns 12..01 for K-12,
+KG/K4/PK for the early grades, or GD for years that have already graduated. A graduation year
+outside the known range returns $null.
+
+.PARAMETER gradYear
+The student's expected graduation year (2000-2099).
+
+.PARAMETER gradeAdvanceDate
+The month-day the school year rolls forward, formatted MM-dd (e.g. '08-01'). Before this date
+the current calendar year is treated as the school year; on or after it, the next year is used.
+
+.OUTPUTS
+[string] grade code (e.g. '12', 'KG', 'PK', 'GD'), or $null when the year is out of range.
+
+.EXAMPLE
+Get-StudentGrade -gradYear 2030 -gradeAdvanceDate '08-01'
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-StudentGrade() {
     [cmdletbinding()]
     Param(

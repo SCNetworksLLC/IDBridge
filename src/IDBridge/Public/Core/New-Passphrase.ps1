@@ -1,80 +1,50 @@
 #Requires -Version 5.1
+function New-Passphrase {
 <#
 .SYNOPSIS
-    Generates deterministic passphrases via the SC Networks Azure Function.
+    Generate deterministic passphrase(s) for one or more usernames via the SC Networks Azure Function.
 
 .DESCRIPTION
-    Sends usernames to the Azure Function in chunks of up to 500 per request.
-    Word lists stay hidden on the server — this script never sees them.
-    Supports single-user lookup, file batch (any size), and CSV export.
-
-    To load this function into your session:
-        . .\New-Passphrase.ps1
-
-    To use it:
-        New-Passphrase -Nonce "spring2025" -Username "alice"
-        New-Passphrase -Nonce "spring2025" -InputFile students.txt
+    POSTs the nonce and username(s) to the Azure Function's /api/generate endpoint and returns the
+    generated phrase(s). Word lists stay on the server — this function never sees them. The same
+    nonce + username + mode always yields the same phrase (deterministic), so a user's passphrase
+    can be regenerated without storing it. One or many usernames may be supplied in a single call.
 
 .PARAMETER Nonce
-    The shared secret nonce — must match what you enter in the web tool.
+    The shared secret nonce as a SecureString. Must match the nonce configured for the tool.
 
 .PARAMETER Username
-    Single username mode. Returns the passphrase to the pipeline.
-
-.PARAMETER InputFile
-    Path to a .txt file with one username per line (batch mode).
-
-.PARAMETER OutputFile
-    CSV output path for batch mode. Defaults to passphrases.csv in the
-    current directory.
+    One or more usernames to generate phrases for. Returns the phrase(s) in the same order.
 
 .PARAMETER Mode
-    'phrase' (default) or 'verbnoun'.
-    - phrase:    Word-word-word# format, deterministic
-    - verbnoun: Verb-noun## format, deterministic
+    Generation mode: 'words' (word-word-word# style) or 'verbnoun' (verb-noun## style). Required.
 
 .PARAMETER WordCount
-    Number of words for Word List mode. 2-6, default 3.
-    For 3+ words, shorter words are included in the pool.
+    Number of words for 'words' mode. 2-6, default 3.
 
 .PARAMETER AuthToken
-    The secret token to use. Must match one of the labeled tokens in AUTH_TOKENS
-    in your Function App settings (format: label:token,label:token,...).
-    Falls back to $env:PASSPHRASE_AUTH_TOKEN if not supplied.
+    Bearer token as a SecureString authorizing the Function call. Falls back to
+    $env:PASSPHRASE_AUTH_TOKEN when not supplied; throws if neither is present.
 
 .PARAMETER FunctionUrl
-    Base URL of your Azure Function App.
-    Defaults to https://passphrase.azurewebsites.net
+    Base URL of the Azure Function App. Defaults to https://passphrase.azurewebsites.net.
 
-.PARAMETER ChunkSize
-    Usernames per Function request. Max 500 (enforced server-side). Default 500.
-
-.EXAMPLE
-    # Single passphrase
-    New-Passphrase -Nonce "spring2025" -Username "alice"
+.OUTPUTS
+    [string] (or [string[]]) the generated passphrase(s).
 
 .EXAMPLE
-    # Single passphrase — verb-noun mode
-    New-Passphrase -Nonce "spring2025" -Username "alice" -Mode verbnoun
+    New-Passphrase -Nonce $nonce -Username 'alice' -Mode words
 
 .EXAMPLE
-    # Pipe result to clipboard
-    New-Passphrase -Nonce "spring2025" -Username "alice" | Set-Clipboard
+    New-Passphrase -Nonce $nonce -Username 'alice' -Mode verbnoun
 
 .EXAMPLE
-    # Batch from file → passphrases.csv
-    New-Passphrase -Nonce "spring2025" -InputFile students.txt
+    New-Passphrase -Nonce $nonce -Username @('alice','bob') -Mode words -WordCount 4
 
-.EXAMPLE
-    # Batch — 4 words, custom output file
-    New-Passphrase -Nonce "spring2025" -InputFile students.txt -WordCount 4 -OutputFile term1.csv
-
-.EXAMPLE
-    # Auth token from environment variable (safer — not in shell history)
-    $env:PASSPHRASE_AUTH_TOKEN = "your-token-from-AUTH_TOKENS"
-    New-Passphrase -Nonce "spring2025" -InputFile students.txt
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
 #>
-function New-Passphrase {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]

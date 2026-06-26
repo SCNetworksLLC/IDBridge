@@ -1,3 +1,35 @@
+<#
+.SYNOPSIS
+Load configuration and prepare all global state for an IDBridge run.
+
+.DESCRIPTION
+First stage of a run, called by Invoke-IDBridge. It:
+  - imports <RootPath>\Config\IDBridgeConfig.psd1 into the script-scoped configuration;
+  - builds and creates the runtime Paths.* directories (Config/Auth/Logs/Exports/Plugins/Data);
+  - initializes logging (in-memory buffer + log file, rotating the file past 5 MB) and writes
+    the run-start marker;
+  - when GoogleToken.Enabled, locates the single service-account *.json in AuthRoot, validates
+    it has a private_key, and acquires a bearer token into the script-scoped Google headers via
+    Get-GoogleApiAccessToken;
+  - ensures the per-operator secrets directory (AuthRoot\<username>) exists;
+  - imports the ActiveDirectory module when AD.enabled (throwing unless Debug.skipADCheck);
+  - applies the feature-dependency cascade (missing Google headers disables Google; disabling a
+    directory disables its group processing).
+
+.PARAMETER RootPath
+Base directory for Config/Auth/Logs/Exports/Plugins/Data. Defaults to C:\IDBridge. Missing
+directories are created.
+
+.OUTPUTS
+None. Populates the script-scoped IDBridgeConfig, Logs, and GoogleHeaders state.
+
+.EXAMPLE
+Initialize-IDBridge -RootPath 'C:\IDBridge'
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Initialize-IDBridge {
     [CmdletBinding()]
     param (

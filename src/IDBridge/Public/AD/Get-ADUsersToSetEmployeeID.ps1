@@ -1,3 +1,30 @@
+<#
+.SYNOPSIS
+Match unlinked source users to existing AD accounts by username and name.
+
+.DESCRIPTION
+For each source user without an ADCurrentUserID, looks for an AD account whose SamAccountName
+equals the source Username and whose GivenName/Surname also match. A match is returned so the
+source record can be linked to (and its EmployeeID set on) that existing account — letting
+previously unlinked or deprovisioned accounts be reconciled and, if inactive, deactivated. A
+username that matches a different person is logged as an error and skipped.
+
+.PARAMETER UserList
+The source records (the in-progress user list).
+
+.PARAMETER CurrentADUsers
+All current AD users (from Get-TargetDataAD .Users).
+
+.OUTPUTS
+[hashtable] personID -> @{ ID (ObjectGUID); Groups; EnabledStatus; User }.
+
+.EXAMPLE
+$matches = Get-ADUsersToSetEmployeeID -UserList $sourceData -CurrentADUsers $adData.Users
+
+.NOTES
+   Created by: Sam Cattanach
+   Modified: 2026-06-26
+#>
 function Get-ADUsersToSetEmployeeID {
     [CmdletBinding()]
     param (
