@@ -421,8 +421,8 @@ function Invoke-IDBridge {
             #Disable Users
             foreach ($item in $GoogleUsersToDeactivate) {
                 try {
-                    Write-Log -Message ("Google: Disabling account for " + $item.UPN)
-                    Write-Log -Message  ("Google: Moving account to trash: " + $item.UPN)
+                    Write-Log -Message ("Google: Disabling account for $($item.UPN)")
+                    Write-Log -Message  ("Google: Moving account to trash: $($item.UPN)")
                     Update-IDBridgeGoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true'
                 }
                 catch {
@@ -432,7 +432,7 @@ function Invoke-IDBridge {
                 if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true) {
                     foreach ($group in $item.GoogleCurrentGroups) {
                         try {
-                            Write-Log -Message ("Google: Removing Group: $group from " + $item.personID)
+                            Write-Log -Message ("Google: Removing Group: $group from $($item.personID)")
                             Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove"
                         }
                         catch {
@@ -537,7 +537,7 @@ function Invoke-IDBridge {
         if ($thresholdResults) {
             foreach ($result in $thresholdResults) {
                 $pct = if ($result.Skipped) { 'skipped (no managed population)' } else { "$($result.Percent)% of $($result.PopulationCount) (limit $($IDConfig.ChangeThreshold.Percentage)%)" }
-                Write-Log -Message "  $($result.Directory) change volume: $pct"
+                Write-Log -Message "$($result.Directory) change volume: $pct"
             }
         }
         #endregion Run Summary
