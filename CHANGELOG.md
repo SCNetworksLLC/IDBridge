@@ -7,6 +7,27 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 
 ## [Unreleased]
 
+## [26.6.26.3] - 2026-06-26
+
+### Fixed
+- **AD org-unit creation order.** Removed a redundant `Sort-Object -Unique` in `Invoke-IDBridge`
+  that re-sorted the OU list alphabetically and could place a child OU before its parent (e.g.
+  `OU=Grade-12,...` before `OU=Students,...`), causing creation to fail.
+  `Get-ADOrgUnitsForProcessing` already returns OUs deduped and parents-first.
+- **Null-safe failure path in `Invoke-IDBridge`.** The catch block now logs the full error via
+  `Out-String` and falls back to `Write-Error` when the config never loaded (previously the
+  catch's `Write-Log` could throw again); the finally block is guarded so a pre-config failure no
+  longer dereferences a null config.
+
+### Changed
+- **ChangeThreshold counts distinct affected AD users.** A user needing update + rename + move now
+  counts once (via a `CN` HashSet) rather than three times, making the AD change ratio comparable
+  to the per-user Google ratio.
+- **End-of-run summary.** `Invoke-IDBridge` now logs per-directory change totals
+  (create/update/rename/move/deactivate/group add/remove) labeled `PROPOSED (ReadOnly)` or
+  `APPLIED`, plus each directory's change-volume percentage against the threshold.
+- Per-operation error logs now use `$_.Exception.Message`; removed dead `$itemSplat = $null` lines.
+
 ## [26.6.26.2] - 2026-06-26
 
 ### Changed

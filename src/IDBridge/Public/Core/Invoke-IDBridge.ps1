@@ -257,8 +257,14 @@ function Invoke-IDBridge {
 
             if ($IDConfig.AD.enabled -eq $true) {
                 $adManagedPopulation = @($adData.Users | Where-Object { $_.DistinguishedName -like "*,$($IDConfig.AD.userRootOU)" }).Count
-                $adChangeCount = @($ADUsersToCreate).Count + @($ADUsersToDeactivate).Count +
-                    @($ADUsersToUpdate.UpdateList).Count + @($ADUsersToUpdate.RenameList).Count + @($ADUsersToUpdate.MoveList).Count
+                # Count distinct affected users: a single user needing update+rename+move is one change,
+                # not three (so the ratio is comparable to Google's per-user count). CN uniquely identifies the user.
+                # Wrap each list in @() so a single-element list (scalar string) concatenates as an
+                # array rather than via string addition.
+                $adModifiedUsers = [System.Collections.Generic.HashSet[string]]::new(
+                    [string[]]@(@($ADUsersToUpdate.UpdateList.CN) + @($ADUsersToUpdate.RenameList.CN) + @($ADUsersToUpdate.MoveList.CN) | Where-Object { $_ })
+                )
+                $adChangeCount = @($ADUsersToCreate).Count + @($ADUsersToDeactivate).Count + $adModifiedUsers.Count
                 $thresholdResults.Add( (Test-IDBridgeChangeThreshold -Directory 'AD' -ChangeCount $adChangeCount -PopulationCount $adManagedPopulation -ThresholdPercent $IDConfig.ChangeThreshold.Percentage) )
             }
 
@@ -282,8 +288,8 @@ function Invoke-IDBridge {
 
         #region Process AD Changes
         if ($IDConfig.AD.enabled -eq $true -and $IDConfig.Debug.readOnly -eq $false) {
-            #Create Org Units
-            foreach ($item in $ADOrgUnitsForProcessing | Sort-Object -Unique) {
+            #Create Org Units (Get-ADOrgUnitsForProcessing already returns these deduped and parents-first)
+            foreach ($item in $ADOrgUnitsForProcessing) {
                 try {
                     New-IDBridgeADOrgUnit -OrgUnit $item
                 }
@@ -299,7 +305,7 @@ function Invoke-IDBridge {
                     Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
 
@@ -308,12 +314,11 @@ function Invoke-IDBridge {
             foreach ($item in $ADUsersToUpdate.UpdateList) {
                 try {
                     Write-Log -Message "AD: Updating User: $($item.CN) Properties: $($item.splat | ConvertTo-Json -Compress)"
-                    $itemSplat = $null
                     $itemSplat = $item.splat
                     Set-ADUser @itemSplat -ErrorAction Stop
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
 
@@ -325,7 +330,7 @@ function Invoke-IDBridge {
                     Rename-ADObject -Identity $item.ADUserID -NewName $item.NewName -ErrorAction Stop
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
 
@@ -337,7 +342,7 @@ function Invoke-IDBridge {
                     Move-ADObject -Identity $item.ADUserID -TargetPath $item.NewOrgUnit -ErrorAction Stop
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
 
@@ -345,7 +350,6 @@ function Invoke-IDBridge {
             foreach ($item in $ADUsersToCreate) {
                 try {
                     Write-Log -Message "AD: Creating User: $($item.PersonID) Properties: $($item.splat | ConvertTo-Json -Compress)"
-                    $itemSplat = $null
                     $itemSplat = $item.splat
                     $newUser = New-ADUser @itemSplat -ErrorAction Stop
 
@@ -354,7 +358,7 @@ function Invoke-IDBridge {
 
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
 
@@ -375,7 +379,7 @@ function Invoke-IDBridge {
                             Add-ADPrincipalGroupMembership -Identity $item.ADCurrentUserID -MemberOf $group
                         }
                         catch {
-                            Write-Log -Message $_ -Level Error
+                            Write-Log -Message ($_.Exception.Message) -Level Error
                         }
                     }
                 }
@@ -389,7 +393,7 @@ function Invoke-IDBridge {
                                 Remove-ADGroupMember -Identity $group -Members $item.ADCurrentUserID -Confirm:$false
                             }
                             catch {
-                                Write-Log -Message $_ -Level Error
+                                Write-Log -Message ($_.Exception.Message) -Level Error
                             }
                         }
                     }
@@ -422,7 +426,7 @@ function Invoke-IDBridge {
                     Update-IDBridgeGoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true'
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
 
                 if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true) {
@@ -432,7 +436,7 @@ function Invoke-IDBridge {
                             Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove"
                         }
                         catch {
-                            Write-Log -Message $_ -Level Error
+                            Write-Log -Message ($_.Exception.Message) -Level Error
                         }
                     }
                 }
@@ -442,12 +446,11 @@ function Invoke-IDBridge {
             foreach ($item in $GoogleUsersToUpdate) {
                 try {
                     Write-Log -Message "Google: Updating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
-                    $itemSplat = $null
                     $itemSplat = $item.splat
                     Update-IDBridgeGoogleUser @itemSplat
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
 
@@ -455,7 +458,6 @@ function Invoke-IDBridge {
             foreach ($item in $GoogleUsersToCreate) {
                 try {
                     Write-Log -Message "Google: Creating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
-                    $itemSplat = $null
                     $itemSplat = $item.splat
 
                     $newUserResponse = New-IDBridgeGoogleUser @itemSplat -ErrorAction Stop
@@ -464,7 +466,7 @@ function Invoke-IDBridge {
                     ($sourceData | Where-Object UPN -eq $itemSplat.PrimaryEmail).GoogleCurrentUserID = $newUserResponse.ID
                 }
                 catch {
-                    Write-Log -Message $_ -Level Error
+                    Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
 
@@ -485,7 +487,7 @@ function Invoke-IDBridge {
                             Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add"
                         }
                         catch {
-                            Write-Log -Message $_ -Level Error
+                            Write-Log -Message ($_.Exception.Message) -Level Error
                         }
                     }
                 }
@@ -499,7 +501,7 @@ function Invoke-IDBridge {
                                 Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove"
                             }
                             catch {
-                                Write-Log -Message $_ -Level Error
+                                Write-Log -Message ($_.Exception.Message) -Level Error
                             }
                         }
                     }
@@ -511,20 +513,61 @@ function Invoke-IDBridge {
 
 
 
+        #region Run Summary
+        # Per-directory totals from the computed change lists. In ReadOnly these are PROPOSED (nothing
+        # was written); otherwise APPLIED (best-effort - any per-user failures were logged inline above).
+        $summaryMode = if ($IDConfig.Debug.readOnly -eq $true) { 'PROPOSED (ReadOnly)' } else { 'APPLIED' }
+        Write-Log -Message "Run Summary [$summaryMode]:"
+
+        # Group-update lists are only assigned when group processing is on; .Where filters the lone
+        # $null that @() wraps when the variable is unset, so a disabled group sync reports 0 (not 1).
+        if ($IDConfig.AD.enabled -eq $true) {
+            Write-Log -Message ("  AD: Create={0} Update={1} Rename={2} Move={3} Deactivate={4} GroupAdd={5} GroupRemove={6}" -f `
+                @($ADUsersToCreate).Count, @($ADUsersToUpdate.UpdateList).Count, @($ADUsersToUpdate.RenameList).Count, `
+                @($ADUsersToUpdate.MoveList).Count, @($ADUsersToDeactivate).Count, `
+                @($ADUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count, @($ADUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count)
+        }
+
+        if ($IDConfig.Google.enabled -eq $true) {
+            Write-Log -Message ("  Google: Create={0} Update={1} Deactivate={2} GroupAdd={3} GroupRemove={4}" -f `
+                @($GoogleUsersToCreate).Count, @($GoogleUsersToUpdate).Count, @($GoogleUsersToDeactivate).Count, `
+                @($GoogleUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count, @($GoogleUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count)
+        }
+
+        if ($thresholdResults) {
+            foreach ($result in $thresholdResults) {
+                $pct = if ($result.Skipped) { 'skipped (no managed population)' } else { "$($result.Percent)% of $($result.PopulationCount) (limit $($IDConfig.ChangeThreshold.Percentage)%)" }
+                Write-Log -Message "  $($result.Directory) change volume: $pct"
+            }
+        }
+        #endregion Run Summary
+
+
+
+
         #region Export User Staff List
         $sourceData | Where-Object {$_.PersonTypeID -ne "1"} | Export-Csv -Path "$($IDConfig.Paths.ExportsRoot)\UserList-Staff.csv" -NoTypeInformation -Force
         #endregion Export User Staff List
 
     } catch {
-        Write-Log -Message "Invoke-IDBridge Failed" -Level Error
-        Write-Log -Message $_ -Level Error
-    } finally {
-        Write-Log -Message "######## End of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
-
-        if ($IDConfig.Logging.GoogleSheetLoggingEnabled) {
-            #Push-LogsToSheet -logfile $IDConfig.Paths.LogFile -spreadsheetId $IDConfig.Logging.SheetID -sheetName 'Logs' -hasHeader
-            Push-LogsToSheet -spreadsheetId $IDConfig.Logging.SheetID -sheetName 'Logs'       
+        # Write-Log needs an initialized config; if the failure happened before/at config load it would
+        # throw again here, so fall back to Write-Error in that case.
+        try {
+            Write-Log -Message "Invoke-IDBridge Failed" -Level Error
+            Write-Log -Message ($_ | Out-String) -Level Error
         }
+        catch {
+            Write-Error "Invoke-IDBridge Failed: $($_.Exception.Message)"
+        }
+    } finally {
+        # $IDConfig is only set once the config loads successfully; guard so a pre-config failure
+        # doesn't throw out of the finally block.
+        if ($IDConfig) {
+            Write-Log -Message "######## End of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
 
+            if ($IDConfig.Logging.GoogleSheetLoggingEnabled) {
+                Push-LogsToSheet -spreadsheetId $IDConfig.Logging.SheetID -sheetName 'Logs'
+            }
+        }
     }
 }
