@@ -15,7 +15,7 @@ function Get-GoogleUserGroupsToUpdate {
     $itemListAdd = @()
     $itemListRemove = @()
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
+    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionGoogle -eq $true -and $_.GoogleCurrentUserID}) {
         #Create list for adding groups
         $userGroupsAdd = @()
 

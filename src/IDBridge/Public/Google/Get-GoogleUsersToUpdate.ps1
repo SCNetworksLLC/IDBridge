@@ -13,7 +13,7 @@ function Get-GoogleUsersToUpdate {
 
     $itemUpdateList = @()
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.GoogleCurrentUserID}) {
+    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionGoogle -eq $true -and $_.GoogleCurrentUserID}) {
         $googleUser = $null
         $googleUser = $LookupByID[$item.personID]
 

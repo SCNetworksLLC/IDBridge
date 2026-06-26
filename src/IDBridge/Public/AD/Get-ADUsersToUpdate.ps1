@@ -12,7 +12,7 @@ function Get-ADUsersToUpdate {
     $itemRenameList = @()
     $itemMoveList = @()
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
+    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionAD -eq $true -and $_.ADCurrentUserID}) {
         $ADUser = $null
         $ADUser = $LookupByID[$item.personID]
 
@@ -72,6 +72,23 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["Department"] = $item.Department
         }
 
+        #Optional attributes - set-but-don't-clear (only push when the record provides a value)
+        if ($item.Description -and $ADUser.Description -ne $item.Description) {
+            $itemUpdateSplat["Description"] = $item.Description
+        }
+
+        if ($item.TelephoneNumber -and $ADUser.OfficePhone -ne $item.TelephoneNumber) {
+            $itemUpdateSplat["OfficePhone"] = $item.TelephoneNumber
+        }
+
+        if ($item.EmailAddress -and $ADUser.EmailAddress -ne $item.EmailAddress) {
+            $itemUpdateSplat["EmailAddress"] = $item.EmailAddress
+        }
+
+        if ($ADUser.PasswordNeverExpires -ne $item.PasswordNeverExpires) {
+            $itemUpdateSplat["PasswordNeverExpires"] = $item.PasswordNeverExpires
+        }
+
         if ($ADUser.Enabled -ne $true) {
             $itemUpdateSplat["Enabled"] = $true
         }
@@ -80,8 +97,16 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["Enabled"] = $false
         }
 
+        $replace = @{}
         if ($ADUser.EmployeeType -ne $item.PersonTypeID -or $ADUser.extensionAttribute1 -ne $item.PersonTypeID) {
-            $itemUpdateSplat["Replace"] = @{ 'EmployeeType' = ($item.PersonTypeID) ; 'extensionAttribute1' = ($item.PersonTypeID)}
+            $replace['EmployeeType'] = $item.PersonTypeID
+            $replace['extensionAttribute1'] = $item.PersonTypeID
+        }
+        if ($item.ExtensionAttribute2 -and $ADUser.extensionAttribute2 -ne $item.ExtensionAttribute2) { $replace['extensionAttribute2'] = $item.ExtensionAttribute2 }
+        if ($item.ExtensionAttribute3 -and $ADUser.extensionAttribute3 -ne $item.ExtensionAttribute3) { $replace['extensionAttribute3'] = $item.ExtensionAttribute3 }
+        if ($item.ExtensionAttribute4 -and $ADUser.extensionAttribute4 -ne $item.ExtensionAttribute4) { $replace['extensionAttribute4'] = $item.ExtensionAttribute4 }
+        if ($replace.Count -gt 0) {
+            $itemUpdateSplat["Replace"] = $replace
         }
 
         if ($itemUpdateSplat.Count -gt 0) {

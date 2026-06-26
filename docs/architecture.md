@@ -44,6 +44,8 @@ Invoke-IDBridge
   └─ apply -switch overrides
         │
   1. Invoke-SourcePlugins ───────────► $sourceData (Source), $overrideData (Override)
+        each Source plugin's output is built via New-IDBridgeSourceRecord and
+        passed through Test-IDBridgeSourceData (filter-and-log) before collection
   2. Get-TargetDataGoogle / Get-TargetDataAD ─► $googleData / $adData  (current state)
   3. Add-TargetDataGoogle / Add-TargetDataAD ─► enrich each source record w/ current
                                                 state + duplicate flags
@@ -107,12 +109,19 @@ their group memberships in the same run, using the GUID/ID returned by the creat
 ## Identity keys & diffing (summary)
 
 - **Join key:** `personID` → AD `EmployeeID` → Google `externalIds` (type `organization`).
-- **Create** = `IDBActive = true` AND no `*CurrentUserID` AND UPN not already present in target.
-- **Update** = active + linked + a detected property delta. AD splits results into
-  `UpdateList` (property changes), `RenameList` (CN ≠ `FirstName LastName personID`), and
+- **Per-directory targeting:** `Provision<Dir>` (with `IDBActive`) decides each side
+  independently — `IDBActive` is the master "active in source" flag; `ProvisionAD`/
+  `ProvisionGoogle` say whether the person belongs in that directory. Setting `IDBActive=false`
+  alone deactivates everywhere.
+- **Create** = `IDBActive = true` AND `Provision<Dir> = true` AND no `*CurrentUserID` AND UPN not
+  already present in target.
+- **Update** = `IDBActive = true` AND `Provision<Dir> = true` AND linked + a property delta. AD
+  splits results into `UpdateList`, `RenameList` (CN ≠ `FirstName LastName personID`), and
   `MoveList` (wrong OU).
-- **Deactivate** = `IDBActive = false` AND still enabled (AD) / not suspended (Google).
-  Deactivation also moves the user to the trash OU.
+- **Deactivate** = `(IDBActive = false OR Provision<Dir> = false)` AND still enabled (AD) / not
+  suspended (Google). Deactivation also moves the user to the trash OU.
+- **Link** (`SetEmployeeID`) = **any** unlinked source user (active or not), so deprovisioned
+  accounts get linked and can be deactivated.
 - **Orphans** (Google): `Get-GoogleUsersOrphaned` finds target users absent from source.
 
 ## State & logging model

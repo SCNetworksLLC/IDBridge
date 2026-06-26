@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.6.22.0'
+    ModuleVersion     = '26.6.25.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -15,6 +15,8 @@
         'Get-SourceDataGSheet'
         'Get-SourceDataSkywardSMS'
         'Get-SourceDataInfiniteCampus'
+        'New-IDBridgeSourceRecord'
+        'Test-IDBridgeSourceData'
         'Remove-IDBridgeDuplicateID'
         'Show-GroupsNotProcessed'
 

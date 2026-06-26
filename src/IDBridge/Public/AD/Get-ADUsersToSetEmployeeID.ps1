@@ -14,7 +14,7 @@ function Get-ADUsersToSetEmployeeID {
 
     $itemUpdateList = @{}
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID}) {
+    foreach ($item in $UserList | Where-Object {-not $_.ADCurrentUserID}) {
         if ($item.personID -notin $CurrentADUsers.employeeID){
             Write-Log -Message ("AD: No user found with EmployeeID: " + $item.personID)
             

@@ -74,8 +74,27 @@ from the target. No return.
 ### `Invoke-SourcePlugins` 🌐
 Discovers/runs plugins from `$IDConfig.Plugins`. For each enabled entry: verifies
 `<PluginsRoot>\<Function>.ps1` exists, dot-sources it, confirms the function via
-`Get-Command`, invokes with no args. **Returns:** `@{ SourceData; OverrideData }`
+`Get-Command`, invokes with no args. Source results are passed through
+`Test-IDBridgeSourceData` before collection. **Returns:** `@{ SourceData; OverrideData }`
 (split by each plugin's `Type`). Throws if no source data gathered. See [plugins.md](plugins.md).
+
+### `New-IDBridgeSourceRecord` 🧮
+Canonical factory for a source record — the shape plugins must emit. **Params:** typed,
+`Mandatory` core fields (`PersonID`, `NameFirst`, `NameLast`, `Username`, `UPN`, `Building`,
+`JobTitle`, `Company`, `PersonType`, `PersonTypeID` [ValidateSet `1`/`2`/`3`], `IDBActive`
+[bool], `ProvisionAD`/`ProvisionGoogle` [bool]); optional/defaulted everything else
+(`Department`/`InternalID` → `$null`, `GroupsProposed` → `@()`, the AD/Google OU/password
+fields). **Returns:** an ordered `PSCustomObject` with the full 35-field contract (incl. optional
+AD attributes `Description`/`TelephoneNumber`/`EmailAddress`/`PasswordNeverExpires`/
+`ExtensionAttribute2-4` and the override flags `ForceDisable`/`GoogleOUOverride`). Construction
+enforces presence + type; cross-field rules live in `Test-IDBridgeSourceData`.
+
+### `Test-IDBridgeSourceData` 🧮
+**Params:** `-InputObject` (records, null/empty ok), `-PluginName`. Validates each record
+(safety-net `PersonID`/`IDBActive`; cross-field: if `ProvisionAD` → OU + `ADKey`-or-
+`ADPassphraseAPI`, same for `Google*`); drops failures with a `Warn` (plugin + reasons),
+keeps the rest. **Returns:** the valid records as an array. Called per source plugin inside
+`Invoke-SourcePlugins`.
 
 ### `Get-SourceDataGSheet` 🌐
 **Params:** `-sheetID`, `-sheetRange`, `-userCount`, `-userCountSafetyPercentage` (def 75),
@@ -130,10 +149,15 @@ hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 ## Active Directory (`src\IDBridge\Public\AD\`)
 
 > Identity key: **`EmployeeID` = `personID`**. CN convention: `FirstName LastName personID`.
+> Per-user targeting: **`ProvisionAD`** (with `IDBActive`) gates these — create/update/groups
+> require `IDBActive=true AND ProvisionAD=true`; deactivate fires on `IDBActive=false OR
+> ProvisionAD=false`. So a Google-only user (`ProvisionAD=false`) is never created in AD, and an
+> existing AD account is deactivated. Setting `IDBActive=false` alone deactivates everywhere.
 
 ### `Get-ADUsersToSetEmployeeID` 🧮🌐
-**Params:** `-UserList`, `-CurrentADUsers`. For active, unlinked source users, matches an
-existing AD user by EmployeeID or SamAccountName **and** name. **Returns:** hashtable
+**Params:** `-UserList`, `-CurrentADUsers`. For **any unlinked** source user (active or not),
+matches an existing AD user by SamAccountName **and** name — so deprovisioned users get linked
+and can then be deactivated. **Returns:** hashtable
 `personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`.
 
 ### `Get-ADOrgUnitsForProcessing` 🧮
@@ -141,19 +165,19 @@ existing AD user by EmployeeID or SamAccountName **and** name. **Returns:** hash
 expands ancestors, removes existing, sorts parents-first. **Returns:** ordered OU DN array.
 
 ### `Get-ADUsersToCreate` 🧮🌐
-**Params:** `-UserList`, `-CurrentADUsers`, `-Nonce`. **Predicate:** `IDBActive=true` AND no
-`ADCurrentUserID` AND UPN absent from AD. Builds a `New-ADUser` splat (password from
-`ADKey` or `ADPassphraseAPI`→`New-Passphrase`). **Returns:** `@{ PersonID; Splat }[]`.
+**Params:** `-UserList`, `-CurrentADUsers`, `-Nonce`. **Predicate:** `IDBActive=true` AND
+`ProvisionAD=true` AND no `ADCurrentUserID` AND UPN absent from AD. Builds a `New-ADUser` splat
+(password from `ADKey` or `ADPassphraseAPI`→`New-Passphrase`). **Returns:** `@{ PersonID; Splat }[]`.
 
 ### `Get-ADUsersToUpdate` 🧮🌐
-*(file: `Get-ADUsersUpdate.ps1`)* **Params:** `-UserList`, `-LookupByID`. **Predicate:**
-active + has `ADCurrentUserID` + any delta (name, username/UPN, EmployeeID, office/title/
-company/dept, enabled state, employeeType/ext-attr, CN, OU). **Returns:** `@{ UpdateList;
-RenameList; MoveList }`.
+**Params:** `-UserList`, `-LookupByID`. **Predicate:** `IDBActive=true` AND `ProvisionAD=true`
+AND has `ADCurrentUserID` + any delta (name, username/UPN, EmployeeID, office/title/company/
+dept, description/phone/email, enabled state, employeeType/ext-attr, passwordNeverExpires, CN,
+OU). **Returns:** `@{ UpdateList; RenameList; MoveList }`.
 
 ### `Get-ADUsersToDeactivate` 🧮
-**Params:** `-UserList`. **Predicate:** `IDBActive=false` AND `ADCurrentUserEnabledStatus=true`.
-**Returns:** user objects to disable.
+**Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionAD=false)` AND
+`ADCurrentUserEnabledStatus=true`. **Returns:** user objects to disable.
 
 ### `Get-ADUserGroupsToUpdate` 🧮
 **Params:** `-UserList`, `-CurrentADGroups`. Diffs `GroupsProposed` vs `ADCurrentGroups`
@@ -174,6 +198,9 @@ with timestamp, moves to trash OU, and (if flag) removes all current groups.
 > Identity key: **`externalIds` (type `organization`).value = `personID`**.
 > All write functions get auth via `Get-GoogleHeaders` and hit the Admin SDK Directory API
 > base `https://admin.googleapis.com/admin/directory/v1/`.
+> Per-user targeting mirrors AD via **`ProvisionGoogle`**: create/update/groups need
+> `IDBActive=true AND ProvisionGoogle=true`; deactivate fires on `IDBActive=false OR
+> ProvisionGoogle=false`.
 
 ### `Get-GoogleData` 🌐
 **Params:** `-GoogleHeaders`, `-APIUri`. Generic paginated GET (follows `nextPageToken`),
@@ -185,8 +212,8 @@ JWT, exchanges it at `https://oauth2.googleapis.com/token`. **Returns:**
 `@{ Authorization='Bearer …'; Accept='application/json' }`.
 
 ### `Get-GoogleUsersToSetEmployeeID` 🧮
-**Params:** `-UserList`, `-GoogleUsers`. Matches active, unlinked source users to existing
-Google users by primaryEmail+name. **Returns:** hashtable `personID → @{ ID; Groups;
+**Params:** `-UserList`, `-GoogleUsers`. Matches **any unlinked** source user (active or not)
+to existing Google users by primaryEmail+name. **Returns:** hashtable `personID → @{ ID; Groups;
 SuspendedStatus; User }`.
 
 ### `Get-GoogleOrgUnitsForProcessing` 🧮
@@ -195,19 +222,19 @@ SuspendedStatus; User }`.
 shallow-first. **Returns:** ordered OU path array.
 
 ### `Get-GoogleUsersToCreate` 🧮🌐
-**Params:** `-UserList`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND no
-`GoogleCurrentUserID` AND UPN absent from Google. Builds create splat (password from
-`GooglePassphraseAPI`→`New-Passphrase` or `GoogleKey`; skips if neither). **Returns:**
-`@{ UPN; Splat }[]`.
+**Params:** `-UserList`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
+`ProvisionGoogle=true` AND no `GoogleCurrentUserID` AND UPN absent from Google. Builds create
+splat (password from `GooglePassphraseAPI`→`New-Passphrase` or `GoogleKey`; skips if neither;
+honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; Splat }[]`.
 
 ### `Get-GoogleUsersToUpdate` 🧮
-**Params:** `-UserList`, `-LookupByID`, `-GoogleUsers`. **Predicate:** active + linked +
-delta in primaryEmail (with alias-conflict handling → `RemoveAlias`), externalId, name,
-dept/title, suspended state (incl. `ForceDisable`), or OU (unless `GoogleOUOverride`).
-**Returns:** `@{ UPN; Splat }[]` only for changed users.
+**Params:** `-UserList`, `-LookupByID`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
+`ProvisionGoogle=true` AND linked + delta in primaryEmail (with alias-conflict handling →
+`RemoveAlias`), externalId, name, dept/title, suspended state (incl. `ForceDisable`), or OU
+(unless `GoogleOUOverride`). **Returns:** `@{ UPN; Splat }[]` only for changed users.
 
 ### `Get-GoogleUsersToDeactivate` 🧮
-**Params:** `-UserList`. **Predicate:** `IDBActive=false` AND
+**Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionGoogle=false)` AND
 `GoogleCurrentUserSuspendedStatus=false`. **Returns:** user objects.
 
 ### `Get-GoogleUserGroupsToUpdate` 🧮

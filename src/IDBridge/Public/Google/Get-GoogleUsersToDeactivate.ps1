@@ -6,7 +6,7 @@ function Get-GoogleUsersToDeactivate {
 
     $itemList = @()
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $false -and $_.GoogleCurrentUserSuspendedStatus -eq $false}) {
+    foreach ($item in $UserList | Where-Object {(($_.IDBActive -eq $false) -or ($_.ProvisionGoogle -eq $false)) -and $_.GoogleCurrentUserSuspendedStatus -eq $false}) {
         Write-Log -Message "Google: Adding User to Process List: Deactivate: $($item.PersonID)"
         $itemList += $item
     }

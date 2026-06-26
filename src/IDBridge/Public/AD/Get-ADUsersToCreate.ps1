@@ -12,7 +12,7 @@ function Get-ADUsersToCreate {
 
     $itemList = @()
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.ADCurrentUserID -and $_.UPN -notin $CurrentADUsers.UserPrincipalName}) {
+    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionAD -eq $true -and -not $_.ADCurrentUserID -and $_.UPN -notin $CurrentADUsers.UserPrincipalName}) {
         $NewUserParams = @{
             Path                  = $item.ADorganizationalUnit
             Name                  = ($item.NameFirst.trim() + " " + $item.NameLast.trim() + " " + $item.PersonID)
@@ -30,7 +30,7 @@ function Get-ADUsersToCreate {
             OtherAttributes       = @{ 'EmployeeType' = $item.PersonTypeID ; 'extensionAttribute1' = ($item.PersonTypeID)}
             Enabled               = $true
             ChangePasswordAtLogon = $item.ADChangePasswordAtLogon
-            PasswordNeverExpires  = $false
+            PasswordNeverExpires  = $item.PasswordNeverExpires
             PassThru              = $true
             ErrorAction           = "Stop"
         }
@@ -39,6 +39,14 @@ function Get-ADUsersToCreate {
         if ($item.InternalID) {
             $NewUserParams["EmployeeNumber"] = $item.InternalID
         }
+
+        #Set optional attributes only when provided (set-but-don't-clear)
+        if ($item.Description)         { $NewUserParams["Description"]  = $item.Description }
+        if ($item.TelephoneNumber)     { $NewUserParams["OfficePhone"]  = $item.TelephoneNumber }
+        if ($item.EmailAddress)        { $NewUserParams["EmailAddress"] = $item.EmailAddress }
+        if ($item.ExtensionAttribute2) { $NewUserParams.OtherAttributes['extensionAttribute2'] = $item.ExtensionAttribute2 }
+        if ($item.ExtensionAttribute3) { $NewUserParams.OtherAttributes['extensionAttribute3'] = $item.ExtensionAttribute3 }
+        if ($item.ExtensionAttribute4) { $NewUserParams.OtherAttributes['extensionAttribute4'] = $item.ExtensionAttribute4 }
 
         #Set AccountPassword
         if ($item.ADPassphraseAPI) {

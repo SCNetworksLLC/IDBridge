@@ -12,7 +12,7 @@ function Get-ADUserGroupsToUpdate {
     $itemListAdd = @()
     $itemListRemove = @()
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ADCurrentUserID}) {
+    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionAD -eq $true -and $_.ADCurrentUserID}) {
         #Create list for adding groups
         $userGroupsAdd = @()
 

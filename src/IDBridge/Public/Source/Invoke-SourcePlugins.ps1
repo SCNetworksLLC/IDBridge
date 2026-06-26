@@ -51,7 +51,7 @@ function Invoke-SourcePlugins {
 
         if ($pluginData) {
             if ($plugin.Type -eq "Source") {
-                $sourceData += $pluginData
+                $sourceData += Test-IDBridgeSourceData -InputObject $pluginData -PluginName $plugin.Function
             }
             if ($plugin.Type -eq "Override") {
                 $overrideData += $pluginData

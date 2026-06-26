@@ -10,7 +10,7 @@ function Get-GoogleUsersToCreate {
 
     $itemList = @()
 
-    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and -not $_.GoogleCurrentUserID -and $_.UPN -notin $GoogleUsers.primaryEmail}) {
+    foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionGoogle -eq $true -and -not $_.GoogleCurrentUserID -and $_.UPN -notin $GoogleUsers.primaryEmail}) {
         $itemCreateSplat = @{}
 
         $itemCreateSplat = @{
@@ -23,7 +23,7 @@ function Get-GoogleUsersToCreate {
             "OrgUnitPath" = $item.GoogleOrganizationalUnit
         }
 
-        if ($item.GoogleChangeAtNextLogin) {
+        if ($item.GoogleChangePasswordAtLogon) {
             $itemCreateSplat["ChangeAtNextLogin"] = 'true'
         } else {
             $itemCreateSplat["ChangeAtNextLogin"] = 'false'

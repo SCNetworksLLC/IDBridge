@@ -35,8 +35,12 @@ after all plugins run. A plugin therefore:
 
 ## Source-plugin output schema
 
-Every source record is an ordered `[PSCustomObject]`. Downstream `Get-*To*` functions depend
-on these exact property names:
+Source plugins **must build each record with the `New-IDBridgeSourceRecord` factory** (splat
+your field hashtable: `New-IDBridgeSourceRecord @recordFields`) rather than hand-rolling a
+`PSCustomObject`. The factory guarantees one canonical, ordered shape and enforces required
+fields + types at construction (core fields are `Mandatory`; `PersonTypeID` is a
+`ValidateSet`; `IDBActive`/`ProvisionAD`/`ProvisionGoogle` are `[bool]`; `GroupsProposed` null is
+normalized to `@()`). Downstream `Get-*To*` functions depend on these exact property names:
 
 | Property | Notes |
 |----------|-------|
@@ -47,12 +51,17 @@ on these exact property names:
 | `PersonTypeID` | `"1"` = student, `"2"`/`"3"` = staff tiers. Drives the staff-CSV export filter. |
 | `InternalID` | Optional secondary id (AD `EmployeeNumber`). |
 | `IDBActive` | `$true`/`$false` — the create/update vs. deactivate driver. |
-| `GroupsProposed` | Array of desired group **names** (unique). |
+| `GroupsProposed` | `[string[]]` of desired group **names** (unique). |
 | `PersonType` | Human-readable role (used for OU paths + custom-group logic). |
-| `ADEnabled` / `GoogleEnabled` | Per-record side toggles. |
+| `Description`, `TelephoneNumber`, `EmailAddress` | Optional AD attributes (Description / OfficePhone / mail). Applied only when non-empty (set-but-don't-clear). |
+| `PasswordNeverExpires` | `[bool]` (def `$false`) — AD passwordNeverExpires. |
+| `ExtensionAttribute2`, `ExtensionAttribute3`, `ExtensionAttribute4` | Optional AD extensionAttributes (1 is set from `PersonTypeID`); reserved for future use. |
+| `ForceDisable` | `[bool]` (def `$false`) — override-driven force-disable/suspend. |
+| `GoogleOUOverride` | `[bool]` (def `$false`) — override-driven skip of the Google OU move. |
+| `IDBActive` | Master "active in source" flag. `$false` ⇒ deactivate in **every** directory. |
+| `ProvisionAD` / `ProvisionGoogle` | Per-user directory targeting `[bool]`. With `IDBActive`: create/update when both true; deactivate when either is false. (A young student = `ProvisionAD=$false`.) |
 | `ADOrganizationalUnit` / `GoogleOrganizationalUnit` | Target OU (DN / path). |
 | `ADOrganizationalUnitTrash` / `GoogleOrganizationalUnitTrash` | Deactivation OU. |
-| `ADPassPrefix` / `GooglePassPrefix` | Password prefix. |
 | `ADChangePasswordAtLogon` / `GoogleChangePasswordAtLogon` | Force change flag. |
 | `ADPassphraseAPI` / `GooglePassphraseAPI` | `@{Nonce;Mode;WordCount;AuthToken}` or `$null` (→ `New-Passphrase`). |
 | `ADKey` / `GoogleKey` | SecureString password, or `$null` if using the passphrase API. |
@@ -60,6 +69,23 @@ on these exact property names:
 Password selection: a `*PasswordType` of `API-PASSPHRASE` populates `*PassphraseAPI` (and
 leaves `*Key` null); `WORD`/`FSPIN`/`RANDOM` populate `*Key` as a SecureString. A record with
 neither a key nor passphrase config is **skipped** by the create functions (logged Warn).
+
+### Validation
+
+`Invoke-SourcePlugins` runs every source plugin's output through `Test-IDBridgeSourceData`
+before collecting it. Validation is **filter-and-log**: a record that fails is dropped with a
+`Warn` (plugin name + reasons) and the run continues with the rest. Checks are the cross-field
+rules the factory can't enforce on its own:
+
+- `PersonID` present and `IDBActive` is a real boolean (safety net for records that bypass the
+  factory);
+- if `ProvisionAD` → `ADOrganizationalUnit` + `ADOrganizationalUnitTrash` non-empty **and**
+  (`ADKey` is a SecureString **or** `ADPassphraseAPI` is a hashtable);
+- same for the `Google*` fields.
+
+Building records through `New-IDBridgeSourceRecord` makes most of this pass automatically.
+Override plugins are **not** run through this — they self-validate (see
+`Invoke-PluginStaffOverride`).
 
 ## Override-plugin output schema
 
@@ -118,6 +144,9 @@ entity `800`; safety floor 3700 @ 75%).
 - **Per-grade settings** (`GradeDefaultSettings` + `GradeOverrides`, merged across
   `ValidGrades`) control Enabled state and AD/Google password type/prefix/change-flag. AD OU
   `OU=Grade-<grade>,OU=Students,<root>`, Google `/Marshfield/Students/Grade-<grade>`.
+- **Per-directory provisioning:** `ProvisionAD = [bool]$GradeSettings.<grade>.AD.Enabled` and
+  `ProvisionGoogle = [bool]…Google.Enabled` — so "younger grades = Google only" is set by adding
+  a `GradeOverrides` entry with `AD = @{ Enabled = $false }`.
 - `IDBActive`: false if not seen within `DaysLastSeen` (14), or if the grade is missing/
   disabled in settings.
 - Groups = `Get-CustomStudentGroups -building -grade` (bundled: `Students`, optional
