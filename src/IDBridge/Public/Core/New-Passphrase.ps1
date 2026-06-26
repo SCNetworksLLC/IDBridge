@@ -1,5 +1,3 @@
-#Requires -Version 5.1
-function New-Passphrase {
 <#
 .SYNOPSIS
     Generate deterministic passphrase(s) for one or more usernames via the SC Networks Azure Function.
@@ -45,6 +43,8 @@ function New-Passphrase {
    Created by: Sam Cattanach
    Modified: 2026-06-26
 #>
+
+function New-Passphrase {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
