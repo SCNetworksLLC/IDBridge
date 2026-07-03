@@ -116,8 +116,8 @@ File: `C:\IDBridge\Plugins\Invoke-PluginGSheetStaff.ps1`. Pulls staff from a Goo
   Principal, …), else `"2"`.
 - `IDBActive = $false` when `TerminationDate` is in the past.
 - AD password type `WORD` (prefix `Mfld-` + sheet `Word`), Google `RANDOM` (GUID). Passphrase
-  API only if a type is `API-PASSPHRASE` (reads `ApiKey-PassphraseNonceStaff.txt` +
-  `ApiKey-Passphrase.txt` from `UserSecretsRoot`).
+  API only if a type is `API-PASSPHRASE` (reads the `ApiKey-PassphraseNonceStaff` +
+  `ApiKey-Passphrase` vault secrets via `Get-IDBridgeSecret`).
 - Groups = `Get-CustomStaffGroups -building -personType` (optional, bundled in-file) **+**
   comma-split `ApplicationGroups` **+** `EmailGroups`, de-duplicated. The bundled helper
   encodes Marshfield's group policy (All Staff, building Staff/Faculty/Support, Admin tiers,

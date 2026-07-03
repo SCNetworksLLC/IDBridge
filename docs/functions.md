@@ -24,13 +24,6 @@ token → `$script:GoogleHeaders`, imports AD module, applies feature cascade. *
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.
 
-### `Get-IDBridgeSecret`
-**Params:** `-Name` (mandatory), `-VaultName` (optional, defaults to config `Secrets.VaultName`),
-`-AsPlainText`. Resolves a secret from a **SecretManagement vault** if available/configured,
-otherwise falls back to `"<UserSecretsRoot>\<Name>.txt"` (`ConvertTo-SecureString`) — the
-historical behavior. **Returns:** `[SecureString]` (or `[string]` with `-AsPlainText`). See
-[secrets.md](secrets.md).
-
 ### `Write-Log` 🌐(file)
 **Params:** `-Message` (alias `-LogContent`, mandatory), `-Path`/`-LogPath` (def
 `Paths.LogFile`), `-Level {Error|Warn|Info|Trace}` (def `Info`), `-NoClobber`. Writes to
@@ -81,6 +74,44 @@ whether it exceeds `ThresholdPercent`; a `PopulationCount` of 0 is **skipped** (
 a breach). Pure compute + log — the caller (`Invoke-IDBridge`) decides whether to abort.
 **Returns:** `[pscustomobject]@{ Directory; ChangeCount; PopulationCount; Percent; Exceeded;
 Skipped }`. Used by the change-volume safety guard between the compute and execute regions.
+
+---
+
+## Secrets (`src\IDBridge\Public\Secrets\`)
+
+### `Get-IDBridgeSecret` 🌐(AzKeyVault)
+**Params:** `-Name` (mandatory), `-AsPlainText`. Reads a secret's envelope file
+(`<Name>.secret.json`) from the vault folder (`Paths.VaultRoot`) and decrypts it with the
+provider the envelope records (`Cms` via `Unprotect-CmsMessage`, `DpapiNG` via the built-in
+DPAPI-NG wrapper); when `Secrets.Provider` is `AzKeyVault`, fetches from Azure Key Vault over
+REST instead. Throws if the secret is missing (pointing at `Set-IDBridgeSecret`) or can't be
+decrypted/read (naming the required key/principal/role). **Returns:** `[SecureString]` (or
+`[string]` with `-AsPlainText`). See [secrets.md](secrets.md).
+
+### `Set-IDBridgeSecret` 🌐(AzKeyVault)
+**Params:** `-Name` (mandatory), `-Secret` (optional `[SecureString]`; prompts when omitted),
+`-InFile` (optional; store a file's raw content, e.g. the Google service-account JSON).
+Encrypts with the `Secrets.Provider` from config (`Cms` default; `DpapiNG` uses
+`Secrets.DpapiNG.ProtectionDescriptor`, else current-user SID with a `Warn`) and writes the
+envelope file to `Paths.VaultRoot`; when the provider is `AzKeyVault`, PUTs the value to the
+Key Vault under the same name instead. Re-running with the same `-Name` overwrites.
+**Returns:** nothing. See [secrets.md](secrets.md).
+
+### `New-IDBridgeSecretCertificate` 🌐
+**Params:** `-Subject` (def `'CN=IDBridge Secrets'`), `-StoreLocation {LocalMachine|CurrentUser}`
+(def `LocalMachine`, needs elevation), `-ValidityYears` (def 10), `-GrantRead` (optional account,
+e.g. the gMSA, granted private-key read; machine store only). Creates the self-signed Document
+Encryption certificate the `Cms` provider needs (non-exportable RSA 3072). **Returns:** the
+certificate; put its thumbprint in `Secrets.Cms.Thumbprint`.
+
+### `Get-IDBridgeSecretInfo` 🌐(AzKeyVault)
+No params. Lists every vault envelope as `Name / Provider / ProtectedTo / Created / Path` —
+never values. With the `AzKeyVault` provider, lists the Key Vault's secrets instead (paged
+via `nextLink`; includes everything the app registration can see in that vault).
+
+### `Remove-IDBridgeSecret` 🌐(AzKeyVault)
+**Params:** `-Name` (mandatory). Deletes the secret's envelope file — or, with the
+`AzKeyVault` provider, DELETEs it from the Key Vault. Throws if absent.
 
 ---
 

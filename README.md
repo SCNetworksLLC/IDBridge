@@ -13,8 +13,7 @@ Repo: <https://github.com/SCNetworksLLC/IDBridge>
 - **PowerShell 7.5+**
 - **ActiveDirectory** module (RSAT) — for AD processing
 - A **Google service-account** JSON key with domain-wide delegation — for Google Workspace
-- *(Optional)* **Microsoft.PowerShell.SecretManagement** — for vault-based secrets
-  (see [docs/secrets.md](docs/secrets.md))
+  (stored in the built-in secret vault, see [docs/secrets.md](docs/secrets.md))
 
 ## Quick start
 
@@ -56,7 +55,7 @@ C:\IDBridge\{Auth,Logs,Exports,Data}\    runtime dirs (outside repo)
 - [docs/functions.md](docs/functions.md) — every exported function by layer
 - [docs/configuration.md](docs/configuration.md) — `IDBridgeConfig.psd1` schema + paths
 - [docs/plugins.md](docs/plugins.md) — plugin contract + worked examples
-- [docs/secrets.md](docs/secrets.md) — SecretManagement migration & secret layout
+- [docs/secrets.md](docs/secrets.md) — secret vault (Cms/DPAPI-NG), certificate setup & migration
 
 ## Contributing & releases
 

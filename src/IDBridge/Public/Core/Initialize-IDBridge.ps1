@@ -5,20 +5,19 @@ Load configuration and prepare all global state for an IDBridge run.
 .DESCRIPTION
 First stage of a run, called by Invoke-IDBridge. It:
   - imports <RootPath>\Config\IDBridgeConfig.psd1 into the script-scoped configuration;
-  - builds and creates the runtime Paths.* directories (Config/Auth/Logs/Exports/Plugins/Data);
+  - builds and creates the runtime Paths.* directories (Config/Auth/Logs/Exports/Plugins/Data/Vault);
   - initializes logging (in-memory buffer + log file, rotating the file past 5 MB) and writes
     the run-start marker;
-  - when GoogleToken.Enabled, locates the single service-account *.json in AuthRoot, validates
-    it has a private_key, and acquires a bearer token into the script-scoped Google headers via
-    Get-GoogleApiAccessToken;
-  - ensures the per-operator secrets directory (AuthRoot\<username>) exists;
+  - when GoogleToken.Enabled, reads the service-account key JSON from the secret vault
+    (secret 'GoogleAuth-ServiceAccount'), validates it has a private_key, and acquires a
+    bearer token into the script-scoped Google headers via Get-GoogleApiAccessToken;
   - imports the ActiveDirectory module when AD.enabled (throwing unless Debug.skipADCheck);
   - applies the feature-dependency cascade (missing Google headers disables Google; disabling a
     directory disables its group processing).
 
 .PARAMETER RootPath
-Base directory for Config/Auth/Logs/Exports/Plugins/Data. Defaults to C:\IDBridge. Missing
-directories are created.
+Base directory for Config/Auth/Logs/Exports/Plugins/Data/Vault. Defaults to C:\IDBridge.
+Missing directories are created.
 
 .OUTPUTS
 None. Populates the script-scoped IDBridgeConfig, Logs, and GoogleHeaders state.
@@ -59,6 +58,7 @@ function Initialize-IDBridge {
         ExportsRoot = "$RootPath\Exports"
         PluginsRoot = "$RootPath\Plugins"
         DataRoot    = "$RootPath\Data"
+        VaultRoot   = "$RootPath\Vault"
     }
 
     #region Validate Paths
@@ -93,72 +93,43 @@ function Initialize-IDBridge {
 
     #region Google Auth
     if ($script:IDBridgeConfig.GoogleToken.Enabled -eq $true) {
-        # Check for exactly 1 JSON file in the Auth folder
+        # Read the service-account key JSON from the IDBridge secret vault (no file fallback)
         try {
-            if (Test-Path $script:IDBridgeConfig.Paths.AuthRoot) {
-                $authJsonFiles = Get-ChildItem -Path $script:IDBridgeConfig.Paths.AuthRoot -Filter *.json -File
-                if ($authJsonFiles.Count -eq 1) {
-                    Write-Log -Message "Found 1 authentication JSON file: $($authJsonFiles[0].Name)" -Level Trace
-                } elseif ($authJsonFiles.Count -eq 0) {
-                    Throw "No authentication JSON file found in 'Auth'"
-                } else {
-                    Throw "Multiple authentication JSON files found in 'Auth'"
-                }
-            } else {
-                Throw "'Auth' folder not found"
-            }
+            $googleAuthJson = Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -AsPlainText
         }
         catch {
-            Throw $_
+            Throw "The Google service-account key could not be read from the secret vault. Seed it with: Set-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -InFile <key.json>. ($_)"
         }
 
-        # Get the full path to the single JSON file found in the Auth folder
-        $authFilePath = $authJsonFiles[0].FullName
-        
-        # Validate if the file is a valid Google Service Account JSON by checking for a private key
+        # Validate it is a valid Google Service Account JSON by checking for a private key
         try {
-            $googleAuthContent = Get-Content $authFilePath -Raw | ConvertFrom-Json
+            $googleAuthContent = $googleAuthJson | ConvertFrom-Json
         }
         catch {
-            Throw "Invalid Google Auth JSON file at $($authFilePath). Error: $_"
+            Throw "The 'GoogleAuth-ServiceAccount' secret is not valid JSON. Error: $_"
         }
-        
+
         if ($googleAuthContent.PSObject.Properties.Name -notcontains "private_key") {
-            throw "The Google Auth JSON file does not contain a valid 'private_key'."
+            throw "The Google Auth JSON does not contain a valid 'private_key'."
         }
 
-        # Add the path to the config object hashtable for use in other functions
-        Write-Log -Message "Loaded valid Google Auth JSON file: $($authFilePath)" -Level Trace
-        $script:IDBridgeConfig.GoogleToken.authFilePath = $authFilePath
+        Write-Log -Message "Loaded Google service-account key from secret 'GoogleAuth-ServiceAccount'" -Level Trace
 
         try {
             $paramsGoogleHeaders = @{
-                ServiceAccountKeyPath = $script:IDBridgeConfig.GoogleToken.authFilePath
+                ServiceAccountKeyJson = $googleAuthJson
                 Scope                 = $script:IDBridgeConfig.GoogleToken.googleAuthScope
                 TargetUserEmail      = $script:IDBridgeConfig.GoogleToken.adminEmail
             }
-            
+
             $script:GoogleHeaders = Get-GoogleApiAccessToken @paramsGoogleHeaders
         }
         catch { Throw }
-        
+
     } else {
         Write-Log -Message "Google API integration is disabled. Google-related functions will be skipped." -Level Trace
     }
     #endregion Google Auth
-
-
-
-    #region User Secrets Path
-    $userSecretsPath = Join-Path $script:IDBridgeConfig.Paths.AuthRoot $env:USERNAME
-    if (-not (Test-Path $userSecretsPath)) {
-        New-Item -ItemType Directory -Path $userSecretsPath -Force | Out-Null
-        Write-Log -Message "Created user secrets directory for $env:USERNAME" -Level Info
-    }
-
-    $script:IDBridgeConfig.Paths.UserSecretsRoot = $userSecretsPath
-    Write-Log -Message "User secrets path set to: $userSecretsPath" -Level Trace
-    #endregion User Secrets Path
 
 
 

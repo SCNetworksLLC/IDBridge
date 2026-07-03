@@ -8,8 +8,8 @@ C:\IDBridge\Config\IDBridgeConfig.psd1
 
 It is loaded by `Initialize-IDBridge` into `$script:IDBridgeConfig` and read everywhere via
 `Get-IDBridgeConfig`. The file holds **site-specific values** (customer ID, sheet IDs, admin
-email, OU paths) but **no raw secrets** — secrets are read at runtime from per-operator
-files under `C:\IDBridge\Auth\<username>\` (see [Secrets](#secrets-not-in-the-config-file)).
+email, OU paths) but **no raw secrets** — secrets are read at runtime from the encrypted
+vault under `C:\IDBridge\Vault\` (see [Secrets](#secrets-not-in-the-config-file)).
 
 > Precedence: command-line switches on `Invoke-IDBridge` override the file values for that
 > run (logged as `OVERRIDE: …`). See [architecture.md](architecture.md).
@@ -49,7 +49,9 @@ the guard off (older configs keep working).
 | `Enabled`         | bool   | Gate Google token acquisition at startup. | `Initialize-IDBridge` |
 | `googleAuthScope` | string | Space-separated OAuth scopes (directory user/orgunit/group + spreadsheets). | `Get-GoogleApiAccessToken` |
 | `adminEmail`      | string | Delegated admin the service account impersonates. | `Get-GoogleApiAccessToken` |
-| `authFilePath`    | string | **Runtime-added** — path to the one `*.json` service-account key found in `AuthRoot`. | `Initialize-IDBridge` |
+
+> The service-account key itself is the vault secret `GoogleAuth-ServiceAccount`
+> (see [secrets.md](secrets.md)) — no file path is configured or discovered.
 
 ### `Google` (Workspace processing)
 | Key | Type | Effect | Read by |
@@ -96,20 +98,69 @@ Array of plugin descriptors, executed in order by `Invoke-SourcePlugins`:
 
 See [plugins.md](plugins.md) for the contract and the shipped plugins.
 
-### `Secrets` (optional)
-Controls where `Get-IDBridgeSecret` looks first. Omit the whole block to keep the historical
-file-based behavior (`Auth\<user>\<name>.txt`).
+### `Secrets`
+Selects the **provider** `Set-IDBridgeSecret` protects new secrets with. Omit the block to
+use the default provider `'Cms'`. For the local providers (`Cms`/`DpapiNG`) the vault folder
+is always the runtime `Paths.VaultRoot` (`<Root>\Vault`) and reads are provider-agnostic —
+each envelope file records the provider that protected it, so `Get-IDBridgeSecret` decrypts
+any mix; the provider choice matters at **write** time only. `'AzKeyVault'` is the remote
+exception: all secret functions go to Azure Key Vault over REST instead of local envelopes.
 
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
-| `UseSecretManagement` | bool   | Opt-in marker for vault-based secrets. | `Get-IDBridgeSecret` |
-| `VaultName`           | string | SecretManagement vault to read from (falls back to file store if unavailable). | `Get-IDBridgeSecret` |
+| `Provider`   | string | Secrets backend: `'Cms'` (certificate, default), `'DpapiNG'` (gMSA), `'AzKeyVault'` (Azure Key Vault, remote). | all secret functions |
+| `Cms`        | hashtable | Cms-only sub-block (see below). Ignored by other providers. | `Set-IDBridgeSecret` |
+| `DpapiNG`    | hashtable | DpapiNG-only sub-block (see below). Ignored by other providers. | `Set-IDBridgeSecret` |
+| `AzKeyVault` | hashtable | AzKeyVault-only sub-block (see below). Ignored by other providers. | all secret functions |
+
+`Cms` sub-block (only used when `Provider = 'Cms'`):
+
+| Key | Type | Effect |
+|-----|------|--------|
+| `Thumbprint` | string | Document Encryption certificate to encrypt with (from `New-IDBridgeSecretCertificate`). Omit/empty ⇒ the single unexpired `CN=IDBridge Secrets` certificate is found automatically. |
+
+`DpapiNG` sub-block (only used when `Provider = 'DpapiNG'`):
+
+| Key | Type | Effect |
+|-----|------|--------|
+| `ProtectionDescriptor` | string | DPAPI-NG protection descriptor applied on write, e.g. `'SID=<gMSA SID>'` or `'SID=<gMSA SID> OR SID=<admins group SID>'`. Omit ⇒ protected to the current account only (logged `Warn`). |
+
+`AzKeyVault` sub-block (only used when `Provider = 'AzKeyVault'`):
+
+| Key | Type | Effect |
+|-----|------|--------|
+| `VaultUri`       | string | Key Vault URI, e.g. `'https://<vault>.vault.azure.net/'`. |
+| `TenantId`       | string | Entra tenant ID or domain. |
+| `ClientId`       | string | App registration (client) ID holding the certificate credential. |
+| `CertThumbprint` | string | Thumbprint of the auth certificate (CurrentUser or LocalMachine My store; the running account needs private-key read). |
 
 ```powershell
-Secrets = @{ UseSecretManagement = $true; VaultName = 'IDBridge' }
+# Certificate (default; works on or off domain)
+Secrets = @{
+    Provider = 'Cms'
+    Cms      = @{ Thumbprint = '<from New-IDBridgeSecretCertificate>' }
+}
+
+# Production (gMSA / DPAPI-NG, domain-joined)
+Secrets = @{
+    Provider = 'DpapiNG'
+    DpapiNG  = @{ ProtectionDescriptor = 'SID=S-1-5-21-...-<gMSA SID> OR SID=<admins group SID>' }
+}
+
+# Azure Key Vault (remote)
+Secrets = @{
+    Provider   = 'AzKeyVault'
+    AzKeyVault = @{
+        VaultUri       = 'https://<vault>.vault.azure.net/'
+        TenantId       = '<tenant>.onmicrosoft.com'
+        ClientId       = '<app registration client id>'
+        CertThumbprint = '<auth certificate thumbprint>'
+    }
+}
 ```
 
-See [secrets.md](secrets.md) for setup and migration.
+See [secrets.md](secrets.md) for provider setup, the certificate workflow, and the
+gMSA/DPAPI-NG model.
 
 ---
 
@@ -121,30 +172,30 @@ Derived from `-RootPath` (default `C:\IDBridge`); missing directories are create
 |-------------------|-------------------------------|---------|
 | `Root`            | `<RootPath>`                  | Base directory |
 | `ConfigRoot`      | `<Root>\Config`               | Holds `IDBridgeConfig.psd1` |
-| `AuthRoot`        | `<Root>\Auth`                 | Service-account JSON (exactly one) + per-user secrets |
+| `AuthRoot`        | `<Root>\Auth`                 | Reserved (legacy auth files; secrets now live in the vault) |
 | `LogsRoot`        | `<Root>\Logs`                 | `IDBridge.log` (rotated at 5 MB) |
 | `ExportsRoot`     | `<Root>\Exports`              | `UserList-Staff.csv` and other exports |
 | `PluginsRoot`     | `<Root>\Plugins`              | Plugin `.ps1` files |
 | `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward `LastSeen` CSV) |
+| `VaultRoot`       | `<Root>\Vault`                | Secret vault (`*.secret.json` envelope files) |
 | `LogFile`         | `<LogsRoot>\IDBridge.log`     | Active log file |
-| `UserSecretsRoot` | `<AuthRoot>\<username>`        | Per-operator API keys/nonces |
 
 ---
 
 ## Secrets (NOT in the config file)
 
-Stored as text files under `Paths.UserSecretsRoot` (`C:\IDBridge\Auth\<username>\`) and the
-service-account key under `AuthRoot`. **Only names/locations are documented here — never
-values.**
+Secrets live in the **IDBridge secret vault** — encrypted `*.secret.json` envelope files under
+`<Root>\Vault` (add/change with `Set-IDBridgeSecret`), including the Google service-account
+key. **Only names/locations are documented here — never values.** See [secrets.md](secrets.md).
 
-| File / item | Used by |
-|-------------|---------|
-| One `*.json` service-account key in `AuthRoot` | `Initialize-IDBridge` → `Get-GoogleApiAccessToken` |
-| `ApiKey-SkywardSMS.txt`             | Skyward students plugin (SecureString client secret) |
-| `ApiKey-Passphrase.txt`             | Passphrase API bearer token (`New-Passphrase`) |
-| `ApiKey-PassphraseNonceStaff.txt`   | Staff passphrase nonce |
-| `ApiKey-PassphraseNonceStudent.txt` | Student passphrase nonce |
-| `$env:PASSPHRASE_AUTH_TOKEN`        | Fallback auth token for `New-Passphrase` |
+| Secret / item | Used by |
+|---------------|---------|
+| `GoogleAuth-ServiceAccount` (vault)     | `Initialize-IDBridge` → `Get-GoogleApiAccessToken` (the service-account key JSON; no file fallback) |
+| `ApiKey-SkywardSMS` (vault)             | Skyward students plugin (client secret) |
+| `ApiKey-Passphrase` (vault)             | Passphrase API bearer token (`New-Passphrase`) |
+| `ApiKey-PassphraseNonceStaff` (vault)   | Staff passphrase nonce |
+| `ApiKey-PassphraseNonceStudent` (vault) | Student passphrase nonce |
+| `$env:PASSPHRASE_AUTH_TOKEN`            | Fallback auth token for `New-Passphrase` |
 
 ---
 

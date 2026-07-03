@@ -7,6 +7,53 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 
 ## [Unreleased]
 
+> Supersedes the earlier unreleased SecretManagement-based secrets work: the external-module
+> stack (`Microsoft.PowerShell.SecretManagement` / `SecretStore` / `SecretManagement.DpapiNG`)
+> is replaced by a built-in, zero-dependency vault before ever shipping.
+
+### Added
+- **Built-in secret vault.** Secrets are encrypted JSON envelope files (`<Name>.secret.json`)
+  under `<Root>\Vault` (new runtime `Paths.VaultRoot`). Each envelope records the provider
+  that protected it, so reads decrypt any mix of providers. No external modules, no per-user
+  vault registration, no unlock step. Secret functions live in the new `Public\Secrets\`
+  folder.
+- **Two encryption providers, selected by `Secrets.Provider` at write time.** `Cms` (default)
+  encrypts with `Protect-CmsMessage` and a Document Encryption certificate; `DpapiNG` protects
+  to an AD principal (e.g. a gMSA SID, with `OR` descriptors supported) through a built-in
+  P/Invoke wrapper over `ncrypt.dll` — no `SecretManagement.DpapiNG`. `AzKeyVault` remains
+  reserved.
+- **`New-IDBridgeSecretCertificate`.** Creates the self-signed Document Encryption certificate
+  the `Cms` provider needs (non-exportable RSA 3072, 10-year validity, machine or user store)
+  and can grant a service account private-key read via `-GrantRead 'DOMAIN\gMSA$'`.
+- **`Get-IDBridgeSecretInfo` / `Remove-IDBridgeSecret`.** List vault entries (names and
+  metadata, never values) and delete an entry.
+- **`Set-IDBridgeSecret -InFile`.** Store a file's raw content as a secret — used for the
+  Google service-account key JSON.
+- **`AzKeyVault` provider implemented.** With `Secrets.Provider = 'AzKeyVault'` all secret
+  functions go to an Azure Key Vault over REST — no local envelopes and still no external
+  modules. Auth is an Entra app registration with a certificate credential (client-credentials
+  flow with a self-built RS256 JWT assertion, private helpers `Get-IDBridgeAzureAuthToken` /
+  `Get-IDBridgeAzKeyVaultContext`; the token is cached per session). Secrets are stored under
+  their IDBridge names as-is; config takes `VaultUri`, `TenantId`, `ClientId`, and
+  `CertThumbprint`.
+
+### Changed
+- **The Google service-account key moved into the vault.** `Initialize-IDBridge` reads the
+  secret `GoogleAuth-ServiceAccount` instead of discovering a `*.json` file in `Auth\`; there
+  is **no file fallback**. `Get-GoogleApiAccessToken` gained a `-ServiceAccountKeyJson`
+  parameter set alongside the existing `-ServiceAccountKeyPath`.
+- **`Secrets` config block reshaped.** `Provider` is now `'Cms'` (default) or `'DpapiNG'`;
+  `VaultName` is gone (the vault folder is always `Paths.VaultRoot`); sub-blocks are
+  `Cms.Thumbprint` and `DpapiNG.ProtectionDescriptor`.
+- **Private helper loading enabled.** `IDBridge.psm1` now dot-sources `Private\*.ps1`
+  (the CMS certificate resolver and the DPAPI-NG type live there, unexported).
+
+### Removed
+- **`Register-IDBridgeSecretVault`** and every SecretManagement dependency. Vault access needs
+  no registration; the legacy per-user secrets directory (`Paths.UserSecretsRoot`,
+  `Auth\<username>\`) is no longer created or exposed. A one-time migration snippet is in
+  [docs/secrets.md](docs/secrets.md#migrating-from-the-secretmanagement-vault).
+
 ## [26.6.26.3] - 2026-06-26
 
 ### Fixed

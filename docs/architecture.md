@@ -12,20 +12,18 @@ which prepares all global state:
 1. **Load config** — `Import-PowerShellDataFile` of
    `<RootPath>\Config\IDBridgeConfig.psd1` → `$script:IDBridgeConfig`.
 2. **Build & validate paths** — computes `Paths.{Root,ConfigRoot,AuthRoot,LogsRoot,
-   ExportsRoot,PluginsRoot,DataRoot}`, creating any missing directory.
+   ExportsRoot,PluginsRoot,DataRoot,VaultRoot}`, creating any missing directory.
 3. **Logging** — sets `Paths.LogFile = <LogsRoot>\IDBridge.log`, inits the in-memory
    buffer `$script:Logs`, and **rotates the log if it exceeds 5 MB** (renames with a
    timestamp). Writes the run-start marker.
-4. **Google auth** (if `GoogleToken.Enabled`) — requires **exactly one** `*.json` service
-   account file in `AuthRoot` (errors on zero or multiple), validates it has a
-   `private_key`, then calls `Get-GoogleApiAccessToken` (JWT → bearer token via
-   domain-wide delegation to `GoogleToken.adminEmail`) and stores the result in
-   `$script:GoogleHeaders`.
-5. **User secrets dir** — ensures `AuthRoot\<username>` exists →
-   `Paths.UserSecretsRoot` (per-operator API keys live here).
-6. **AD module** (if `AD.enabled`) — `Import-Module ActiveDirectory`. On failure it
+4. **Google auth** (if `GoogleToken.Enabled`) — reads the service-account key JSON from
+   the secret vault (`Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount'`; **no file
+   fallback**), validates it has a `private_key`, then calls `Get-GoogleApiAccessToken`
+   (JWT → bearer token via domain-wide delegation to `GoogleToken.adminEmail`) and stores
+   the result in `$script:GoogleHeaders`.
+5. **AD module** (if `AD.enabled`) — `Import-Module ActiveDirectory`. On failure it
    throws **unless** `Debug.skipADCheck` is set.
-7. **Feature-dependency cascade** — if Google auth never produced headers, force
+6. **Feature-dependency cascade** — if Google auth never produced headers, force
    `Google.enabled = $false`; disabling Google/AD also disables their group processing.
 
 Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig` and applies **runtime

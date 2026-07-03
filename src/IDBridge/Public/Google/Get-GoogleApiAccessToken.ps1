@@ -11,6 +11,10 @@ function Get-GoogleApiAccessToken {
     PAth to a JSON file containing the service account credentials, including the private key and client email.
     This is the Google credential file downloaded from the Google Cloud Console.
 
+    .PARAMETER ServiceAccountKeyJson
+    The service account credential JSON as a string instead of a file path — e.g. read from
+    the IDBridge secret vault (Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -AsPlainText).
+
     .PARAMETER Scope
     The scope of access requested from Google API (e.g., 'https://www.googleapis.com/auth/drive').
 
@@ -30,9 +34,13 @@ function Get-GoogleApiAccessToken {
     Modified: 02/18/2025 09:30:19 AM   
     #>
 
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
     param (
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
         [string]$ServiceAccountKeyPath,
+
+        [Parameter(Mandatory, ParameterSetName = 'Json')]
+        [string]$ServiceAccountKeyJson,
 
         [Parameter(Mandatory)]
         [string]$Scope,
@@ -42,7 +50,10 @@ function Get-GoogleApiAccessToken {
     )
 
     # Convert JSON credentials into a PowerShell object
-    $jsonContent = ConvertFrom-Json -InputObject (Get-Content $ServiceAccountKeyPath -Raw)
+    if ($PSCmdlet.ParameterSetName -eq 'Path') {
+        $ServiceAccountKeyJson = Get-Content $ServiceAccountKeyPath -Raw
+    }
+    $jsonContent = ConvertFrom-Json -InputObject $ServiceAccountKeyJson
     $ServiceAccountEmail = $jsonContent.client_email
     $PrivateKey = $jsonContent.private_key -replace '-----BEGIN PRIVATE KEY-----\n' -replace '\n-----END PRIVATE KEY-----\n' -replace '\n'
 

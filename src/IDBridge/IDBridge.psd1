@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.6.26.3'
+    ModuleVersion     = '26.7.2.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -64,7 +64,11 @@
         'Invoke-IDBridge'
         'Initialize-IDBridge'
         'Get-IDBridgeConfig'  # This is the public accessor for the config object after initialization. It will throw an error if called before Initialize-IDBridge.
-        'Get-IDBridgeSecret'  # Resolves a named secret from a SecretManagement vault, falling back to the per-user file store.
+        'Get-IDBridgeSecret'  # Reads a named secret from the IDBridge vault (Cms/DpapiNG envelope files, or Azure Key Vault).
+        'Set-IDBridgeSecret'  # Adds/changes a named secret in the IDBridge vault using the Secrets.Provider from config.
+        'Get-IDBridgeSecretInfo'  # Lists vault secret names and metadata (never values).
+        'Remove-IDBridgeSecret'   # Deletes a named secret from the vault.
+        'New-IDBridgeSecretCertificate'  # Creates the Document Encryption certificate used by the Cms provider.
 
         #Auth
         'Get-GoogleApiAccessToken'
