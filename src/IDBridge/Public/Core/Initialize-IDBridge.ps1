@@ -5,22 +5,24 @@ Load configuration and prepare all global state for an IDBridge run.
 .DESCRIPTION
 First stage of a run, called by Invoke-IDBridge. It:
   - imports <RootPath>\Config\IDBridgeConfig.psd1 into the script-scoped configuration;
-  - builds and creates the runtime Paths.* directories (Config/Auth/Logs/Exports/Plugins/Data/Vault);
+  - builds and creates the runtime Paths.* directories (Config/Logs/Exports/Plugins/Data/Vault);
   - initializes logging (in-memory buffer + log file, rotating the file past 5 MB) and writes
     the run-start marker;
-  - when GoogleToken.Enabled, reads the service-account key JSON from the secret vault
-    (secret 'GoogleAuth-ServiceAccount'), validates it has a private_key, and acquires a
-    bearer token into the script-scoped Google headers via Get-GoogleApiAccessToken;
   - imports the ActiveDirectory module when AD.enabled (throwing unless Debug.skipADCheck);
-  - applies the feature-dependency cascade (missing Google headers disables Google; disabling a
-    directory disables its group processing).
+  - applies the feature-dependency cascade (disabling a directory disables its group
+    processing).
+
+Google auth is NOT acquired here — Invoke-IDBridge does that at the start of a run (after
+the runtime overrides). That keeps first-run setup simple: Initialize-IDBridge always
+succeeds on a fresh install, so the certificate/secret/bootstrap functions can run before
+the 'GoogleAuth-ServiceAccount' secret exists.
 
 .PARAMETER RootPath
-Base directory for Config/Auth/Logs/Exports/Plugins/Data/Vault. Defaults to C:\IDBridge.
+Base directory for Config/Logs/Exports/Plugins/Data/Vault. Defaults to C:\IDBridge.
 Missing directories are created.
 
 .OUTPUTS
-None. Populates the script-scoped IDBridgeConfig, Logs, and GoogleHeaders state.
+None. Populates the script-scoped IDBridgeConfig and Logs state.
 
 .EXAMPLE
 Initialize-IDBridge -RootPath 'C:\IDBridge'
@@ -53,7 +55,6 @@ function Initialize-IDBridge {
     $script:IDBridgeConfig.Paths = @{
         Root        = $RootPath
         ConfigRoot  = "$RootPath\Config"
-        AuthRoot    = "$RootPath\Auth"
         LogsRoot    = "$RootPath\Logs"
         ExportsRoot = "$RootPath\Exports"
         PluginsRoot = "$RootPath\Plugins"
@@ -91,49 +92,6 @@ function Initialize-IDBridge {
   
 
 
-    #region Google Auth
-    if ($script:IDBridgeConfig.GoogleToken.Enabled -eq $true) {
-        # Read the service-account key JSON from the IDBridge secret vault (no file fallback)
-        try {
-            $googleAuthJson = Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -AsPlainText
-        }
-        catch {
-            Throw "The Google service-account key could not be read from the secret vault. Seed it with: Set-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -InFile <key.json>. ($_)"
-        }
-
-        # Validate it is a valid Google Service Account JSON by checking for a private key
-        try {
-            $googleAuthContent = $googleAuthJson | ConvertFrom-Json
-        }
-        catch {
-            Throw "The 'GoogleAuth-ServiceAccount' secret is not valid JSON. Error: $_"
-        }
-
-        if ($googleAuthContent.PSObject.Properties.Name -notcontains "private_key") {
-            throw "The Google Auth JSON does not contain a valid 'private_key'."
-        }
-
-        Write-Log -Message "Loaded Google service-account key from secret 'GoogleAuth-ServiceAccount'" -Level Trace
-
-        try {
-            $paramsGoogleHeaders = @{
-                ServiceAccountKeyJson = $googleAuthJson
-                Scope                 = $script:IDBridgeConfig.GoogleToken.googleAuthScope
-                TargetUserEmail      = $script:IDBridgeConfig.GoogleToken.adminEmail
-            }
-
-            $script:GoogleHeaders = Get-GoogleApiAccessToken @paramsGoogleHeaders
-        }
-        catch { Throw }
-
-    } else {
-        Write-Log -Message "Google API integration is disabled. Google-related functions will be skipped." -Level Trace
-    }
-    #endregion Google Auth
-
-
-
-
     #region Test Additional Modules
     if ($script:IDBridgeConfig.AD.enabled -eq $true) {
         #Test AD Module
@@ -156,11 +114,6 @@ function Initialize-IDBridge {
     #Check if Read Only Mode is active
     if ($script:IDBridgeConfig.Debug.readOnly -eq $true) {
         Write-Log -Message "READ ONLY MODE: NO CHANGES WILL BE MADE"
-    }
-
-    #Deactivate Google if Auth isn't enabled
-    if (-not $script:GoogleHeaders) {
-        $script:IDBridgeConfig.Google.Enabled = $false
     }
 
     #Deactivate Groups if module isn't enabled

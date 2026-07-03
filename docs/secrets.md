@@ -36,7 +36,7 @@ be decrypted (naming the certificate/principal required). Inspect the vault with
 One-time, on the machine that runs IDBridge (elevated session for the machine store):
 
 ```powershell
-Initialize-IDBridge               # loads config; required before any secret function
+Initialize-IDBridge               # loads config; safe on a fresh install (no Google auth here)
 New-IDBridgeSecretCertificate     # creates the cert in Cert:\LocalMachine\My, prints the thumbprint
 ```
 
@@ -142,7 +142,7 @@ These names are used by the shipped code/plugins — store secrets under the **s
 
 | Name | Purpose |
 |------|---------|
-| `GoogleAuth-ServiceAccount`    | Google service-account key JSON (always required when `GoogleToken.Enabled`; **no file fallback**) |
+| `GoogleAuth-ServiceAccount`    | Google service-account key JSON (always required when `GoogleToken.Enabled`; **no file fallback**). Seeded by hand (`-InFile`) or end-to-end by [`Initialize-IDBridgeGoogleServiceAccount`](google-bootstrap.md) |
 | `ApiKey-SkywardSMS`            | Skyward SMS OneRoster client secret (always required by the students plugin) |
 | `ApiKey-Passphrase`            | Passphrase-API bearer token (only when a password type is `API-PASSPHRASE`) |
 | `ApiKey-PassphraseNonceStaff`  | Passphrase nonce for staff (only when staff use `API-PASSPHRASE`) |
@@ -150,28 +150,6 @@ These names are used by the shipped code/plugins — store secrets under the **s
 
 > Plugins fetch the passphrase secrets **only when a password type actually uses the passphrase
 > API**, so a run that uses `WORD`/`RANDOM`/`FSPIN` passwords never needs them in the vault.
-
-## Migrating from the SecretManagement vault
-
-If you previously stored secrets in the PowerShell SecretManagement `IDBridge` vault, import
-each value once, then remove the old stack:
-
-```powershell
-Initialize-IDBridge
-Unlock-SecretStore                       # old store's master password
-foreach ($n in 'ApiKey-Passphrase','ApiKey-PassphraseNonceStaff',
-               'ApiKey-PassphraseNonceStudent','ApiKey-SkywardSMS') {
-    Set-IDBridgeSecret -Name $n -Secret (Get-Secret -Name $n -Vault IDBridge)
-}
-
-# Google key: from the JSON file that used to live in C:\IDBridge\Auth\
-Set-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -InFile 'C:\IDBridge\Auth\<key>.json'
-Remove-Item 'C:\IDBridge\Auth\<key>.json'
-
-# Retire the old stack
-Unregister-SecretVault -Name IDBridge
-Uninstall-Module Microsoft.PowerShell.SecretStore, Microsoft.PowerShell.SecretManagement
-```
 
 ## Hygiene
 

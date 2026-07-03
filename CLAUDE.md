@@ -10,7 +10,7 @@ Module version comes from `IDBridge.psd1` (`ModuleVersion`, currently `26.6.21.0
 > - **Code (this git repo):** `C:\GIT\IDBridge`
 > - **Config:** `C:\IDBridge\Config\IDBridgeConfig.psd1` *(outside the repo)*
 > - **Plugins:** `C:\IDBridge\Plugins\*.ps1` *(outside the repo)*
-> - **Runtime dirs** (`Auth`, `Logs`, `Exports`, `Data`, `Vault`) are created under
+> - **Runtime dirs** (`Logs`, `Exports`, `Data`, `Vault`) are created under
 >   `C:\IDBridge\` by `Initialize-IDBridge` on first run. `Vault` holds the encrypted
 >   secret envelope files.
 
@@ -52,7 +52,7 @@ Switches (override the config file at runtime):
 
 | Switch           | Effect                                                            |
 |------------------|------------------------------------------------------------------|
-| `-RootPath`      | Base dir for Config/Auth/Logs/Exports/Plugins/Data (def `C:\IDBridge`) |
+| `-RootPath`      | Base dir for Config/Logs/Exports/Plugins/Data/Vault (def `C:\IDBridge`) |
 | `-ReadOnly`      | Sets `Debug.readOnly`; when `$true`, computes but writes nothing  |
 | `-TestRun`       | Sets `Debug.testRun`; plugins process a small subset             |
 | `-SkipADCheck`   | Don't fail startup if the AD module can't import                 |
@@ -69,7 +69,12 @@ Switches (override the config file at runtime):
 2. **Group writes are double-gated** by `enableGroupProcessing`, plus
    `enableGroupProcessingWhatIf` (log-only), `enableGroupProcessingRemove`
    (allow removals), and `enableGroupProcessingTrash` (strip groups on deactivate).
-3. A run that loses Google auth **auto-disables** Google processing rather than erroring out.
+   License removal is **on by default** (`Google.enableLicenseRemoval = $false` disables):
+   the user's assignments are discovered dynamically and removed only on the full
+   deactivate (trash) step, never on `ForceDisable`.
+3. A run that can't authenticate to Google **fails at startup** (no silent degradation) —
+   the Google key is the vault secret `GoogleAuth-ServiceAccount`, with no file fallback.
+   Skip Google intentionally with `-SkipGoogle` or `GoogleToken.Enabled = $false`.
 4. **Change-volume guard.** After the change lists are computed and before any writes, the
    `ChangeThreshold` config block aborts the whole run if a directory's proposed lifecycle
    changes (create/update/rename/move/deactivate) exceed a percentage (default `25`) of its
@@ -101,6 +106,7 @@ Switches (override the config file at runtime):
 - [docs/configuration.md](docs/configuration.md) — full `IDBridgeConfig.psd1` schema, runtime `Paths`, and secret file locations.
 - [docs/plugins.md](docs/plugins.md) — plugin contract + output schemas, with the three shipped plugins as worked examples.
 - [docs/secrets.md](docs/secrets.md) — secret vault providers (Cms/DPAPI-NG), certificate setup, secret names, migration.
+- [docs/google-bootstrap.md](docs/google-bootstrap.md) — one-command Google service-account bootstrap + the manual DWD finish steps.
 - [README.md](README.md) — public-facing overview, quick start, and publishing pointers.
 
 

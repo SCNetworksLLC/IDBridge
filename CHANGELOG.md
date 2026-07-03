@@ -37,6 +37,31 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   their IDBridge names as-is; config takes `VaultUri`, `TenantId`, `ClientId`, and
   `CertThumbprint`.
 
+- **`Remove-IDBridgeGoogleUserLicense`.** License cleanup on deactivation, **on by default**
+  (`Google.enableLicenseRemoval = $false` disables): the full deactivate (suspend +
+  move-to-trash) step also removes **all** of the user's license assignments via the
+  Enterprise License Manager API, logging each by SKU name. Assignments are discovered in
+  the target snapshot — `Get-TargetDataGoogle` enumerates `listForProduct` per
+  `Google.licenseProductIds` product (default Workspace/Education + Teaching and Learning)
+  into a `CurrentLicenses` property on each user, flowing to source records as
+  `GoogleCurrentLicenses` — no SKUs hard-coded, and the decide phase logs exactly which
+  licenses a deactivation will remove, **visible in ReadOnly runs**. `ForceDisable` updates
+  never touch licenses. Requires the `apps.licensing` scope in the service account's
+  domain-wide delegation (the module requests it automatically while the feature is
+  enabled — **pre-existing deployments must add the scope to their DWD grant or disable the
+  feature, or token acquisition fails**).
+
+- **`Initialize-IDBridgeGoogleServiceAccount`.** One-command Google-side bootstrap for new
+  deployments, run in the district's tenant as their super admin: tiered sign-in
+  (`-AccessToken` → gcloud → OAuth Playground paste),
+  organization discovery (orchestrating the no-API-exists console terms acceptance), optional
+  project creation (display name `IDBridge`), API enablement, service-account creation, and
+  the JSON key seeded directly into the vault without touching disk. If
+  `iam.disableServiceAccountKeyCreation` blocks key creation it temporarily self-grants
+  `orgpolicy.policyAdmin`, exempts the project, retries, and revokes the role. Prints the
+  manual domain-wide delegation checklist (client ID + live scope list). See
+  [docs/google-bootstrap.md](docs/google-bootstrap.md).
+
 ### Changed
 - **The Google service-account key moved into the vault.** `Initialize-IDBridge` reads the
   secret `GoogleAuth-ServiceAccount` instead of discovering a `*.json` file in `Auth\`; there
@@ -47,12 +72,34 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   `Cms.Thumbprint` and `DpapiNG.ProtectionDescriptor`.
 - **Private helper loading enabled.** `IDBridge.psm1` now dot-sources `Private\*.ps1`
   (the CMS certificate resolver and the DPAPI-NG type live there, unexported).
+- **OAuth scopes moved from config into the module.** `GoogleToken.googleAuthScope` is
+  removed — the scope list is a property of the code, defined by the private
+  `Get-IDBridgeGoogleScope` helper (directory user/orgunit/group + Sheets), which includes
+  `apps.licensing` unless `Google.enableLicenseRemoval = $false` (requesting an ungranted
+  scope fails DWD token exchange, so disabling the feature also drops the scope). The
+  bootstrap's DWD checklist prints the full set so grants are future-proof.
+- **Google auth moved from `Initialize-IDBridge` to `Invoke-IDBridge`, as the new
+  `Connect-IDBridgeGoogle`.** Initialization is now pure state bootstrap
+  (config/paths/logging/AD/cascade) and always succeeds on a fresh install, so the
+  certificate/secret/bootstrap functions can run before the `GoogleAuth-ServiceAccount`
+  secret exists — no first-run chicken-and-egg. `Invoke-IDBridge` calls
+  `Connect-IDBridgeGoogle` after the runtime overrides, gated on `GoogleToken.Enabled` only
+  (`-SkipGoogle` runs still get headers for Sheets plugins and sheet logging). The function
+  is also exported for standalone use: it verifies the whole auth chain (vault key → DWD
+  JWT → token) without running the pipeline — ideal right after a bootstrap/DWD change.
+- **Google auth failures now fail the run.** The old auto-disable cascade (a run that lost
+  Google auth silently forced `Google.enabled = $false`) is removed along with the file
+  fallback — `Initialize-IDBridge` throws at startup instead. Disable Google intentionally
+  with `-SkipGoogle` or `GoogleToken.Enabled = $false`.
 
 ### Removed
 - **`Register-IDBridgeSecretVault`** and every SecretManagement dependency. Vault access needs
   no registration; the legacy per-user secrets directory (`Paths.UserSecretsRoot`,
   `Auth\<username>\`) is no longer created or exposed. A one-time migration snippet is in
   [docs/secrets.md](docs/secrets.md#migrating-from-the-secretmanagement-vault).
+- **`Paths.AuthRoot` (`<Root>\Auth`).** Nothing reads it since the Google service-account key
+  moved into the secret vault; the directory is no longer created or listed in `Paths`. An
+  existing `Auth\` folder is left untouched — delete it once its old contents are migrated.
 
 ## [26.6.26.3] - 2026-06-26
 

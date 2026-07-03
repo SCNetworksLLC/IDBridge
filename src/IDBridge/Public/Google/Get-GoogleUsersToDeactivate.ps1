@@ -5,7 +5,8 @@ Select linked Google users that should be deactivated.
 .DESCRIPTION
 Returns each source record that is inactive or no longer Google-provisioned (IDBActive = $false OR
 ProvisionGoogle = $false) while its current Google account is not yet suspended. Each is logged for
-the subsequent suspend + move-to-trash step.
+the subsequent suspend + move-to-trash step, including the license assignments that step will
+remove (from GoogleCurrentLicenses) — so ReadOnly runs show the full license impact.
 
 .PARAMETER UserList
 The enriched source records.
@@ -30,6 +31,12 @@ function Get-GoogleUsersToDeactivate {
 
     foreach ($item in $UserList | Where-Object {(($_.IDBActive -eq $false) -or ($_.ProvisionGoogle -eq $false)) -and $_.GoogleCurrentUserSuspendedStatus -eq $false}) {
         Write-Log -Message "Google: Adding User to Process List: Deactivate: $($item.PersonID)"
+
+        if ($item.GoogleCurrentLicenses) {
+            $skuNames = ($item.GoogleCurrentLicenses | ForEach-Object { if ($_.skuName) { $_.skuName } else { $_.skuId } }) -join ', '
+            Write-Log -Message "Google: Deactivation will remove licenses from $($item.PersonID): $skuNames"
+        }
+
         $itemList += $item
     }
 

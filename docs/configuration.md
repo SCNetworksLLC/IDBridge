@@ -47,11 +47,15 @@ the guard off (older configs keep working).
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `Enabled`         | bool   | Gate Google token acquisition at startup. | `Initialize-IDBridge` |
-| `googleAuthScope` | string | Space-separated OAuth scopes (directory user/orgunit/group + spreadsheets). | `Get-GoogleApiAccessToken` |
 | `adminEmail`      | string | Delegated admin the service account impersonates. | `Get-GoogleApiAccessToken` |
 
 > The service-account key itself is the vault secret `GoogleAuth-ServiceAccount`
 > (see [secrets.md](secrets.md)) — no file path is configured or discovered.
+> OAuth **scopes are not configured** — they're defined by the module
+> (`Get-IDBridgeGoogleScope`): directory user/orgunit/group + Sheets, plus
+> `apps.licensing` unless `Google.enableLicenseRemoval = $false`. The paste-ready list for
+> a domain-wide delegation grant is in
+> [google-bootstrap.md](google-bootstrap.md#the-forever-manual-finish-printed-as-a-checklist).
 
 ### `Google` (Workspace processing)
 | Key | Type | Effect | Read by |
@@ -64,6 +68,14 @@ the guard off (older configs keep working).
 | `enableGroupProcessingWhatIf` | bool   | Compute group diffs for logging without applying. | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip group memberships when deactivating. | `Invoke-IDBridge` |
+| `enableLicenseRemoval`        | bool   | Remove **all** of a user's discovered license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. **Default on**; set `$false` to disable (also drops the `apps.licensing` scope from token requests). | `Invoke-IDBridge` |
+| `licenseProductIds`           | array  | Products searched for a user's assignments (SKUs are discovered, not configured). Default `@('Google-Apps','101031','101037')`. IDs: [Google's product list](https://developers.google.com/workspace/admin/licensing/how-to/products). | `Get-TargetDataGoogle` |
+
+> License removal (on by default) needs the `https://www.googleapis.com/auth/apps.licensing`
+> scope in the service account's **domain-wide delegation** (Admin console → Security → API
+> controls) — without it, token acquisition fails for the whole run. Bootstrap-created DWD
+> grants already include it; pre-bootstrap deployments must add it (or set
+> `enableLicenseRemoval = $false`).
 
 ### `AD` (Active Directory processing)
 | Key | Type | Effect | Read by |
@@ -172,7 +184,6 @@ Derived from `-RootPath` (default `C:\IDBridge`); missing directories are create
 |-------------------|-------------------------------|---------|
 | `Root`            | `<RootPath>`                  | Base directory |
 | `ConfigRoot`      | `<Root>\Config`               | Holds `IDBridgeConfig.psd1` |
-| `AuthRoot`        | `<Root>\Auth`                 | Reserved (legacy auth files; secrets now live in the vault) |
 | `LogsRoot`        | `<Root>\Logs`                 | `IDBridge.log` (rotated at 5 MB) |
 | `ExportsRoot`     | `<Root>\Exports`              | `UserList-Staff.csv` and other exports |
 | `PluginsRoot`     | `<Root>\Plugins`              | Plugin `.ps1` files |
@@ -201,9 +212,9 @@ key. **Only names/locations are documented here — never values.** See [secrets
 
 ## Behavioral notes
 
-- **Auth-fail cascade:** if `Initialize-IDBridge` can't produce `$script:GoogleHeaders`,
-  it forces `Google.enabled = $false`. Disabling Google or AD also disables that side's
-  `enableGroupProcessing`.
+- **Auth failures throw:** if `Initialize-IDBridge` can't read the Google key secret or
+  acquire a token, the run fails at startup (no silent degradation). Disabling Google or AD
+  (config or `-SkipGoogle`/`-SkipAD`) also disables that side's `enableGroupProcessing`.
 - **WhatIf vs. ReadOnly:** `Debug.ReadOnly` blocks *all* writes; `enableGroupProcessingWhatIf`
   scopes only group changes to log-only while other writes still happen (when not ReadOnly).
 - **Safe default:** the shipped config has `Debug.ReadOnly = $true` and AD/Google group

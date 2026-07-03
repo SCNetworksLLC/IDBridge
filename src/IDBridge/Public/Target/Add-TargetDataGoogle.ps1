@@ -5,8 +5,9 @@ Attach current Google Workspace state to each source record.
 .DESCRIPTION
 For every source record, looks up the matching Google user in GoogleData.LookupByID by PersonID
 and, when found, adds GoogleObject, GoogleCurrentUserID (ID), GoogleCurrentUserSuspendedStatus,
-and GoogleCurrentGroups. Records whose PersonID matches a duplicate externalId are flagged with
-GoogleDuplicateIDStatus = 'DUPLICATE_ID'. Emits a new enriched record per input record.
+GoogleCurrentGroups, and GoogleCurrentLicenses. Records whose PersonID matches a duplicate
+externalId are flagged with GoogleDuplicateIDStatus = 'DUPLICATE_ID'. Emits a new enriched
+record per input record.
 
 .PARAMETER SourceData
 The source records to enrich. An empty collection is allowed.
@@ -48,6 +49,7 @@ function Add-TargetDataGoogle {
             $obj["GoogleCurrentUserID"]              = $googleObject.ID
             $obj["GoogleCurrentUserSuspendedStatus"] = $googleObject.suspended
             $obj["GoogleCurrentGroups"]              = $googleObject.CurrentGroups
+            $obj["GoogleCurrentLicenses"]            = $googleObject.CurrentLicenses
         }
         if ($item.PersonID -in $GoogleData.DuplicateUsers.OrgID) {
             $obj["GoogleDuplicateIDStatus"] = "DUPLICATE_ID"

@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.2.0'
+    ModuleVersion     = '26.7.3.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -50,6 +50,7 @@
         'New-IDBridgeGoogleUser'
         'Update-IDBridgeGoogleUser'
         'Update-GoogleGroupMembers'
+        'Remove-IDBridgeGoogleUserLicense'  # Deletes configured license SKUs from a user on the deactivate (trash) step.
 
         # Google Sheets helpers
         'Get-GoogleSheetData'
@@ -71,8 +72,10 @@
         'New-IDBridgeSecretCertificate'  # Creates the Document Encryption certificate used by the Cms provider.
 
         #Auth
+        'Connect-IDBridgeGoogle'   # Vault key -> DWD JWT -> bearer headers; standalone auth verification after bootstrap/DWD changes.
         'Get-GoogleApiAccessToken'
         'Get-GoogleHeaders'
+        'Initialize-IDBridgeGoogleServiceAccount'  # One-command bootstrap: project, APIs, service account, key into vault, DWD checklist.
 
         # Logging & lifecycle
         'Write-Log'

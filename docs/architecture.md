@@ -11,24 +11,30 @@ which prepares all global state:
 
 1. **Load config** — `Import-PowerShellDataFile` of
    `<RootPath>\Config\IDBridgeConfig.psd1` → `$script:IDBridgeConfig`.
-2. **Build & validate paths** — computes `Paths.{Root,ConfigRoot,AuthRoot,LogsRoot,
-   ExportsRoot,PluginsRoot,DataRoot,VaultRoot}`, creating any missing directory.
+2. **Build & validate paths** — computes `Paths.{Root,ConfigRoot,LogsRoot,ExportsRoot,
+   PluginsRoot,DataRoot,VaultRoot}`, creating any missing directory.
 3. **Logging** — sets `Paths.LogFile = <LogsRoot>\IDBridge.log`, inits the in-memory
    buffer `$script:Logs`, and **rotates the log if it exceeds 5 MB** (renames with a
    timestamp). Writes the run-start marker.
-4. **Google auth** (if `GoogleToken.Enabled`) — reads the service-account key JSON from
-   the secret vault (`Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount'`; **no file
-   fallback**), validates it has a `private_key`, then calls `Get-GoogleApiAccessToken`
-   (JWT → bearer token via domain-wide delegation to `GoogleToken.adminEmail`) and stores
-   the result in `$script:GoogleHeaders`.
-5. **AD module** (if `AD.enabled`) — `Import-Module ActiveDirectory`. On failure it
+4. **AD module** (if `AD.enabled`) — `Import-Module ActiveDirectory`. On failure it
    throws **unless** `Debug.skipADCheck` is set.
-6. **Feature-dependency cascade** — if Google auth never produced headers, force
-   `Google.enabled = $false`; disabling Google/AD also disables their group processing.
+5. **Feature-dependency cascade** — disabling Google/AD also disables their group
+   processing.
 
-Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig` and applies **runtime
-switch overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
--SkipChangeThreshold`), logging each as `OVERRIDE: <key> = <value>`. Switches win over the config file.
+Note Google auth is **not** part of `Initialize-IDBridge` — a fresh install can therefore
+initialize cleanly and seed secrets/run the bootstrap before the Google key exists.
+
+Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig`, applies **runtime switch
+overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
+-SkipChangeThreshold`), logging each as `OVERRIDE: <key> = <value>` (switches win over the
+config file), and **acquires Google auth** (if `GoogleToken.Enabled`) via
+`Connect-IDBridgeGoogle`: reads the service-account key JSON from the secret vault
+(`Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount'`; **no file fallback**), validates
+it has a `private_key`, then calls `Get-GoogleApiAccessToken` (JWT → bearer token via
+domain-wide delegation to `GoogleToken.adminEmail`) into `$script:GoogleHeaders`. An auth
+failure throws rather than degrading — disable Google intentionally with
+`GoogleToken.Enabled = $false` (`-SkipGoogle` disables processing but still acquires
+headers for Sheets plugins and sheet logging).
 
 ## The ordered pipeline
 
@@ -38,8 +44,9 @@ startup/OU-creation failures `Throw` and abort the run.
 
 ```
 Invoke-IDBridge
-  └─ Initialize-IDBridge ──► $script:IDBridgeConfig / $script:Logs / $script:GoogleHeaders
+  └─ Initialize-IDBridge ──► $script:IDBridgeConfig / $script:Logs
   └─ apply -switch overrides
+  └─ Connect-IDBridgeGoogle (GoogleToken.Enabled) ──► $script:GoogleHeaders
         │
   1. Invoke-SourcePlugins ───────────► $sourceData (Source), $overrideData (Override)
         each Source plugin's output is built via New-IDBridgeSourceRecord and
@@ -78,7 +85,8 @@ Invoke-IDBridge
        Rename-ADObject → Move-ADObject → New-ADUser (create) →
        [refresh group list if users created] → Add/Remove group membership
  11. EXECUTE Google changes  (only if Google.enabled AND Debug.readOnly = $false)
-       New-IDBridgeGoogleOrgUnit → Update-IDBridgeGoogleUser (suspend+trash deactivates) →
+       New-IDBridgeGoogleOrgUnit → Update-IDBridgeGoogleUser (suspend+trash deactivates,
+       + Remove-IDBridgeGoogleUserLicense when enableLicenseRemoval) →
        Update-IDBridgeGoogleUser (update/move/rename) → New-IDBridgeGoogleUser (create) →
        [refresh group list if users created] → Update-GoogleGroupMembers add/remove
         │
@@ -129,8 +137,9 @@ their group memberships in the same run, using the GUID/ID returned by the creat
 
 ## State & logging model
 
-- **Global state** (script scope): `$script:IDBridgeConfig`, `$script:Logs`,
-  `$script:GoogleHeaders` — all set by `Initialize-IDBridge`, read via their accessors.
+- **Global state** (script scope): `$script:IDBridgeConfig` and `$script:Logs` set by
+  `Initialize-IDBridge`; `$script:GoogleHeaders` set by `Connect-IDBridgeGoogle` (called
+  by `Invoke-IDBridge` at run start) — all read via their accessors.
 - **`Write-Log`** writes to three places: the rotating file (`Paths.LogFile`), the
   in-memory `$script:Logs` list, and the console (mapped to Error/Warning/Verbose).
   `Trace`-level messages are suppressed unless `Debug.TraceLogging = $true`.

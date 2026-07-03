@@ -4,7 +4,8 @@ Top-level orchestrator: provision and synchronize AD and Google Workspace accoun
 
 .DESCRIPTION
 Entry point for an IDBridge run. Calls Initialize-IDBridge, applies the runtime switch
-overrides, then runs the ordered pipeline: gather source data from the configured plugins, read
+overrides, acquires the Google bearer token via Connect-IDBridgeGoogle (when
+GoogleToken.Enabled), then runs the ordered pipeline: gather source data from the configured plugins, read
 current AD/Google state, enrich and de-duplicate the source records, apply override rows, match
 person IDs to existing accounts, and compute every change list (org units, deactivations,
 updates/renames/moves, creates, and group membership) read-only. Before any writes it runs the
@@ -14,7 +15,7 @@ finally block) pushes the run log to a Google Sheet when configured. Per-user wr
 logged and skipped; startup/OU-creation failures and a tripped change threshold abort the run.
 
 .PARAMETER RootPath
-Base directory for Config/Auth/Logs/Exports/Plugins/Data. Defaults to C:\IDBridge.
+Base directory for Config/Logs/Exports/Plugins/Data/Vault. Defaults to C:\IDBridge.
 
 .PARAMETER ReadOnly
 Override Debug.readOnly for this run. When set, every change list is computed but nothing is written.
@@ -86,6 +87,20 @@ function Invoke-IDBridge {
             Write-Log -Message "OVERRIDE: $key = $($PSBoundParameters[$key])" -Level Info
         }
         #endregion Apply Runtime Overrides
+
+
+
+
+        #region Google Auth
+        # Acquired here (not in Initialize-IDBridge) so setup sessions initialize cleanly
+        # before the key secret exists. Gated on GoogleToken.Enabled only: -SkipGoogle runs
+        # still need headers for Sheets plugins and Google Sheet logging.
+        if ($IDConfig.GoogleToken.Enabled -eq $true) {
+            try { Connect-IDBridgeGoogle } catch { Throw }
+        } else {
+            Write-Log -Message "Google API integration is disabled. Google-related functions will be skipped." -Level Trace
+        }
+        #endregion Google Auth
 
 
 
@@ -200,6 +215,7 @@ function Invoke-IDBridge {
                 $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserID' -Value $matchGoogle.ID -Force
                 $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentGroups' -Value $matchGoogle.Groups -Force
                 $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserSuspendedStatus' -Value $matchGoogle.SuspendedStatus -Force
+                $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentLicenses' -Value $matchGoogle.User.CurrentLicenses -Force
                 $googleData.LookupByID[$item.personID] = $matchGoogle.User
             }
         }
@@ -439,6 +455,11 @@ function Invoke-IDBridge {
                             Write-Log -Message ($_.Exception.Message) -Level Error
                         }
                     }
+                }
+
+                #Remove licenses (full deactivate path only, never on ForceDisable updates; on by default)
+                if ($IDConfig.Google.enableLicenseRemoval -ne $false) {
+                    Remove-IDBridgeGoogleUserLicense -UserEmail $item.GoogleObject.primaryEmail -Assignments $item.GoogleCurrentLicenses
                 }
             }
 

@@ -5,12 +5,17 @@
 .DESCRIPTION
     Connects to Google Workspace using the provided authentication headers and configuration.
     Returns a single object containing:
-      - All users (with a CurrentGroups property listing their group memberships)
+      - All users (with a CurrentGroups property listing their group memberships, and a
+        CurrentLicenses property listing their license assignments unless
+        Google.enableLicenseRemoval = $false)
       - All groups (excluding "classroom_teachers")
       - All organizational units
 
     For each group, retrieves its members and builds a hashtable mapping user emails to their group memberships.
     Each user object in the returned collection has a CurrentGroups property containing the list of groups they belong to.
+    License assignments are enumerated per product (Google.licenseProductIds, default
+    Workspace/Education + Teaching and Learning) via the Enterprise License Manager API so
+    the deactivate step can decide and log removals without extra lookups at write time.
 
 .OUTPUTS
     PSCustomObject
@@ -211,6 +216,54 @@ function Get-TargetDataGoogle {
         }
     }
     #endregion Google Groups and Memberships
+
+
+
+
+    #region Google License Assignments
+    #License removal is on by default; attach each user's assignments so the deactivate
+    #step can decide (and log) removals without extra lookups at write time
+    $userLicensesCurrent = @{}
+    if ($IDConfig.Google.enableLicenseRemoval -ne $false) {
+        Write-Log -Message "Google: Fetching License Assignments" -Level Trace
+
+        # Product IDs are a small public catalog (SKUs are discovered, not configured):
+        # Google-Apps = Workspace/Education Fundamentals, 101031 = Education Standard/Plus,
+        # 101037 = Teaching and Learning Upgrade. Override with Google.licenseProductIds.
+        $productIds = if ($IDConfig.Google.licenseProductIds) { $IDConfig.Google.licenseProductIds } else { @('Google-Apps', '101031', '101037') }
+
+        foreach ($productId in $productIds) {
+            try {
+                $assignments = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://licensing.googleapis.com/apps/licensing/v1/product/" + [uri]::EscapeDataString($productId) + "/users?customerId=" + $IDConfig.Google.customerID + "&maxResults=1000") -ErrorAction Stop
+            }
+            catch {
+                Write-Log -Message "Google: Error listing license assignments for product $productId. Ensure https://www.googleapis.com/auth/apps.licensing is in the service account's domain-wide delegation and the Enterprise License Manager API is enabled in its project, or set Google.enableLicenseRemoval = `$false." -Level Error
+                Throw $_
+            }
+
+            foreach ($assignment in $assignments) {
+                #Add user to hashtable, create entry if it doesn't exist
+                if (-not $userLicensesCurrent.ContainsKey($assignment.userId.ToLower())) {
+                    $userLicensesCurrent[$assignment.userId.ToLower()] = @()
+                }
+
+                #Add the assignment to the user's list
+                $userLicensesCurrent[$assignment.userId.ToLower()] += $assignment
+            }
+        }
+        Write-Log -Message ("Google: Fetched license assignments for $($userLicensesCurrent.Count) users") -Level Trace
+    }
+
+    #Add Licenses to User Object
+    foreach ($user in $googleUsers) {
+        #Check if the user is in the hashtable and add licenses if they exist
+        if ($userLicensesCurrent.ContainsKey($user.primaryEmail.ToLower())) {
+            $user | Add-Member -MemberType NoteProperty -Name CurrentLicenses -Value $userLicensesCurrent[$user.primaryEmail.ToLower()]
+        } else {
+            $user | Add-Member -MemberType NoteProperty -Name CurrentLicenses -Value @()
+        }
+    }
+    #endregion Google License Assignments
 
 
 

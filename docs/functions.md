@@ -12,14 +12,17 @@ Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (
 
 ### `Invoke-IDBridge` 🌐
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
--TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold`. Runs the full
-pipeline (see architecture.md). **Returns:** nothing; side effects + CSV export + log push.
+-TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold`. Calls
+`Initialize-IDBridge`, applies switch overrides, acquires the Google token (when
+`GoogleToken.Enabled`) from the vault secret `GoogleAuth-ServiceAccount` →
+`$script:GoogleHeaders`, then runs the full pipeline (see architecture.md). **Returns:**
+nothing; side effects + CSV export + log push.
 
 ### `Initialize-IDBridge` 🌐
-Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), acquires Google
-token → `$script:GoogleHeaders`, imports AD module, applies feature cascade. **Params:**
-`-RootPath`. **Returns:** nothing; sets `$script:IDBridgeConfig`, `$script:Logs`,
-`$script:GoogleHeaders`.
+Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), imports AD
+module, applies feature cascade. No Google auth — that happens in `Invoke-IDBridge`, so a
+fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`.
+**Returns:** nothing; sets `$script:IDBridgeConfig`, `$script:Logs`.
 
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.
@@ -177,8 +180,10 @@ detects duplicate `EmployeeID`s; builds `LookupByID` keyed by EmployeeID. **Retu
 ### `Get-TargetDataGoogle` 🌐
 No params. Pulls all Google users (via `Get-GoogleData`), groups (excludes
 `classroom_teachers`), and OUs; fetches group members **in parallel** (throttle 10) into
-`CurrentGroups`; detects duplicate `externalIds`; builds `LookupByID` keyed by externalID.
-**Returns:** `@{ Users; Groups; OrgUnits; DuplicateUsers; LookupByID; Students; Staff }`.
+`CurrentGroups`; enumerates license assignments per `Google.licenseProductIds` product into
+`CurrentLicenses` (skipped when `enableLicenseRemoval = $false`); detects duplicate
+`externalIds`; builds `LookupByID` keyed by externalID.
+**Returns:** `@{ Users; Groups; OrgUnits; DuplicateUsers; LookupByID }`.
 
 ### `Add-TargetDataAD` 🧮
 **Params:** `-SourceData`, `-ADData`. For each source record, if `LookupByID[personID]`
@@ -188,7 +193,7 @@ hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 ### `Add-TargetDataGoogle` 🧮
 **Params:** `-SourceData`, `-GoogleData`. As above for Google: `GoogleObject`,
 `GoogleCurrentUserID`, `GoogleCurrentUserSuspendedStatus`, `GoogleCurrentGroups`,
-`GoogleDuplicateIDStatus`. **Returns:** enriched array.
+`GoogleCurrentLicenses`, `GoogleDuplicateIDStatus`. **Returns:** enriched array.
 
 ---
 
@@ -282,7 +287,8 @@ honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; Splat }[]`.
 
 ### `Get-GoogleUsersToDeactivate` 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionGoogle=false)` AND
-`GoogleCurrentUserSuspendedStatus=false`. **Returns:** user objects.
+`GoogleCurrentUserSuspendedStatus=false`. Logs the licenses the deactivate step will remove
+(from `GoogleCurrentLicenses`) — visible in ReadOnly runs. **Returns:** user objects.
 
 ### `Get-GoogleUserGroupsToUpdate` 🧮
 **Params:** `-UserList`, `-GoogleGroups` (nullable), `-GroupPrimaryDomainName`. Diffs
@@ -312,6 +318,33 @@ alias. Used for updates, moves, renames, and suspend-to-trash deactivations.
 ### `Update-GoogleGroupMembers` 🌐
 **Params:** `-GroupEmail`, `-PersonID`, `-UpdateType {Add|Remove}`. Add → POST
 `/groups/{email}/members` (role MEMBER); Remove → DELETE `/groups/{email}/members/{id}`.
+
+### `Connect-IDBridgeGoogle` 🌐
+No params. Reads the `GoogleAuth-ServiceAccount` vault secret, validates the `private_key`,
+exchanges the DWD JWT via `Get-GoogleApiAccessToken`, and sets `$script:GoogleHeaders`.
+Called by `Invoke-IDBridge` at run start (when `GoogleToken.Enabled`); run it standalone to
+verify the auth chain after seeding the key or changing the DWD grant
+(`unauthorized_client` ⇒ the DWD client ID/scopes don't match). Throws on any failure.
+
+### `Initialize-IDBridgeGoogleServiceAccount` 🌐
+**Params:** `-ProjectId` (default `idbridge-<random>` with `-CreateProject`), `-ProjectName`
+(def `'IDBridge'`), `-CreateProject`, `-ServiceAccountName` (def `'idbridge'`),
+`-AccessToken` (SecureString, skips the interactive tiers). One-command Google-side
+bootstrap run in the district's tenant: tiered sign-in (token → gcloud → OAuth Playground)
+→ org discovery (orchestrates the first-console-visit terms acceptance) → project → enable
+APIs → service account → key seeded straight into the vault (never on disk), with a
+self-grant/exempt/revoke org-policy dance only if key creation is blocked. Prints the
+manual DWD checklist. **Returns:** `@{ ProjectId; ServiceAccountEmail; ClientId }`. See
+[google-bootstrap.md](google-bootstrap.md).
+
+### `Remove-IDBridgeGoogleUserLicense` 🌐
+**Params:** `-UserEmail` (the Licensing API user key), `-Assignments` (the user's license
+assignments from the target snapshot, `GoogleCurrentLicenses`; empty = no-op). One DELETE
+per assignment, logging every removal by SKU name; per-assignment errors are logged and
+don't stop the rest. Called by `Invoke-IDBridge` on the full deactivate (trash) step (on by
+default; `enableLicenseRemoval = $false` disables) — never on `ForceDisable` updates.
+License discovery happens in `Get-TargetDataGoogle`, so ReadOnly runs show what would be
+removed.
 
 ### `Push-LogsToSheet` 🌐
 **Params:** `-spreadsheetId`, `-sheetName`. Pulls `Get-IDBridgeLogs`, creates the sheet/
