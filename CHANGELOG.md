@@ -5,7 +5,7 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
-## [Unreleased]
+## [26.7.3.0] - 2026-07-03
 
 > Supersedes the earlier unreleased SecretManagement-based secrets work: the external-module
 > stack (`Microsoft.PowerShell.SecretManagement` / `SecretStore` / `SecretManagement.DpapiNG`)
