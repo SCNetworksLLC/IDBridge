@@ -55,11 +55,6 @@ function Get-TargetDataGoogle {
     catch {
         Throw $_
     }
-
-    #Get Students & Staff Only
-    $googleStudents = $googleUsers | Where-Object {$_.orgUnitPath -like "*/Students/*" -and $_.orgUnitPath -notlike "*Trash*"}
-    $googleStaff = $googleUsers | Where-Object {$_.orgUnitPath -like "*/Staff/*" -and $_.orgUnitPath -notlike "*Trash*"}
-
     #endregion Get Google Users
 
 
@@ -280,7 +275,5 @@ function Get-TargetDataGoogle {
         OrgUnits          = $googleOrgUnits
         DuplicateUsers    = $duplicateUsers
         LookupByID        = $googleUsersLookupByID
-        Students          = $googleStudents
-        Staff             = $googleStaff
     }
 }
