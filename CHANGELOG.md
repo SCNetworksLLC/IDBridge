@@ -5,6 +5,46 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.5.0] - 2026-07-05
+
+### Added
+- **`Invoke-GoogleBatchRequest`.** Sends multiple Google Directory API calls in one
+  `multipart/mixed` batch HTTP request (chunked 50 per batch) and parses the multipart
+  response back into per-call results keyed by `Content-ID`. Per-call failures are logged
+  and returned; they do not stop the remaining calls. Note batching reduces round trips
+  (wall-clock time), not quota — every inner call still counts against the API rate limit.
+- **`-AsBatchRequest` on `New-IDBridgeGoogleUser` / `Update-IDBridgeGoogleUser`.** Returns
+  the request descriptor (method/path/body/content-ID) for `Invoke-GoogleBatchRequest`
+  instead of calling the API. An `-RemoveAlias` pre-step still executes immediately so the
+  alias is free before the batched update lands.
+### Documentation
+- Documented the exact scope of alias removal on renames in [docs/functions.md](docs/functions.md)
+  (behavior unchanged): it fires only when a rename's new UPN is in use as another user's
+  alias, removes only that one blocking alias, and never cleans up the alias Google
+  auto-creates from the old primary email on a renamed account.
+
+### Fixed
+- **Name-matched inactive accounts now get their personID persisted on deactivation.** The
+  externalId write previously only happened via the update list, which covers active users
+  only — so an inactive user matched by UPN+name was suspended but never linked, and was
+  re-matched (and re-logged) on every subsequent run. The deactivate step now includes the
+  personID externalId in its suspend+trash update whenever the Google account doesn't have
+  it yet, and `Get-GoogleUsersToDeactivate` logs this at decide time (visible in ReadOnly).
+
+### Changed
+- **"No user found with EmployeeID" is now Trace-level.** `Get-GoogleUsersToSetEmployeeID`
+  logged this at Info for every unlinked source user each run, including inactive rows with
+  no Google account where nothing can ever change; those now get an accurate
+  "inactive and has no Google account — nothing to reconcile" Trace message instead.
+- **Google user writes are now batched.** The execute phase sends deactivates (suspend +
+  move-to-trash), updates, and creates as three separate sequential batches — types are
+  never mixed in one batch because Google does not guarantee execution order within a
+  batch, and cross-type order matters (deactivates → updates → creates, as before). New
+  Google IDs from batched creates are matched back to source records by `primaryEmail` for
+  the same-run group-membership refresh. Group membership and license removal calls are
+  unchanged (sequential). No change to decide-then-act, `ReadOnly`, or the change-threshold
+  guard — batching only affects how already-approved writes are transmitted.
+
 ## [26.7.3.0] - 2026-07-03
 
 > Supersedes the earlier unreleased SecretManagement-based secrets work: the external-module

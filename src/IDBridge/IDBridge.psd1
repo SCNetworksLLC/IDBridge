@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.3.0'
+    ModuleVersion     = '26.7.5.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -51,6 +51,7 @@
         'Update-IDBridgeGoogleUser'
         'Update-GoogleGroupMembers'
         'Remove-IDBridgeGoogleUserLicense'  # Deletes configured license SKUs from a user on the deactivate (trash) step.
+        'Invoke-GoogleBatchRequest'  # Sends multiple Directory API calls in one multipart/mixed batch HTTP request.
 
         # Google Sheets helpers
         'Get-GoogleSheetData'
@@ -98,7 +99,7 @@
 
     PrivateData = @{
         PSData = @{
-            Tags         = @('ActiveDirectory', 'GoogleWorkspace', 'Identity', 'Provisioning', 'SIS')
+            Tags         = @('ActiveDirectory', 'GoogleWorkspace', 'Identity', 'Provisioning', 'SIS', 'Skyward', 'InfiniteCampus')
             ProjectUri   = 'https://github.com/SCNetworksLLC/IDBridge'
             LicenseUri   = 'https://github.com/SCNetworksLLC/IDBridge/blob/main/LICENSE'
             ReleaseNotes = 'See CHANGELOG.md'

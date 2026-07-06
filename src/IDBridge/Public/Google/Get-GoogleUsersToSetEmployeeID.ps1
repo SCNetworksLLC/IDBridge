@@ -43,7 +43,12 @@ function Get-GoogleUsersToSetEmployeeID {
 
     foreach ($item in $UserList | Where-Object {-not $_.GoogleCurrentUserID}) {
         $googleUser = $null
-        Write-Log -Message ("Google: No user found with EmployeeID: " + $item.personID)
+
+        if ($item.UPN -notin $GoogleUsers.primaryEmail -and $item.IDBActive -eq $false) {
+            Write-Log -Message ("Google: No user found with EmployeeID: $($item.personID). Source user is inactive and has no Google account - nothing to reconcile.") -Level Trace
+        } else {
+            Write-Log -Message ("Google: No user found with EmployeeID: " + $item.personID) -Level Trace
+        }
 
         if ($item.UPN -in $GoogleUsers.primaryEmail) {
             $googleUser = ($GoogleUsers | Where-Object {$_.primaryEmail -eq $item.UPN})

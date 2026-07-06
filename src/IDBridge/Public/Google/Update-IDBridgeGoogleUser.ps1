@@ -50,6 +50,12 @@
     (Optional) An email alias to remove from whichever user currently holds it before applying the
     update (used when a new primaryEmail collides with an existing alias). The alias is not removed
     if it is that user's primary email. Auth headers are obtained internally via Get-GoogleHeaders.
+    The alias removal always runs immediately, even with -AsBatchRequest.
+
+.PARAMETER AsBatchRequest
+    (Optional) Instead of calling the API, return a request descriptor hashtable
+    (Method/Path/Body/ContentId) for Invoke-GoogleBatchRequest. Any RemoveAlias pre-step still
+    executes immediately so the alias is free before the batched update is sent.
 
 .EXAMPLE
     Update-IDBridgeGoogleUser -GoogleUserID "user12345" -PrimaryEmail "newemail@example.com" -Suspended "false"
@@ -107,7 +113,10 @@ function Update-IDBridgeGoogleUser() {
         [String]$ChangeAtNextLogin,
 
         [parameter(Mandatory=$false)]  # RemoveAlias is optional; if provided, it will remove the alias defined here
-        [string]$RemoveAlias
+        [string]$RemoveAlias,
+
+        [parameter(Mandatory=$false)]  # Return a batch request descriptor instead of calling the API
+        [switch]$AsBatchRequest
     )
 
     #Import Google API Headers (with access token)
@@ -215,11 +224,21 @@ function Update-IDBridgeGoogleUser() {
 
     # If there are any fields to update, send the API request to update the user
     if ($updateFields) {
-        # Construct the API URL for updating the user
-        $url = ("https://admin.googleapis.com/admin/directory/v1/users/" + $GoogleUserID)
-
         # Convert the update fields to JSON format for the request body
         $body = $updateFields | ConvertTo-Json -Depth 10
+
+        # If AsBatchRequest is set, return the request descriptor for Invoke-GoogleBatchRequest
+        if ($AsBatchRequest) {
+            return @{
+                Method    = "PUT"
+                Path      = "/admin/directory/v1/users/$GoogleUserID"
+                Body      = $body
+                ContentId = $GoogleUserID
+            }
+        }
+
+        # Construct the API URL for updating the user
+        $url = ("https://admin.googleapis.com/admin/directory/v1/users/" + $GoogleUserID)
 
         # Send the PUT request to the API
         try {

@@ -44,6 +44,11 @@
     (Optional) A flag to indicate if the user should be prompted to change their password at the next login.
     If specified, the user's password will be flagged for change.
 
+.PARAMETER AsBatchRequest
+    (Optional) Instead of calling the API, return a request descriptor hashtable
+    (Method/Path/Body/ContentId) for Invoke-GoogleBatchRequest. ContentId is the new user's
+    primary email so the batch response (with the new Google ID) can be matched back.
+
 .EXAMPLE
     New-IDBridgeGoogleUser -PrimaryEmail "newuser@example.com" -PersonID "12345" -FirstName "John" -LastName "Doe" 
                         -OrgUnitPath "/students" -Password "SecurePassword123" -tokenInformation $authToken
@@ -90,7 +95,10 @@ function New-IDBridgeGoogleUser() {
         
         [parameter(Mandatory=$false)]
         [ValidateSet("true", "false")]
-        [String]$ChangeAtNextLogin # Optional parameter to force password change at the next login
+        [String]$ChangeAtNextLogin, # Optional parameter to force password change at the next login
+
+        [parameter(Mandatory=$false)]
+        [switch]$AsBatchRequest # Return a batch request descriptor instead of calling the API
     )
 
     #Import Google API Headers (with access token)
@@ -158,11 +166,21 @@ function New-IDBridgeGoogleUser() {
 
     # If there are any user fields to send, proceed with the API request
     if ($newUserFields) {
-        # Define the API URL for creating a new user
-        $url = ("https://admin.googleapis.com/admin/directory/v1/users/")
-
         # Convert the user fields hashtable to JSON format
         $body = $newUserFields | ConvertTo-Json -Depth 10
+
+        # If AsBatchRequest is set, return the request descriptor for Invoke-GoogleBatchRequest
+        if ($AsBatchRequest) {
+            return @{
+                Method    = "POST"
+                Path      = "/admin/directory/v1/users"
+                Body      = $body
+                ContentId = $newUserFields["primaryEmail"]
+            }
+        }
+
+        # Define the API URL for creating a new user
+        $url = ("https://admin.googleapis.com/admin/directory/v1/users/")
 
         # Send the POST request to the Google Admin API
         try {

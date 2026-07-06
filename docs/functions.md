@@ -265,8 +265,10 @@ JWT, exchanges it at `https://oauth2.googleapis.com/token`. **Returns:**
 
 ### `Get-GoogleUsersToSetEmployeeID` 🧮
 **Params:** `-UserList`, `-GoogleUsers`. Matches **any unlinked** source user (active or not)
-to existing Google users by primaryEmail+name. **Returns:** hashtable `personID → @{ ID; Groups;
-SuspendedStatus; User }`.
+to existing Google users by primaryEmail+name. Unlinked users with no Google account at all are
+logged at Trace only (inactive ones with an explicit "nothing to reconcile" message — inactive
+source rows with no account are expected and recur until the row leaves the source feed).
+**Returns:** hashtable `personID → @{ ID; Groups; SuspendedStatus; User }`.
 
 ### `Get-GoogleOrgUnitsForProcessing` 🧮
 **Params:** `-UserList`, `-UserRootOU`, `-CurrentOrgUnits`. Collects needed OU paths
@@ -285,10 +287,25 @@ honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; Splat }[]`.
 `RemoveAlias`), externalId, name, dept/title, suspended state (incl. `ForceDisable`), or OU
 (unless `GoogleOUOverride`). **Returns:** `@{ UPN; Splat }[]` only for changed users.
 
+> **Alias removal on renames — exact scope.** `RemoveAlias` is set only when ALL of these
+> hold: the user is being *renamed* (desired UPN ≠ current primaryEmail), the new UPN is
+> *not* anyone's primary email (that case skips the rename with an error), and the new UPN
+> *is* currently on some user as an **alias**. At execute time exactly that one alias is
+> deleted from its holder (refused if it's actually their primary) so the rename PUT doesn't
+> 409 — no other aliases on anyone are ever touched. The conflict is logged as a warning at
+> decide time, so ReadOnly runs show which alias would be stripped from whom. Note Google
+> automatically keeps the *old* primary email as an alias on a renamed account; IDBridge does
+> not clean those up, and they are the usual source of these conflicts (e.g. a name-change
+> rename freeing an address a later hire should get). The alias holder can be the renamed
+> user themselves (renaming back to an address Google kept as their own alias) — that works.
+
 ### `Get-GoogleUsersToDeactivate` 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionGoogle=false)` AND
 `GoogleCurrentUserSuspendedStatus=false`. Logs the licenses the deactivate step will remove
-(from `GoogleCurrentLicenses`) — visible in ReadOnly runs. **Returns:** user objects.
+(from `GoogleCurrentLicenses`) — visible in ReadOnly runs. Also logs when the deactivate step
+will set the personID externalId: accounts matched by UPN+name have no externalId yet, and the
+update list only covers active users, so the deactivate write persists the link (otherwise the
+account would be re-matched every run). **Returns:** user objects.
 
 ### `Get-GoogleUserGroupsToUpdate` 🧮
 **Params:** `-UserList`, `-GoogleGroups` (nullable), `-GroupPrimaryDomainName`. Diffs
@@ -302,14 +319,27 @@ source. **Returns:** `@{ GoogleCurrentUserID; GoogleOrganizationalUnitTrash; Gro
 
 ### `New-IDBridgeGoogleUser` 🌐
 **Params:** `-PrimaryEmail`, `-PersonID`, `-FirstName`, `-LastName`, `-Building`,
-`-JobTitle`, `-OrgUnitPath`, `-Password` (SecureString), `-ChangeAtNextLogin`. POST
-`/users/`. **Returns:** API user object (has `.ID`).
+`-JobTitle`, `-OrgUnitPath`, `-Password` (SecureString), `-ChangeAtNextLogin`,
+`-AsBatchRequest`. POST `/users/`. **Returns:** API user object (has `.ID`), or with
+`-AsBatchRequest` the request descriptor for `Invoke-GoogleBatchRequest` (ContentId =
+primaryEmail, so the new ID can be matched back from the batch response).
 
 ### `Update-IDBridgeGoogleUser` 🌐
 **Params:** `-GoogleUserID` + any of `-PrimaryEmail -Suspended -PersonID -FirstName
--LastName -Building -JobTitle -OrgUnitPath -Password -ChangeAtNextLogin -RemoveAlias`.
-PUT `/users/{id}` with only changed fields; `RemoveAlias` does a lookup + DELETE on the
-alias. Used for updates, moves, renames, and suspend-to-trash deactivations.
+-LastName -Building -JobTitle -OrgUnitPath -Password -ChangeAtNextLogin -RemoveAlias
+-AsBatchRequest`. PUT `/users/{id}` with only changed fields; `RemoveAlias` does a lookup +
+DELETE on the alias (always immediately, even with `-AsBatchRequest`). With
+`-AsBatchRequest` returns the request descriptor for `Invoke-GoogleBatchRequest` instead of
+calling the API. Used for updates, moves, renames, and suspend-to-trash deactivations.
+
+### `Invoke-GoogleBatchRequest` 🌐
+**Params:** `-Requests` (`@{ Method; Path; Body; ContentId }[]`), `-BatchUri` (def the
+Directory API batch endpoint). Sends the requests as `multipart/mixed` batch POSTs, 50 per
+round trip, and parses the multipart response manually. Per-item failures are logged and
+returned, never thrown. Google doesn't guarantee execution order inside a batch, so callers
+must not mix order-dependent calls (`Invoke-IDBridge` sends deactivates, updates, and
+creates as three sequential batches). Batching cuts round trips, not quota. **Returns:**
+`@{ ContentId; StatusCode; Body }[]`.
 
 ### `New-IDBridgeGoogleOrgUnit` 🌐
 **Params:** `-OrgUnit` (path). POST

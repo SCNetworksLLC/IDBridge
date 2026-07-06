@@ -434,17 +434,34 @@ function Invoke-IDBridge {
                 }
             }
 
-            #Disable Users
+            #Disable Users (suspend + move to trash sent as one batch; groups/licenses follow per user)
+            $googleBatchRequests = @()
             foreach ($item in $GoogleUsersToDeactivate) {
                 try {
                     Write-Log -Message ("Google: Disabling account for $($item.UPN)")
                     Write-Log -Message  ("Google: Moving account to trash: $($item.UPN)")
-                    Update-IDBridgeGoogleUser -GoogleUserID $item.GoogleCurrentUserID -OrgUnitPath $item.GoogleOrganizationalUnitTrash -Suspended 'true'
+                    $deactivateSplat = @{
+                        GoogleUserID = $item.GoogleCurrentUserID
+                        OrgUnitPath  = $item.GoogleOrganizationalUnitTrash
+                        Suspended    = 'true'
+                    }
+
+                    #Persist the personID link on accounts matched by name - the update list only covers active users, so without this the account is re-matched every run
+                    if ($item.personID -notin $item.GoogleObject.externalIds.value) {
+                        $deactivateSplat['PersonID'] = $item.personID
+                    }
+
+                    $googleBatchRequests += Update-IDBridgeGoogleUser @deactivateSplat -AsBatchRequest
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
                 }
+            }
+            if ($googleBatchRequests.Count -gt 0) {
+                Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+            }
 
+            foreach ($item in $GoogleUsersToDeactivate) {
                 if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true) {
                     foreach ($group in $item.GoogleCurrentGroups) {
                         try {
@@ -463,31 +480,45 @@ function Invoke-IDBridge {
                 }
             }
 
-            #Update, Move, Rename Users
+            #Update, Move, Rename Users (batched; any RemoveAlias pre-step runs immediately at collect time)
+            $googleBatchRequests = @()
             foreach ($item in $GoogleUsersToUpdate) {
                 try {
                     Write-Log -Message "Google: Updating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
                     $itemSplat = $item.splat
-                    Update-IDBridgeGoogleUser @itemSplat
+                    $itemRequest = Update-IDBridgeGoogleUser @itemSplat -AsBatchRequest
+
+                    #A failed RemoveAlias pre-step returns an ErrorRecord instead of a descriptor - skip those
+                    if ($itemRequest -is [hashtable]) {
+                        $googleBatchRequests += $itemRequest
+                    }
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
                 }
             }
+            if ($googleBatchRequests.Count -gt 0) {
+                Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+            }
 
-            #Create Users
+            #Create Users (batched; new Google IDs are matched back by primaryEmail from each batch response)
+            $googleBatchRequests = @()
             foreach ($item in $GoogleUsersToCreate) {
                 try {
                     Write-Log -Message "Google: Creating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
                     $itemSplat = $item.splat
-
-                    $newUserResponse = New-IDBridgeGoogleUser @itemSplat -ErrorAction Stop
-
-                    #Add the Google ID to the data object
-                    ($sourceData | Where-Object UPN -eq $itemSplat.PrimaryEmail).GoogleCurrentUserID = $newUserResponse.ID
+                    $googleBatchRequests += New-IDBridgeGoogleUser @itemSplat -AsBatchRequest -ErrorAction Stop
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                }
+            }
+            if ($googleBatchRequests.Count -gt 0) {
+                $newUserResponses = Invoke-GoogleBatchRequest -Requests $googleBatchRequests
+
+                #Add the Google IDs to the data objects
+                foreach ($newUserResponse in $newUserResponses | Where-Object { $_.StatusCode -lt 400 -and $_.Body.id }) {
+                    ($sourceData | Where-Object UPN -eq $newUserResponse.Body.primaryEmail).GoogleCurrentUserID = $newUserResponse.Body.id
                 }
             }
 
