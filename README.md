@@ -18,7 +18,10 @@ Repo: <https://github.com/SCNetworksLLC/IDBridge>
 ## Quick start
 
 ```powershell
-Import-Module .\src\IDBridge\IDBridge.psd1
+# Install from the PowerShell Gallery (Update-Module IDBridge to upgrade later)
+Install-Module IDBridge -Scope CurrentUser
+
+Import-Module IDBridge
 
 # Safe dry run — computes all changes, writes nothing, verbose logging
 Invoke-IDBridge -ReadOnly -TraceLogging
@@ -32,6 +35,15 @@ IDBridge **decides, then acts**: it computes every change list read-only first a
 when `Debug.readOnly = $false`. The shipped config defaults to `ReadOnly = $true` with group
 processing in `WhatIf` mode, so a fresh run reports intended changes without touching AD or
 Google. See [docs/architecture.md](docs/architecture.md).
+
+## Telemetry
+
+IDBridge reports **anonymous, aggregate usage counts** (runs, creates/deactivates, duration —
+never names, usernames, IDs, or any directory record) to help improve the module. The default
+`Basic` tier sends no identifier of any kind; opt-in `Enhanced` adds a random install-scoped
+SiteID that unlocks a run-history timeline in the [IDBridge Pulse](https://pulse.scnlabs.net)
+dashboard. Disable it with `Telemetry = @{ Tier = 'Off' }` in config or `-DisableTelemetry`
+per run, and verify exactly what's sent with `-TraceLogging`. Full details: [PRIVACY.md](PRIVACY.md).
 
 ## Code vs. configuration layout
 

@@ -60,6 +60,7 @@ Switches (override the config file at runtime):
 | `-SkipAD`        | Disable all AD processing for this run                           |
 | `-SkipGoogle`    | Disable all Google processing for this run                       |
 | `-SkipChangeThreshold` | Bypass the change-volume safety guard (`ChangeThreshold`) for this run    |
+| `-DisableTelemetry` | Disable usage telemetry for this run (see PRIVACY.md)             |
 
 ## Safety model (read this before changing behavior)
 

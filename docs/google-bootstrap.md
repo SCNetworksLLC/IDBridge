@@ -6,7 +6,8 @@ tenant, signed in as their Google Workspace super admin**. Everything it creates
 the district's Google Cloud organization — SC Networks retains nothing afterward.
 
 ```powershell
-Import-Module C:\GIT\IDBridge\src\IDBridge\IDBridge.psd1
+Install-Module IDBridge -Scope CurrentUser   # from the PowerShell Gallery
+Import-Module IDBridge
 Initialize-IDBridge          # loads config/paths/logging; Google auth happens at run time, not here
 Initialize-IDBridgeGoogleServiceAccount -CreateProject
 ```

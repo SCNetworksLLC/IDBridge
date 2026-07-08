@@ -5,6 +5,49 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.8.0] - 2026-07-08
+
+### Added
+- **`Export-IDBridgeDirectoryToSheet`.** One-time onboarding tool that seeds the staff
+  source sheet from the current directory state: reads AD + Google users, attributes, and
+  group memberships (scoped to an OU subtree per side, default the config root OUs), merges
+  the two directories per person by UPN/primaryEmail, and writes one row per person to a
+  **new** tab (throws if the tab exists) in the staff sheet column layout plus review-helper
+  columns (`InAD`, `InGoogle`, `ADEnabled`, `GoogleSuspended`, `ADOrgUnit`, `GoogleOrgUnit`).
+  Every row is written with `Process = FALSE` for human review; `PersonType`, `Word`, and
+  `EmailGroups` are left blank (nothing is derived from OU names); `ApplicationGroups` is
+  the full de-duplicated dump of current AD + Google group names; people disabled/suspended
+  in every directory they exist in get yesterday's date as `TerminationDate`.
+
+### Changed
+- **`Word` is no longer a required source-sheet column.** `Get-SourceDataGSheet` no longer
+  requires the column to exist or rows to have it populated. Note a row with a blank `Word`
+  under the `WORD` password type still yields no `ADKey`, so `Test-IDBridgeSourceData` drops
+  that record (Warn) until the word is filled in or the plugin's password type changes.
+
+## [26.7.6.0] - 2026-07-06
+
+### Added
+- **Usage telemetry (opt-out) + IDBridge Pulse.** One anonymous usage event per run is
+  sent from the `finally` block of `Invoke-IDBridge` to the IDBridge Pulse backend
+  (`pulse.scnlabs.net`). Three tiers via the new `Telemetry` config block
+  (`Tier = 'Basic' | 'Enhanced' | 'Off'`, default `Basic`; optional `Endpoint` override):
+  Basic sends anonymous aggregate counts with **no identifier of any kind**; Enhanced
+  (opt-in) adds a random install-scoped `SiteID` GUID plus the exception *class* and
+  throwing *function* name on failed runs — never the exception message. No names,
+  usernames, emails, person IDs, or directory records are transmitted at any tier; counts
+  are applied work, so ReadOnly runs report zeros. The send is fully self-contained
+  (2 s timeout, no retries, all errors swallowed and logged locally) and can never delay,
+  fail, or mask a run. The exact payload is logged at Trace level for verification. See
+  the new [PRIVACY.md](PRIVACY.md).
+- **`Send-IDBridgeTelemetry`.** Builds and posts the telemetry event (exported, called
+  from `Invoke-IDBridge`).
+- **`Get-IDBridgeSiteID`.** Returns (creating on first Enhanced use) the install's random
+  telemetry SiteID from the plain-text `<ConfigRoot>\IDBridgeSiteID.json`; districts use
+  it to claim their install in the Pulse dashboard. Delete the file when cloning a config
+  to a new install.
+- **`-DisableTelemetry` switch on `Invoke-IDBridge`.** Silences telemetry for a single run.
+
 ## [26.7.5.0] - 2026-07-05
 
 ### Added

@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.5.0'
+    ModuleVersion     = '26.7.8.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -26,6 +26,7 @@
         'Add-TargetDataGoogle'
         'Get-TargetDataAD'
         'Add-TargetDataAD'
+        'Export-IDBridgeDirectoryToSheet'  # Onboarding tool: seeds the staff source sheet from current AD + Google state (new tab, Process=FALSE).
 
         # AD processing
         'Get-ADOrgUnitsForProcessing'
@@ -81,6 +82,10 @@
         # Logging & lifecycle
         'Write-Log'
         'Get-IDBridgeLogs' # This is the public accessor for the logs after initialization. It will throw an error if called before Initialize-IDBridge.
+
+        # Telemetry (see PRIVACY.md)
+        'Send-IDBridgeTelemetry'  # Posts anonymous aggregate run stats to the IDBridge Pulse ingest endpoint (fire-and-forget, from the finally block).
+        'Get-IDBridgeSiteID'      # Returns (creating on first use) the install's random telemetry SiteID; used to claim the install in the Pulse dashboard.
 
         # Helpers
         'Get-StudentGrade'

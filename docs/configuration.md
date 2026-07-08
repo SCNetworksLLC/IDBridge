@@ -93,6 +93,16 @@ the guard off (older configs keep working).
 | `GoogleSheetLoggingEnabled` | bool   | Push the in-memory log buffer to a sheet at end of run. | `Invoke-IDBridge` (finally) |
 | `SheetID`                   | string | Target spreadsheet ID for logs. | `Push-LogsToSheet` |
 
+### `Telemetry`
+Anonymous usage telemetry to the IDBridge Pulse backend (see [PRIVACY.md](../PRIVACY.md) for
+exactly what each tier sends). Omit the block for the default tier `'Basic'`; an
+unrecognized `Tier` value fails safe to `Off`. `-DisableTelemetry` silences a single run.
+
+| Key | Type | Effect | Read by |
+|-----|------|--------|---------|
+| `Tier`     | string | `'Basic'` (default — anonymous counts), `'Enhanced'` (adds random install SiteID + error class/function on failures), or `'Off'`. | `Send-IDBridgeTelemetry` |
+| `Endpoint` | string | Optional ingest URL override (default `https://pulse.scnlabs.net/api/ingest`), e.g. for an egress proxy. | `Send-IDBridgeTelemetry` |
+
 ### `Plugins`
 Array of plugin descriptors, executed in order by `Invoke-SourcePlugins`:
 

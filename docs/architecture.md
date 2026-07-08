@@ -93,7 +93,10 @@ Invoke-IDBridge
  12. Export non-students → <ExportsRoot>\UserList-Staff.csv   (PersonTypeID ≠ "1")
         │
  finally:
- 13. Push-LogsToSheet (if Logging.GoogleSheetLoggingEnabled) → writes $script:Logs to sheet
+ 13. Send-IDBridgeTelemetry (unless Telemetry.Tier = 'Off') → one anonymous usage event
+       (self-contained try/catch, 2s timeout, no retries — can never affect the run;
+       counts are APPLIED work so ReadOnly runs report zeros; see PRIVACY.md)
+ 14. Push-LogsToSheet (if Logging.GoogleSheetLoggingEnabled) → writes $script:Logs to sheet
 ```
 
 ## Data-object lifecycle

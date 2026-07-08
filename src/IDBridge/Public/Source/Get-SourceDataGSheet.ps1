@@ -71,7 +71,6 @@ function Get-SourceDataGSheet {
         "PersonType"
         "JobTitle"
         "TerminationDate"
-        "Word"
         "Process"
     )
 

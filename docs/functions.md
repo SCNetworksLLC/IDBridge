@@ -12,7 +12,8 @@ Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (
 
 ### `Invoke-IDBridge` 🌐
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
--TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold`. Calls
+-TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold
+-DisableTelemetry`. Calls
 `Initialize-IDBridge`, applies switch overrides, acquires the Google token (when
 `GoogleToken.Enabled`) from the vault secret `GoogleAuth-ServiceAccount` →
 `$script:GoogleHeaders`, then runs the full pipeline (see architecture.md). **Returns:**
@@ -39,6 +40,21 @@ uninitialized.
 ### `Get-GoogleHeaders`
 Accessor for `$script:GoogleHeaders` (the bearer auth headers). Throws if Google auth
 wasn't set up.
+
+### `Send-IDBridgeTelemetry` 🌐
+Posts one anonymous usage event per run to the IDBridge Pulse ingest endpoint from the
+`finally` block of `Invoke-IDBridge` (see [PRIVACY.md](../PRIVACY.md)). **Params:**
+`-Success` (mandatory bool), `-DurationSeconds -ManagedCount -CreateCount -UpdateCount
+-DeactivateCount` (ints), `-RunError` (ErrorRecord — Enhanced tier extracts exception
+*class* + throwing *function* name only, never the message). Tier from `Telemetry.Tier`
+(missing = `Basic`, unrecognized = `Off`); logs the exact payload at Trace; sends with a
+2 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.
+
+### `Get-IDBridgeSiteID`
+Returns the install's telemetry SiteID from `<ConfigRoot>\IDBridgeSiteID.json`, generating
+a random GUID (plain-text file, deliberately unencrypted/non-secret) on first use or when
+the file is invalid. Only transmitted at the Enhanced tier; used to claim the install in
+the Pulse dashboard. Delete the file when cloning a config to a new install.
 
 ### `Get-RandomPassword`
 **Params:** `-PasswordLength` (1–256, def 10). **Returns:** random string mixing
@@ -77,6 +93,21 @@ whether it exceeds `ThresholdPercent`; a `PopulationCount` of 0 is **skipped** (
 a breach). Pure compute + log — the caller (`Invoke-IDBridge`) decides whether to abort.
 **Returns:** `[pscustomobject]@{ Directory; ChangeCount; PopulationCount; Percent; Exceeded;
 Skipped }`. Used by the change-volume safety guard between the compute and execute regions.
+
+### `Export-IDBridgeDirectoryToSheet` 🌐
+One-time onboarding tool: seeds the staff source sheet from the current directory state.
+**Params:** `-SpreadsheetId` (mandatory), `-SheetName` (def `StaffSeed-<yyyy-MM-dd>`; throws
+if the tab already exists — never appends/overwrites), `-ADSearchBase` / `-GoogleOrgUnitPath`
+(subtree scopes, def the config root OUs). Pulls `Get-TargetDataAD`/`Get-TargetDataGoogle`,
+merges per person by UPN=primaryEmail, and writes one row per person in the staff sheet
+layout plus review-helper columns (`InAD`/`InGoogle`/`ADEnabled`/`GoogleSuspended`/
+`ADOrgUnit`/`GoogleOrgUnit`). All rows get `Process=FALSE`; `PersonType`/`Word`/`EmailGroups`
+are left blank (nothing derived from OU names); `ApplicationGroups` is the full de-duped dump
+of current AD + Google group names; users disabled/suspended in **every** directory they
+exist in get yesterday's date as `TerminationDate` (mixed state ⇒ Warn, treated active).
+PersonID = AD `EmployeeID`, falling back to the Google externalId (mismatch ⇒ Warn, AD wins).
+Requires `Initialize-IDBridge` + `Connect-IDBridgeGoogle` first. **Returns:**
+`@{ SpreadsheetId; SheetName; RowsWritten }`.
 
 ---
 

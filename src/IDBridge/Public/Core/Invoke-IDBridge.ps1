@@ -38,6 +38,9 @@ Disable all Google processing (and Google group processing) for this run.
 .PARAMETER SkipChangeThreshold
 Bypass the change-volume safety guard (ChangeThreshold) for this run.
 
+.PARAMETER DisableTelemetry
+Disable usage telemetry for this run (overrides Telemetry.Tier). See PRIVACY.md.
+
 .OUTPUTS
 None. Side effects: AD/Google mutations (unless ReadOnly), the UserList-Staff.csv export, and log output.
 
@@ -62,8 +65,11 @@ function Invoke-IDBridge {
         [switch]$TraceLogging,
         [switch]$SkipAD,
         [switch]$SkipGoogle,
-        [switch]$SkipChangeThreshold
+        [switch]$SkipChangeThreshold,
+        [switch]$DisableTelemetry
     )
+
+    $runStart = Get-Date
 
     try{
         #region Import Configuration
@@ -82,6 +88,7 @@ function Invoke-IDBridge {
         if ($SkipAD)      { $IDConfig.AD.enabled     = $false; $IDConfig.AD.enableGroupProcessing     = $false }
         if ($SkipGoogle)  { $IDConfig.Google.enabled = $false; $IDConfig.Google.enableGroupProcessing = $false }
         if ($SkipChangeThreshold -and $IDConfig.ContainsKey('ChangeThreshold')) { $IDConfig.ChangeThreshold.Enabled = $false }
+        if ($DisableTelemetry) { $IDConfig.Telemetry = @{ Tier = 'Off' } }
 
         foreach ($key in $PSBoundParameters.Keys | Where-Object { $_ -ne 'RootPath' }) {
             Write-Log -Message "OVERRIDE: $key = $($PSBoundParameters[$key])" -Level Info
@@ -602,6 +609,8 @@ function Invoke-IDBridge {
         #endregion Export User Staff List
 
     } catch {
+        $runError = $_
+
         # Write-Log needs an initialized config; if the failure happened before/at config load it would
         # throw again here, so fall back to Write-Error in that case.
         try {
@@ -615,6 +624,37 @@ function Invoke-IDBridge {
         # $IDConfig is only set once the config loads successfully; guard so a pre-config failure
         # doesn't throw out of the finally block.
         if ($IDConfig) {
+            #region Telemetry
+            # Usage telemetry (see PRIVACY.md) - fully self-contained: any failure here is swallowed
+            # and logged locally so it can never mask the run's real outcome or throw out of finally.
+            try {
+                # Counts are APPLIED work, so ReadOnly runs report zeros (the readOnly flag in the
+                # payload tells the story). .Where filters the lone $null that @() wraps when a list
+                # was never assigned (failed/partial runs), matching the Run Summary counting above.
+                $telemetryCounts = @{ Create = 0; Update = 0; Deactivate = 0 }
+                if ($IDConfig.Debug.readOnly -eq $false) {
+                    $telemetryCounts.Create     = @($ADUsersToCreate).Where({ $null -ne $_ }).Count + @($GoogleUsersToCreate).Where({ $null -ne $_ }).Count
+                    $telemetryCounts.Update     = @($ADUsersToUpdate.UpdateList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.RenameList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.MoveList).Where({ $null -ne $_ }).Count + @($GoogleUsersToUpdate).Where({ $null -ne $_ }).Count
+                    $telemetryCounts.Deactivate = @($ADUsersToDeactivate).Where({ $null -ne $_ }).Count + @($GoogleUsersToDeactivate).Where({ $null -ne $_ }).Count
+                }
+
+                $telemetrySplat = @{
+                    Success         = (-not $runError)
+                    DurationSeconds = [int]((Get-Date) - $runStart).TotalSeconds
+                    ManagedCount    = @($sourceData).Where({ $null -ne $_ }).Count
+                    CreateCount     = $telemetryCounts.Create
+                    UpdateCount     = $telemetryCounts.Update
+                    DeactivateCount = $telemetryCounts.Deactivate
+                }
+                if ($runError) { $telemetrySplat.RunError = $runError }
+
+                Send-IDBridgeTelemetry @telemetrySplat
+            }
+            catch {
+                Write-Log -Message "Telemetry: Skipped ($($_.Exception.GetType().Name))." -Level Trace
+            }
+            #endregion Telemetry
+
             Write-Log -Message "######## End of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
 
             if ($IDConfig.Logging.GoogleSheetLoggingEnabled) {
