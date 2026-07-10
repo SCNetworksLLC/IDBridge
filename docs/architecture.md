@@ -144,6 +144,22 @@ their group memberships in the same run, using the GUID/ID returned by the creat
   accounts get linked and can be deactivated.
 - **Orphans** (Google): `Get-GoogleUsersOrphaned` finds target users absent from source.
 
+## Deactivation model (Google: archive vs. suspend vs. ForceDisable)
+
+Google has three distinct "blocked" outcomes; IDBridge uses them for three different reasons.
+Don't collapse them — the license and reactivation behavior differs.
+
+| State | Set when | License effect | How it clears |
+|-------|----------|----------------|---------------|
+| **Archived** | Real deactivation — `IDBActive = false` OR `ProvisionGoogle = false` (staff left, student moved on). The trash-step write sets `archived = true`. | Base **Education Fundamentals** license self-releases (~24h → free Archived User license). Paid add-ons (Ed Standard/Plus, Teaching & Learning) are **not** released by archiving — `enableLicenseRemoval` removes those at the same step. | An active source row unarchives it (`Get-GoogleUsersToUpdate` sets `archived = false`) + reapplies name/OU/dept. |
+| **Suspended** | `ForceDisable` override only — a *temporary* block on an otherwise-active person (e.g. leave of absence). | None released — the user keeps every license. | Removing the override; the next run sets `suspended = false`. |
+| *(grandfathered)* Suspended | Accounts deactivated **before** 26.7.10.3, when deactivation suspended. | None (suspended users keep licenses). | Left as-is — the deactivate predicate treats suspended **or** archived as "already deactivated", so IDBridge never re-touches them. Convert in bulk from the Admin console if you want the license benefit. |
+
+The join point is `GoogleCurrentUserSuspendedStatus` (set in `Add-TargetDataGoogle`): it is
+`suspended OR archived`, so both the deactivate predicate and the link map read "is this
+account already deactivated?" from one property. It is `$null` when there is **no** Google
+account — which is what keeps accountless source users out of the deactivate list.
+
 ## State & logging model
 
 - **Global state** (script scope): `$script:IDBridgeConfig` and `$script:Logs` set by
