@@ -5,6 +5,39 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.10.0] - 2026-07-10
+
+### Changed
+- **BREAKING: the service account now authenticates as itself — domain-wide delegation and
+  admin impersonation are gone.** Authorization for Admin SDK calls comes from a custom
+  Google Workspace admin role named `IDBridge` (User/Org Unit/Group management + License
+  Management — never Super Admin) assigned directly to the service account;
+  `Initialize-IDBridgeGoogleServiceAccount` now creates and assigns it (idempotent —
+  privileges are resolved from `privileges.list` and re-runs converge an existing role).
+  Consequences:
+  - `GoogleToken.adminEmail` is no longer read — remove it from the config (the
+    `New-IDBridgeConfig` scaffold no longer emits it). No admin user account is involved
+    at run time.
+  - `Get-GoogleApiAccessToken` lost its `-TargetUserEmail` parameter (the JWT carries no
+    `sub` claim).
+  - Sheets access is now by **sharing**: share the staff source sheet and the log sheet
+    with the service account's email. The bootstrap checklist prints it, and the new
+    `Get-IDBridgeGoogleServiceAccountEmail` accessor returns it any time (from
+    connect-time state, falling back to the vault key's `client_email`).
+  - **Migration (existing deployments):** re-run the bootstrap with
+    `-ProjectId <existing id>` to create/assign the role, share the sheets with the SA,
+    verify with `Connect-IDBridgeGoogle` then `Invoke-IDBridge -ReadOnly`, and only then
+    delete the old domain-wide delegation grant and drop `adminEmail` from the config.
+  - The bootstrap's role steps need the `admin.directory.rolemanagement` scope; the OAuth
+    Playground instructions now request it up front, and the gcloud/`-AccessToken` tiers
+    prompt once for a second Playground token when needed.
+  - All Directory API calls now pass the real customer ID (`Google.customerID`) instead of
+    the `my_customer` alias, which only resolves for a domain user's token and returned
+    `400 Invalid Input` under the service account's own token (users/groups/org-unit reads
+    in `Get-TargetDataGoogle`, OU creation in `New-IDBridgeGoogleOrgUnit`; the spurious
+    `customer` param on the group-members call was dropped — `members.list` doesn't take
+    one).
+
 ## [26.7.9.0] - 2026-07-09
 
 ### Added

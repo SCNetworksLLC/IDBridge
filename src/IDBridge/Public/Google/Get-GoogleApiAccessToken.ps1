@@ -7,6 +7,11 @@ function Get-GoogleApiAccessToken {
     This function generates a JWT (JSON Web Token) and exchanges it for an access token from Google API.
     The access token can then be used for authenticated requests to Google services.
 
+    The token is issued to the service account ITSELF (no user impersonation / domain-wide
+    delegation). Authorization for Admin SDK calls comes from the Google Workspace admin
+    role assigned to the service account (created by Initialize-IDBridgeGoogleServiceAccount);
+    Sheets access comes from sharing the sheet with the service account's email.
+
     .PARAMETER ServiceAccountKeyPath
     PAth to a JSON file containing the service account credentials, including the private key and client email.
     This is the Google credential file downloaded from the Google Cloud Console.
@@ -18,20 +23,17 @@ function Get-GoogleApiAccessToken {
     .PARAMETER Scope
     The scope of access requested from Google API (e.g., 'https://www.googleapis.com/auth/drive').
 
-    .PARAMETER TargetUserEmail
-    The email address of the user for which the application is requesting delegated access.
-
     .EXAMPLE
     $credentialsJson = Get-Content 'C:\path\to\credentials.json' -Raw
     $accessToken = Get-GoogleApiAccessToken -ServiceAccountKeyPath $credentialsJson -Scope 'https://www.googleapis.com/auth/drive.readonly'
-    
+
     Use the $accessToken for authenticated API requests.
 
     .NOTES
     Ensure that the service account has the necessary permissions for the requested scope.
 
     Created by: Sam Cattanach
-    Modified: 02/18/2025 09:30:19 AM   
+    Modified: 02/18/2025 09:30:19 AM
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'Path')]
@@ -43,10 +45,7 @@ function Get-GoogleApiAccessToken {
         [string]$ServiceAccountKeyJson,
 
         [Parameter(Mandatory)]
-        [string]$Scope,
-
-        [Parameter(Mandatory)]
-        [string]$TargetUserEmail
+        [string]$Scope
     )
 
     # Convert JSON credentials into a PowerShell object
@@ -72,7 +71,6 @@ function Get-GoogleApiAccessToken {
         aud   = "https://oauth2.googleapis.com/token"
         exp   = $timestamp + 3600  # Token expiration (1 hour)
         iat   = $timestamp         # Issued at time
-        sub   = $TargetUserEmail   # Delegated user access
     }
     $claimSetBase64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($claimSet | ConvertTo-Json -Compress)))
 

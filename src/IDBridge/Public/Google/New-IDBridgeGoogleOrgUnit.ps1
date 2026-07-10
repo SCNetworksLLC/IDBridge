@@ -37,6 +37,7 @@ function New-IDBridgeGoogleOrgUnit() {
 
     #Import Google API Headers (with access token)
     try { $headers = Get-GoogleHeaders } catch { Throw $_ }
+    try { $IDConfig = Get-IDBridgeConfig } catch { Throw $_ }
 
     # Split the NewOrgUnitFullPath into parts by "/" and remove any empty entries (because the path starts with "/")
     $parts = $OrgUnit -split "/" | Where-Object { $_ -ne "" }
@@ -52,8 +53,9 @@ function New-IDBridgeGoogleOrgUnit() {
 
     Write-Log -Message "Creating Google Org Unit $OrgUnit"
 
-    # API URL for creating a new organizational unit
-    $url = ("https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits")
+    # API URL for creating a new organizational unit (real customer ID from config —
+    # my_customer doesn't resolve for the service account's own token)
+    $url = ("https://admin.googleapis.com/admin/directory/v1/customer/$($IDConfig.Google.customerID)/orgunits")
 
     # Define the body for the API request, including the new OU name and the parent OU path
     $body = @{

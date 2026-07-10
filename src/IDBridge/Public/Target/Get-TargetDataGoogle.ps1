@@ -53,7 +53,9 @@ function Get-TargetDataGoogle {
     #region Get Google Users
     try {
         Write-Log -Message "Google: Fetching Users" -Level Trace
-        $googleUsers = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500"  -ErrorAction Stop
+        # customer must be the real ID from config — my_customer only resolves for a domain
+        # user's token, and the service account authenticates as itself.
+        $googleUsers = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/users?customer=$($IDConfig.Google.customerID)&maxResults=500"  -ErrorAction Stop
 
         Write-Log -Message "Google: Successfully fetched users" -Level Trace
     }
@@ -69,7 +71,7 @@ function Get-TargetDataGoogle {
     #Get Google Groups - Stores data in $googleGroups
     try {
         Write-Log -Message "Google: Fetching Groups" -Level Trace
-        $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer&maxResults=500" -ErrorAction Stop
+        $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=$($IDConfig.Google.customerID)&maxResults=500" -ErrorAction Stop
 
         #Remove Classroom Teachers Group
         $googleGroups = $googleGroups | Where-Object {$_.email -notlike "classroom_teachers@*"}
@@ -146,7 +148,7 @@ function Get-TargetDataGoogle {
         try {
             #Get group Memebers
             $groupMemberResults = $null
-            $groupMemberResults = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://admin.googleapis.com/admin/directory/v1/groups/" + $email + "/members?customer=my_customer&maxResults=500") -ErrorAction Stop
+            $groupMemberResults = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://admin.googleapis.com/admin/directory/v1/groups/" + $email + "/members?maxResults=500") -ErrorAction Stop
 
             [PSCustomObject]@{
                 GroupEmail = $email
@@ -237,7 +239,7 @@ function Get-TargetDataGoogle {
                 $assignments = Get-GoogleData -GoogleHeaders $headers -APIUri ("https://licensing.googleapis.com/apps/licensing/v1/product/" + [uri]::EscapeDataString($productId) + "/users?customerId=" + $IDConfig.Google.customerID + "&maxResults=1000") -ErrorAction Stop
             }
             catch {
-                Write-Log -Message "Google: Error listing license assignments for product $productId. Ensure https://www.googleapis.com/auth/apps.licensing is in the service account's domain-wide delegation and the Enterprise License Manager API is enabled in its project, or set Google.enableLicenseRemoval = `$false." -Level Error
+                Write-Log -Message "Google: Error listing license assignments for product $productId. Ensure the service account's 'IDBridge' admin role includes the License Management privilege and the Enterprise License Manager API is enabled in its project, or set Google.enableLicenseRemoval = `$false." -Level Error
                 Throw $_
             }
 
@@ -271,7 +273,7 @@ function Get-TargetDataGoogle {
     #region Get Google Org Units
     try {
         Write-Log -Message "Google: Fetching Org Units" -Level Trace
-        $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all&maxResults=500" -ErrorAction Stop
+        $googleOrgUnits = Get-GoogleData -GoogleHeaders $headers -APIUri "https://admin.googleapis.com/admin/directory/v1/customer/$($IDConfig.Google.customerID)/orgunits?type=all&maxResults=500" -ErrorAction Stop
 
         Write-Log -Message ("Google: Fetched $($googleOrgUnits.count) organizational units") -Level Trace
     }

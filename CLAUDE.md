@@ -107,7 +107,7 @@ Switches (override the config file at runtime):
 - [docs/configuration.md](docs/configuration.md) — full `IDBridgeConfig.psd1` schema, runtime `Paths`, and secret file locations.
 - [docs/plugins.md](docs/plugins.md) — plugin contract + output schemas, with the three shipped plugins as worked examples.
 - [docs/secrets.md](docs/secrets.md) — secret vault providers (Cms/DPAPI-NG), certificate setup, secret names, migration.
-- [docs/google-bootstrap.md](docs/google-bootstrap.md) — one-command Google service-account bootstrap + the manual DWD finish steps.
+- [docs/google-bootstrap.md](docs/google-bootstrap.md) — one-command Google service-account bootstrap (custom admin role, no domain-wide delegation) + the manual finish steps.
 - [README.md](README.md) — public-facing overview, quick start, and publishing pointers.
 
 

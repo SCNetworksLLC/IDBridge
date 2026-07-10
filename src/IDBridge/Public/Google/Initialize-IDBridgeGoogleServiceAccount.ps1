@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Bootstraps the Google service account IDBridge needs — project, APIs, service account,
-    and key — as far as Google's APIs allow, then prints the manual finish steps.
+    key, and the Workspace admin role — then prints the manual finish steps.
 
 .DESCRIPTION
     Run once per district, in the DISTRICT's tenant, authenticated as their Google Workspace
@@ -18,16 +18,23 @@
          acceptance that provisions it, and waits for the org to appear.
       3. -CreateProject: creates the project (display name 'IDBridge') under the org.
       4. Enables the APIs IDBridge uses: Admin SDK, Sheets, Enterprise License Manager, IAM.
-      5. Creates the service account and reads its uniqueId — the client ID for the
-         domain-wide delegation grant.
+      5. Creates the service account and reads its uniqueId — the identity the admin role
+         is assigned to.
       6. Creates the JSON key and seeds it STRAIGHT INTO THE VAULT as
          'GoogleAuth-ServiceAccount' — the key never touches disk.
          If key creation is blocked by the iam.disableServiceAccountKeyCreation org policy,
          the function self-grants the admin roles/orgpolicy.policyAdmin (a Workspace super
          admin may grant org roles), sets a project-level exemption, retries, and then
          revokes the temporary role.
-      7. Prints the finish checklist: the domain-wide delegation screen (no API exists for
-         it), client ID, and the exact scope list from the config.
+      7. Creates the 'IDBridge' custom Workspace admin role (user, org-unit, group, and
+         license management privileges — discovered from privileges.list, not hardcoded)
+         and assigns it to the service account. The service account then authenticates as
+         ITSELF: no domain-wide delegation, no admin impersonation, no admin user account.
+         These Admin SDK calls need the admin.directory.rolemanagement scope, which
+         cloud-platform bootstrap tokens don't carry — when that happens the function
+         prompts for a second OAuth Playground token with just that scope.
+      8. Prints the finish checklist: share the source/log sheets with the service
+         account's email (it accesses Sheets as itself), then verify.
 
     Manual prerequisites (see docs/google-bootstrap.md):
       - The Google Cloud Platform additional service must be ON for the admin in the
@@ -50,7 +57,9 @@
 
 .PARAMETER AccessToken
     A cloud-platform-scoped access token as a SecureString, skipping the interactive tiers
-    (e.g. from 'gcloud auth print-access-token' on another machine).
+    (e.g. from 'gcloud auth print-access-token' on another machine). The admin-role steps
+    need the admin.directory.rolemanagement scope, which cloud-platform tokens don't carry
+    — expect a one-time prompt for a second OAuth Playground token during those steps.
 
 .EXAMPLE
     Initialize-IDBridgeGoogleServiceAccount -CreateProject
@@ -94,7 +103,9 @@ function Initialize-IDBridgeGoogleServiceAccount() {
         [securestring]$AccessToken
     )
 
-    $IDConfig = Get-IDBridgeConfig
+    # Fail fast if the session isn't initialized — the vault seeding at the end needs it,
+    # and by then the token prompt and Google-side creation have already happened.
+    $null = Get-IDBridgeConfig
 
     if ($CreateProject -and -not $ProjectId) {
         $ProjectId = "idbridge-$(Get-Random -Minimum 100000 -Maximum 999999)"
@@ -137,6 +148,33 @@ function Initialize-IDBridgeGoogleServiceAccount() {
         return $ErrorRecord.Exception.Message
     }
 
+    # Invoke an Admin SDK call, prompting once for a role-management-scoped token if the
+    # bootstrap token can't carry it (cloud-platform tokens from gcloud/-AccessToken can't).
+    function Invoke-BootstrapAdminApi {
+        param([string]$Method, [string]$Uri, $Body)
+        try { Invoke-BootstrapApi -Method $Method -Uri $Uri -Body $Body }
+        catch {
+            if ($_.ErrorDetails.Message -notmatch 'ACCESS_TOKEN_SCOPE_INSUFFICIENT|[Ii]nsufficient') { Throw }
+            Write-Host "The bootstrap token does not carry the Admin SDK role-management scope." -ForegroundColor Yellow
+            Write-Host "Opening the OAuth 2.0 Playground: authorize the scope" -ForegroundColor Cyan
+            Write-Host "  https://www.googleapis.com/auth/admin.directory.rolemanagement" -ForegroundColor Cyan
+            Write-Host "(Step 1 -> Authorize APIs -> sign in as the district super admin -> Step 2 -> Exchange authorization code), then copy the access_token." -ForegroundColor Cyan
+            Start-Process 'https://developers.google.com/oauthplayground/'
+            $pastedToken = Read-Host -Prompt "Paste the access token" -AsSecureString
+            $script:BootstrapHeaders = @{ Authorization = "Bearer $(ConvertFrom-SecureString -SecureString $pastedToken -AsPlainText)" }
+            Invoke-BootstrapApi -Method $Method -Uri $Uri -Body $Body
+        }
+    }
+
+    # Flatten the Admin SDK privilege tree (privileges nest via childPrivileges).
+    function Expand-BootstrapPrivilege {
+        param($Privileges)
+        foreach ($privilege in $Privileges) {
+            $privilege
+            if ($privilege.childPrivileges) { Expand-BootstrapPrivilege -Privileges $privilege.childPrivileges }
+        }
+    }
+
     #endregion Helper functions
 
 
@@ -158,8 +196,9 @@ function Initialize-IDBridgeGoogleServiceAccount() {
         Write-Log -Message "Bootstrap: Acquired token via gcloud." -Level Trace
     }
     else {
-        Write-Host "Opening the OAuth 2.0 Playground: authorize the scope" -ForegroundColor Cyan
-        Write-Host "  https://www.googleapis.com/auth/cloud-platform" -ForegroundColor Cyan
+        Write-Host "Opening the OAuth 2.0 Playground: authorize BOTH scopes (space-separated, in 'Input your own scopes')" -ForegroundColor Cyan
+        Write-Host "  https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/admin.directory.rolemanagement" -ForegroundColor Cyan
+        Write-Host "(the second scope covers the admin-role steps - one token does the whole bootstrap)" -ForegroundColor Cyan
         Write-Host "(Step 1 -> Authorize APIs -> sign in as the district super admin -> Step 2 -> Exchange authorization code), then copy the access_token." -ForegroundColor Cyan
         Start-Process 'https://developers.google.com/oauthplayground/'
         $pastedToken = Read-Host -Prompt "Paste the access token" -AsSecureString
@@ -339,27 +378,108 @@ function Initialize-IDBridgeGoogleServiceAccount() {
     #endregion Seed the vault and clean up
 
 
-    #region Finish checklist
-    # Grant the full module scope set (licensing included) so enabling features later
-    # never needs another Admin-console visit; token requests stay feature-gated.
-    $scopeList = ((Get-IDBridgeGoogleScope -All) -split ' ') -join ",`n  "
+    #region Create the IDBridge admin role and assign it to the service account
+    # The service account authenticates as ITSELF — a custom Workspace admin role (not
+    # domain-wide delegation) authorizes its Admin SDK calls. Privileges are resolved from
+    # privileges.list at run time because their serviceIds vary per customer.
+    $adminApiBase = 'https://admin.googleapis.com/admin/directory/v1/customer/my_customer'
 
+    try {
+        $privilegeCatalog = Invoke-BootstrapAdminApi -Method Get -Uri "$adminApiBase/roles/ALL/privileges"
+    }
+    catch { Throw "Error listing Admin SDK privileges: $(Get-BootstrapError $_)" }
+    $allPrivileges = Expand-BootstrapPrivilege -Privileges $privilegeCatalog.items
+
+    # Licensing privileges are optional (feature-gated by Google.enableLicenseRemoval); the
+    # rest are required. LICENSING covers Enterprise License Manager writes and
+    # LICENSING_READ the per-run assignment reads (catalog names — the Admin console calls
+    # this "License Management").
+    $requiredPrivilegeNames = @('USERS_ALL', 'ORGANIZATION_UNITS_ALL', 'GROUPS_ALL')
+    $optionalPrivilegeNames = @('LICENSING', 'LICENSING_READ')
+    $rolePrivileges = @()
+    foreach ($privilegeName in ($requiredPrivilegeNames + $optionalPrivilegeNames)) {
+        $match = $allPrivileges | Where-Object { $_.privilegeName -eq $privilegeName } | Select-Object -First 1
+        if ($match) {
+            $rolePrivileges += @{ privilegeName = $match.privilegeName; serviceId = $match.serviceId }
+        }
+        elseif ($privilegeName -in $requiredPrivilegeNames) {
+            Throw "Privilege '$privilegeName' was not found in this customer's privileges list — cannot build the IDBridge admin role."
+        }
+        else {
+            Write-Log -Message "Bootstrap: Privilege '$privilegeName' not found; the role is created without it (license removal will need it later)." -Level Warn
+        }
+    }
+
+    # Find or create the role (roleName is unique per customer); patch privileges when it
+    # already exists so a re-run converges an older role to the current set.
+    $role = $null
+    $rolesUri = "$adminApiBase/roles?maxResults=100"
+    do {
+        $rolesPage = Invoke-BootstrapAdminApi -Method Get -Uri $rolesUri
+        $role = $rolesPage.items | Where-Object { $_.roleName -eq 'IDBridge' } | Select-Object -First 1
+        $rolesUri = if ($rolesPage.nextPageToken) { "$adminApiBase/roles?maxResults=100&pageToken=$($rolesPage.nextPageToken)" }
+    } while (-not $role -and $rolesUri)
+
+    try {
+        if ($role) {
+            $role = Invoke-BootstrapAdminApi -Method Patch -Uri "$adminApiBase/roles/$($role.roleId)" -Body @{ rolePrivileges = $rolePrivileges }
+            Write-Log -Message "Bootstrap: Admin role 'IDBridge' already exists; privileges converged ($($rolePrivileges.privilegeName -join ', '))." -Level Warn
+        }
+        else {
+            $role = Invoke-BootstrapAdminApi -Method Post -Uri "$adminApiBase/roles" -Body @{
+                roleName        = 'IDBridge'
+                roleDescription = 'IDBridge service account - user, org unit, group, and license management'
+                rolePrivileges  = $rolePrivileges
+            }
+            Write-Log -Message "Bootstrap: Created admin role 'IDBridge' ($($rolePrivileges.privilegeName -join ', '))."
+        }
+    }
+    catch { Throw "Error creating/updating the 'IDBridge' admin role: $(Get-BootstrapError $_)" }
+
+    # Assign the role to the service account (assignedTo = the SA's IAM uniqueId).
+    $assignment = $null
+    $assignmentsUri = "$adminApiBase/roleassignments?roleId=$($role.roleId)&maxResults=200"
+    do {
+        $assignmentsPage = Invoke-BootstrapAdminApi -Method Get -Uri $assignmentsUri
+        $assignment = $assignmentsPage.items | Where-Object { $_.assignedTo -eq $serviceAccount.uniqueId } | Select-Object -First 1
+        $assignmentsUri = if ($assignmentsPage.nextPageToken) { "$adminApiBase/roleassignments?roleId=$($role.roleId)&maxResults=200&pageToken=$($assignmentsPage.nextPageToken)" }
+    } while (-not $assignment -and $assignmentsUri)
+
+    if ($assignment) {
+        Write-Log -Message "Bootstrap: Role 'IDBridge' is already assigned to $($serviceAccount.email); continuing." -Level Warn
+    }
+    else {
+        try {
+            $null = Invoke-BootstrapAdminApi -Method Post -Uri "$adminApiBase/roleassignments" -Body @{
+                roleId     = $role.roleId
+                assignedTo = $serviceAccount.uniqueId
+                scopeType  = 'CUSTOMER'
+            }
+            Write-Log -Message "Bootstrap: Assigned admin role 'IDBridge' to $($serviceAccount.email)."
+        }
+        catch { Throw "Error assigning the 'IDBridge' role to $($serviceAccount.email): $(Get-BootstrapError $_)" }
+    }
+    #endregion Create the IDBridge admin role and assign it to the service account
+
+
+    #region Finish checklist
     Write-Host ""
     Write-Host "================ MANUAL FINISH STEPS (no API exists for these) ================" -ForegroundColor Green
-    Write-Host "1. Domain-wide delegation - as the district super admin, open:" -ForegroundColor Green
-    Write-Host "     https://admin.google.com/ac/owl/domainwidedelegation"
-    Write-Host "   Add new, with:"
-    Write-Host "     Client ID: $($serviceAccount.uniqueId)" -ForegroundColor Cyan
-    Write-Host "     Scopes:    $scopeList" -ForegroundColor Cyan
-    Write-Host "2. Set GoogleToken.adminEmail in IDBridgeConfig.psd1 to a super admin in the district's domain."
-    Write-Host "3. Verify the auth chain (no pipeline run): Connect-IDBridgeGoogle"
-    Write-Host "4. Full verification: Invoke-IDBridge -ReadOnly"
+    Write-Host "1. Share the Google Sheets IDBridge uses (staff source sheet, log sheet) with:" -ForegroundColor Green
+    Write-Host "     $($serviceAccount.email)" -ForegroundColor Cyan
+    Write-Host "   (Editor access - the service account reads sources and writes logs as itself.)"
+    Write-Host "2. Verify the auth chain (no pipeline run): Connect-IDBridgeGoogle"
+    Write-Host "   (Role assignments can take a few minutes to propagate; a 403 right away is normal.)"
+    Write-Host "3. Full verification: Invoke-IDBridge -ReadOnly"
+    Write-Host "4. If this deployment previously used domain-wide delegation, remove the grant" -ForegroundColor Yellow
+    Write-Host "   AFTER step 3 passes: https://admin.google.com/ac/owl/domainwidedelegation" -ForegroundColor Yellow
     Write-Host "==============================================================================" -ForegroundColor Green
 
     return [PSCustomObject]@{
         ProjectId           = $ProjectId
         ServiceAccountEmail = $serviceAccount.email
         ClientId            = $serviceAccount.uniqueId
+        RoleId              = $role.roleId
     }
     #endregion Finish checklist
 }

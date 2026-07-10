@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.9.0'
+    ModuleVersion     = '26.7.10.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -75,10 +75,11 @@
         'New-IDBridgeSecretCertificate'  # Creates the Document Encryption certificate used by the Cms provider.
 
         #Auth
-        'Connect-IDBridgeGoogle'   # Vault key -> DWD JWT -> bearer headers; standalone auth verification after bootstrap/DWD changes.
+        'Connect-IDBridgeGoogle'   # Vault key -> JWT (as the SA itself, no impersonation) -> bearer headers; standalone auth verification after bootstrap/role changes.
         'Get-GoogleApiAccessToken'
         'Get-GoogleHeaders'
-        'Initialize-IDBridgeGoogleServiceAccount'  # One-command bootstrap: project, APIs, service account, key into vault, DWD checklist.
+        'Get-IDBridgeGoogleServiceAccountEmail'  # SA email (client_email) from connect-time state or the vault key; the address to share sheets with.
+        'Initialize-IDBridgeGoogleServiceAccount'  # One-command bootstrap: project, APIs, service account, key into vault, admin role created + assigned.
 
         # Logging & lifecycle
         'Write-Log'

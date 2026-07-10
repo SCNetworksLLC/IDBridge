@@ -307,8 +307,9 @@ with timestamp, moves to trash OU, and (if flag) removes all current groups.
 consolidates the primary collection. **Returns:** combined array.
 
 ### `Get-GoogleApiAccessToken` 🌐
-**Params:** `-ServiceAccountKeyPath`, `-Scope`, `-TargetUserEmail`. Builds + RS256-signs a
-JWT, exchanges it at `https://oauth2.googleapis.com/token`. **Returns:**
+**Params:** `-ServiceAccountKeyPath` or `-ServiceAccountKeyJson`, `-Scope`. Builds +
+RS256-signs a JWT issued to the service account itself (no `sub` claim / impersonation),
+exchanges it at `https://oauth2.googleapis.com/token`. **Returns:**
 `@{ Authorization='Bearer …'; Accept='application/json' }`.
 
 ### `Get-GoogleUsersToSetEmployeeID` 🧮
@@ -391,7 +392,8 @@ creates as three sequential batches). Batching cuts round trips, not quota. **Re
 
 ### `New-IDBridgeGoogleOrgUnit` 🌐
 **Params:** `-OrgUnit` (path). POST
-`/customer/my_customer/orgunits` with name + parentOrgUnitPath.
+`/customer/<Google.customerID>/orgunits` with name + parentOrgUnitPath (the real customer
+ID from config — `my_customer` doesn't resolve for the service account's own token).
 
 ### `Update-GoogleGroupMembers` 🌐
 **Params:** `-GroupEmail`, `-PersonID`, `-UpdateType {Add|Remove}`. Add → POST
@@ -399,10 +401,19 @@ creates as three sequential batches). Batching cuts round trips, not quota. **Re
 
 ### `Connect-IDBridgeGoogle` 🌐
 No params. Reads the `GoogleAuth-ServiceAccount` vault secret, validates the `private_key`,
-exchanges the DWD JWT via `Get-GoogleApiAccessToken`, and sets `$script:GoogleHeaders`.
-Called by `Invoke-IDBridge` at run start (when `GoogleToken.Enabled`); run it standalone to
-verify the auth chain after seeding the key or changing the DWD grant
-(`unauthorized_client` ⇒ the DWD client ID/scopes don't match). Throws on any failure.
+exchanges a JWT issued to the service account **itself** (no impersonation — authorization
+comes from the SA's `IDBridge` Workspace admin role) via `Get-GoogleApiAccessToken`, and
+sets `$script:GoogleHeaders` plus the script-scoped SA email
+(`Get-IDBridgeGoogleServiceAccountEmail`). Called by `Invoke-IDBridge` at run start (when
+`GoogleToken.Enabled`); run it standalone to verify the auth chain after seeding the key
+or assigning the role (a later API `403` ⇒ role missing/not yet propagated; Sheets `403`
+⇒ sheet not shared with the SA). Throws on any failure.
+
+### `Get-IDBridgeGoogleServiceAccountEmail` 🌐
+No params. Returns the service account's email (`client_email`). Uses the value stashed by
+`Connect-IDBridgeGoogle`; before a connect it falls back to parsing the
+`GoogleAuth-ServiceAccount` vault secret (initialized session required, no token needed) —
+handy to know which address to share a sheet with.
 
 ### `Initialize-IDBridgeGoogleServiceAccount` 🌐
 **Params:** `-ProjectId` (default `idbridge-<random>` with `-CreateProject`), `-ProjectName`
@@ -411,8 +422,11 @@ verify the auth chain after seeding the key or changing the DWD grant
 bootstrap run in the district's tenant: tiered sign-in (token → gcloud → OAuth Playground)
 → org discovery (orchestrates the first-console-visit terms acceptance) → project → enable
 APIs → service account → key seeded straight into the vault (never on disk), with a
-self-grant/exempt/revoke org-policy dance only if key creation is blocked. Prints the
-manual DWD checklist. **Returns:** `@{ ProjectId; ServiceAccountEmail; ClientId }`. See
+self-grant/exempt/revoke org-policy dance only if key creation is blocked → creates the
+`IDBridge` custom admin role (privileges resolved from `privileges.list`) and assigns it
+to the SA (prompting for an `admin.directory.rolemanagement`-scoped token if the bootstrap
+token lacks it). Prints the share-the-sheets checklist. **Returns:**
+`@{ ProjectId; ServiceAccountEmail; ClientId; RoleId }`. See
 [google-bootstrap.md](google-bootstrap.md).
 
 ### `Remove-IDBridgeGoogleUserLicense` 🌐

@@ -15,9 +15,9 @@
     to disable. Every removed license is logged by SKU name; an error on one assignment
     doesn't stop the rest.
 
-    Requires the https://www.googleapis.com/auth/apps.licensing scope in the service
-    account's domain-wide delegation (the module requests it automatically while the
-    feature is enabled).
+    Requires the https://www.googleapis.com/auth/apps.licensing scope (requested
+    automatically while the feature is enabled) and the License Management privilege on
+    the service account's 'IDBridge' admin role.
 
 .PARAMETER UserEmail
     The user's current primary email address (the Licensing API user key).

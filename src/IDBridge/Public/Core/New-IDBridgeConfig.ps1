@@ -84,8 +84,7 @@ function New-IDBridgeConfig {
 
     # ── Google Token ──────────────────────────────────────────────────────────
     GoogleToken = @{
-        Enabled    = $false   # Set $true once the GoogleAuth-ServiceAccount secret is seeded
-        adminEmail = 'idbridge-admin@yourdomain.org'   # Delegated admin the service account impersonates
+        Enabled = $false   # Set $true once the GoogleAuth-ServiceAccount secret is seeded
     }
 
     # ── Google Workspace ──────────────────────────────────────────────────────

@@ -12,8 +12,10 @@ Repo: <https://github.com/SCNetworksLLC/IDBridge>
 
 - **PowerShell 7.5+**
 - **ActiveDirectory** module (RSAT) — for AD processing
-- A **Google service-account** JSON key with domain-wide delegation — for Google Workspace
-  (stored in the built-in secret vault, see [docs/secrets.md](docs/secrets.md))
+- A **Google service-account** JSON key — for Google Workspace. The service account holds
+  a scoped custom admin role (no domain-wide delegation, no admin impersonation); the
+  bootstrap sets it all up (see [docs/google-bootstrap.md](docs/google-bootstrap.md)). The
+  key is stored in the built-in secret vault (see [docs/secrets.md](docs/secrets.md))
 
 ## Quick start
 

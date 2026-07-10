@@ -30,8 +30,10 @@ overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
 config file), and **acquires Google auth** (if `GoogleToken.Enabled`) via
 `Connect-IDBridgeGoogle`: reads the service-account key JSON from the secret vault
 (`Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount'`; **no file fallback**), validates
-it has a `private_key`, then calls `Get-GoogleApiAccessToken` (JWT → bearer token via
-domain-wide delegation to `GoogleToken.adminEmail`) into `$script:GoogleHeaders`. An auth
+it has a `private_key`, then calls `Get-GoogleApiAccessToken` (JWT → bearer token issued
+to the service account **itself** — authorized by its `IDBridge` Workspace admin role, no
+impersonation) into `$script:GoogleHeaders`, stashing the SA email alongside
+(`Get-IDBridgeGoogleServiceAccountEmail`). An auth
 failure throws rather than degrading — disable Google intentionally with
 `GoogleToken.Enabled = $false` (`-SkipGoogle` disables processing but still acquires
 headers for Sheets plugins and sheet logging).

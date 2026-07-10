@@ -49,15 +49,16 @@ the guard off (older configs keep working).
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `Enabled`         | bool   | Gate Google token acquisition at startup. | `Initialize-IDBridge` |
-| `adminEmail`      | string | Delegated admin the service account impersonates. | `Get-GoogleApiAccessToken` |
 
 > The service-account key itself is the vault secret `GoogleAuth-ServiceAccount`
-> (see [secrets.md](secrets.md)) — no file path is configured or discovered.
-> OAuth **scopes are not configured** — they're defined by the module
-> (`Get-IDBridgeGoogleScope`): directory user/orgunit/group + Sheets, plus
-> `apps.licensing` unless `Google.enableLicenseRemoval = $false`. The paste-ready list for
-> a domain-wide delegation grant is in
-> [google-bootstrap.md](google-bootstrap.md#the-forever-manual-finish-printed-as-a-checklist).
+> (see [secrets.md](secrets.md)) — no file path is configured or discovered. The token is
+> issued to the **service account itself** (no impersonation, no admin user): Admin SDK
+> calls are authorized by the `IDBridge` Workspace admin role assigned by the bootstrap,
+> and Sheets access comes from sharing the sheets with the service-account email
+> (`Get-IDBridgeGoogleServiceAccountEmail`). OAuth **scopes are not configured** — they're
+> defined by the module (`Get-IDBridgeGoogleScope`): directory user/orgunit/group +
+> Sheets, plus `apps.licensing` unless `Google.enableLicenseRemoval = $false`. See
+> [google-bootstrap.md](google-bootstrap.md).
 
 ### `Google` (Workspace processing)
 | Key | Type | Effect | Read by |
@@ -73,11 +74,10 @@ the guard off (older configs keep working).
 | `enableLicenseRemoval`        | bool   | Remove **all** of a user's discovered license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. **Default on**; set `$false` to disable (also drops the `apps.licensing` scope from token requests). | `Invoke-IDBridge` |
 | `licenseProductIds`           | array  | Products searched for a user's assignments (SKUs are discovered, not configured). Default `@('Google-Apps','101031','101037')`. IDs: [Google's product list](https://developers.google.com/workspace/admin/licensing/how-to/products). | `Get-TargetDataGoogle` |
 
-> License removal (on by default) needs the `https://www.googleapis.com/auth/apps.licensing`
-> scope in the service account's **domain-wide delegation** (Admin console → Security → API
-> controls) — without it, token acquisition fails for the whole run. Bootstrap-created DWD
-> grants already include it; pre-bootstrap deployments must add it (or set
-> `enableLicenseRemoval = $false`).
+> License removal (on by default) needs the **License Management privilege** on the
+> service account's `IDBridge` admin role. Bootstrap-created roles include it (when the
+> privilege exists in the tenant); if licensing calls fail with a 403, re-run the
+> bootstrap to converge the role's privileges — or set `enableLicenseRemoval = $false`.
 
 ### `AD` (Active Directory processing)
 | Key | Type | Effect | Read by |
