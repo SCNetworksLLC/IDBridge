@@ -4,18 +4,20 @@ Select linked Google users that should be deactivated.
 
 .DESCRIPTION
 Returns each source record that is inactive or no longer Google-provisioned (IDBActive = $false OR
-ProvisionGoogle = $false) while its current Google account is not yet suspended. Each is logged for
-the subsequent suspend + move-to-trash step, including the license assignments that step will
-remove (from GoogleCurrentLicenses) — so ReadOnly runs show the full license impact. Accounts that
-were matched by UPN+name (no personID externalId on the Google account yet) are also flagged: the
-deactivate step will set the externalId so the link persists — the update list only covers active
-users, so without this the same account would be re-matched every run.
+ProvisionGoogle = $false) while its current Google account is not yet deactivated (neither archived
+nor suspended — pre-archive suspends stay grandfathered). Each is logged for the subsequent
+archive + move-to-trash step, including the paid license assignments that step will remove (from
+GoogleCurrentLicenses; the base Education Fundamentals license self-releases on archive) — so
+ReadOnly runs show the full license impact. Accounts that were matched by UPN+name (no personID
+externalId on the Google account yet) are also flagged: the deactivate step will set the externalId
+so the link persists — the update list only covers active users, so without this the same account
+would be re-matched every run.
 
 .PARAMETER UserList
 The enriched source records.
 
 .OUTPUTS
-[object[]] the source records whose Google accounts should be suspended.
+[object[]] the source records whose Google accounts should be archived.
 
 .EXAMPLE
 $toDeactivate = Get-GoogleUsersToDeactivate -UserList $sourceData

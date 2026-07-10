@@ -6,9 +6,9 @@ Compute the Google update/move/rename list for linked, active users.
 For each active, Google-provisioned source user linked to a Google account, diffs the desired state
 against the current user and builds an Update-IDBridgeGoogleUser splat for the changed fields:
 primaryEmail (with alias-conflict handling -> RemoveAlias, or skip when the new email is already a
-primary), externalId/personID, given/family name (case-sensitive), department/title, suspended
-state (including ForceDisable), and OU path (unless GoogleOUOverride). Only users with a delta are
-returned.
+primary), externalId/personID, given/family name (case-sensitive), department/title, suspended and
+archived state (archived rehires are unarchived; ForceDisable suspends — the temporary block, never
+an archive), and OU path (unless GoogleOUOverride). Only users with a delta are returned.
 
 .PARAMETER UserList
 The enriched source records.
@@ -85,6 +85,12 @@ function Get-GoogleUsersToUpdate {
             $itemUpdateSplat["Suspended"] = 'false'
         }
 
+        # Rehires/returning students deactivated by archiving get unarchived
+        if ($googleUser.archived -ne $false) {
+            $itemUpdateSplat["Archived"] = 'false'
+        }
+
+        # ForceDisable is the temporary, override-driven block - suspend, never archive
         if ($item.ForceDisable -eq "TRUE") {
             $itemUpdateSplat["Suspended"] = 'true'
         }

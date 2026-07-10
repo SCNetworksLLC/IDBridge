@@ -87,7 +87,7 @@ Invoke-IDBridge
        Rename-ADObject → Move-ADObject → New-ADUser (create) →
        [refresh group list if users created] → Add/Remove group membership
  11. EXECUTE Google changes  (only if Google.enabled AND Debug.readOnly = $false)
-       New-IDBridgeGoogleOrgUnit → Update-IDBridgeGoogleUser (suspend+trash deactivates,
+       New-IDBridgeGoogleOrgUnit → Update-IDBridgeGoogleUser (archive+trash deactivates,
        + Remove-IDBridgeGoogleUserLicense when enableLicenseRemoval) →
        Update-IDBridgeGoogleUser (update/move/rename) → New-IDBridgeGoogleUser (create) →
        [refresh group list if users created] → Update-GoogleGroupMembers add/remove
@@ -110,7 +110,8 @@ A single source record is a `PSCustomObject` that **accretes properties** as it 
    password, and passphrase fields. (See [plugins.md](plugins.md) for the full schema.)
 2. **After `Add-TargetData*`:** `ADObject`/`GoogleObject`, `ADCurrentUserID`/
    `GoogleCurrentUserID`, `ADCurrentGroups`/`GoogleCurrentGroups`,
-   `ADCurrentUserEnabledStatus`/`GoogleCurrentUserSuspendedStatus`, and
+   `ADCurrentUserEnabledStatus`/`GoogleCurrentUserSuspendedStatus` (true when the Google
+   account is suspended **or** archived), and
    `ADDuplicateIDStatus`/`GoogleDuplicateIDStatus` when a duplicate ID is detected.
 3. **After override merge:** overridden scalar fields replaced; `GroupsProposed` mutated
    by `AddGroup`/`RemoveGroup`; `ForceDisable`/`GoogleOUOverride` flags applied.
@@ -135,7 +136,10 @@ their group memberships in the same run, using the GUID/ID returned by the creat
   splits results into `UpdateList`, `RenameList` (CN ≠ `FirstName LastName personID`), and
   `MoveList` (wrong OU).
 - **Deactivate** = `(IDBActive = false OR Provision<Dir> = false)` AND still enabled (AD) / not
-  suspended (Google). Deactivation also moves the user to the trash OU.
+  yet deactivated (Google: neither archived nor suspended). Deactivation moves the user to the
+  trash OU; on Google it **archives** (not suspends) so the base Education Fundamentals license
+  self-releases — pre-archive suspended users are grandfathered, and `ForceDisable` still
+  suspends (the temporary block).
 - **Link** (`SetEmployeeID`) = **any** unlinked source user (active or not), so deprovisioned
   accounts get linked and can be deactivated.
 - **Orphans** (Google): `Get-GoogleUsersOrphaned` finds target users absent from source.

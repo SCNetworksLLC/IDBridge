@@ -97,8 +97,8 @@ function New-IDBridgeConfig {
         enableGroupProcessingWhatIf = $true    # Log-only while $true; set $false to actually apply group changes
         enableGroupProcessingRemove = $false   # Set $true to allow group membership removals
         enableGroupProcessingTrash  = $false   # Set $true to strip group memberships on deactivate
-        enableLicenseRemoval        = $false   # Set $true to remove license assignments on deactivate
-        # licenseProductIds = @('Google-Apps', '101031', '101037')   # Products searched for license assignments
+        enableLicenseRemoval        = $false   # Set $true to remove paid license assignments on deactivate (the base license self-releases when the user is archived)
+        # licenseProductIds = @('101031', '101037')   # Paid products searched for license assignments
     }
 
     # ── Active Directory ──────────────────────────────────────────────────────

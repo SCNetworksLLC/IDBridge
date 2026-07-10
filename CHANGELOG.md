@@ -5,6 +5,29 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.10.3] - 2026-07-10
+
+### Changed
+- **Google deactivation now ARCHIVES users instead of suspending them.** Archiving is the
+  deactivation state Google built for school churn: the account can't sign in, is hidden
+  from the GAL, and its **base Education Fundamentals license self-releases** (~24h) —
+  with no OU auto-licensing tug-of-war, since the account converts to the free Archived
+  User license. Paid add-on licenses (Education Standard/Plus, Teaching & Learning) are
+  **not** released by archiving and are still removed by `enableLicenseRemoval`, which
+  therefore stays essential. Details:
+  - "Already deactivated" now means suspended **or** archived
+    (`GoogleCurrentUserSuspendedStatus` carries the OR), so users suspended under the old
+    behavior are grandfathered — no convergence churn.
+  - Reactivation (rehire/returning student) unarchives; `ForceDisable` still **suspends**
+    — it's the temporary, override-driven block, never an archive.
+  - `Update-IDBridgeGoogleUser` gains `-Archived` ("true"/"false").
+  - Default `licenseProductIds` drops `Google-Apps` → `@('101031','101037')` (paid
+    products only): the base license self-releases on archive, and removing it by API just
+    fights OU auto-licensing. Sites that explicitly configure `licenseProductIds` are
+    unaffected.
+  - Archiving expects an edition with included Archived User licenses (all Education
+    editions qualify; Business/Enterprise tenants must own AU licenses).
+
 ## [26.7.10.2] - 2026-07-10
 
 ### Fixed

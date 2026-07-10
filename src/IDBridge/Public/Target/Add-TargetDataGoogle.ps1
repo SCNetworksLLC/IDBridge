@@ -47,7 +47,10 @@ function Add-TargetDataGoogle {
             $googleObject = $GoogleData.LookupByID[$item.PersonID]
             $obj["GoogleObject"]                     = $googleObject
             $obj["GoogleCurrentUserID"]              = $googleObject.ID
-            $obj["GoogleCurrentUserSuspendedStatus"] = $googleObject.suspended
+            # Deactivated = suspended OR archived (archive is the deactivation state; pre-archive
+            # suspends are grandfathered). Stays $null when there is no Google account — that null
+            # is what keeps accountless users out of the deactivate list.
+            $obj["GoogleCurrentUserSuspendedStatus"] = if ($googleObject) { $googleObject.suspended -or $googleObject.archived } else { $null }
             $obj["GoogleCurrentGroups"]              = $googleObject.CurrentGroups
             $obj["GoogleCurrentLicenses"]            = $googleObject.CurrentLicenses
         }

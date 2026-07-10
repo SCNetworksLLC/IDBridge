@@ -240,7 +240,8 @@ hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 
 ### `Add-TargetDataGoogle` 🧮
 **Params:** `-SourceData`, `-GoogleData`. As above for Google: `GoogleObject`,
-`GoogleCurrentUserID`, `GoogleCurrentUserSuspendedStatus`, `GoogleCurrentGroups`,
+`GoogleCurrentUserID`, `GoogleCurrentUserSuspendedStatus` (true when suspended **or** archived;
+`$null` when there is no Google account), `GoogleCurrentGroups`,
 `GoogleCurrentLicenses`, `GoogleDuplicateIDStatus`. **Returns:** enriched array.
 
 ---
@@ -335,7 +336,8 @@ honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; Splat }[]`.
 ### `Get-GoogleUsersToUpdate` 🧮
 **Params:** `-UserList`, `-LookupByID`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
 `ProvisionGoogle=true` AND linked + delta in primaryEmail (with alias-conflict handling →
-`RemoveAlias`), externalId, name, dept/title, suspended state (incl. `ForceDisable`), or OU
+`RemoveAlias`), externalId, name, dept/title, suspended/archived state (archived rehires are
+unarchived; `ForceDisable` suspends — the temporary block, never an archive), or OU
 (unless `GoogleOUOverride`). **Returns:** `@{ UPN; Splat }[]` only for changed users.
 
 > **Alias removal on renames — exact scope.** `RemoveAlias` is set only when ALL of these
@@ -352,7 +354,9 @@ honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; Splat }[]`.
 
 ### `Get-GoogleUsersToDeactivate` 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionGoogle=false)` AND
-`GoogleCurrentUserSuspendedStatus=false`. Logs the licenses the deactivate step will remove
+`GoogleCurrentUserSuspendedStatus=false` (that property is true when the account is suspended
+**or** archived, so pre-archive suspends are grandfathered). The deactivate step **archives**
+the account (base Education license self-releases). Logs the paid licenses the step will remove
 (from `GoogleCurrentLicenses`) — visible in ReadOnly runs. Also logs when the deactivate step
 will set the personID externalId: accounts matched by UPN+name have no externalId yet, and the
 update list only covers active users, so the deactivate write persists the link (otherwise the
@@ -376,12 +380,13 @@ source. **Returns:** `@{ GoogleCurrentUserID; GoogleOrganizationalUnitTrash; Gro
 primaryEmail, so the new ID can be matched back from the batch response).
 
 ### `Update-IDBridgeGoogleUser` 🌐
-**Params:** `-GoogleUserID` + any of `-PrimaryEmail -Suspended -PersonID -FirstName
+**Params:** `-GoogleUserID` + any of `-PrimaryEmail -Suspended -Archived -PersonID -FirstName
 -LastName -Building -JobTitle -OrgUnitPath -Password -ChangeAtNextLogin -RemoveAlias
 -AsBatchRequest`. PUT `/users/{id}` with only changed fields; `RemoveAlias` does a lookup +
 DELETE on the alias (always immediately, even with `-AsBatchRequest`). With
 `-AsBatchRequest` returns the request descriptor for `Invoke-GoogleBatchRequest` instead of
-calling the API. Used for updates, moves, renames, and suspend-to-trash deactivations.
+calling the API. Used for updates, moves, renames, and archive-to-trash deactivations
+(`-Suspended` remains for the temporary `ForceDisable` block).
 
 ### `Invoke-GoogleBatchRequest` 🌐
 **Params:** `-Requests` (`@{ Method; Path; Body; ContentId }[]`), `-BatchUri` (def the

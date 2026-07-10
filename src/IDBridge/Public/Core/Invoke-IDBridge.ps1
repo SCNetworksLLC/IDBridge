@@ -441,16 +441,18 @@ function Invoke-IDBridge {
                 }
             }
 
-            #Disable Users (suspend + move to trash sent as one batch; groups/licenses follow per user)
+            #Disable Users (archive + move to trash sent as one batch; groups/licenses follow per user)
+            #Archiving (not suspending) self-releases the base Education Fundamentals license;
+            #paid add-on licenses are removed below. Pre-archive suspended users are grandfathered.
             $googleBatchRequests = @()
             foreach ($item in $GoogleUsersToDeactivate) {
                 try {
-                    Write-Log -Message ("Google: Disabling account for $($item.UPN)")
+                    Write-Log -Message ("Google: Archiving account for $($item.UPN)")
                     Write-Log -Message  ("Google: Moving account to trash: $($item.UPN)")
                     $deactivateSplat = @{
                         GoogleUserID = $item.GoogleCurrentUserID
                         OrgUnitPath  = $item.GoogleOrganizationalUnitTrash
-                        Suspended    = 'true'
+                        Archived     = 'true'
                     }
 
                     #Persist the personID link on accounts matched by name - the update list only covers active users, so without this the account is re-matched every run

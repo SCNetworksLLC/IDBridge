@@ -230,9 +230,11 @@ function Get-TargetDataGoogle {
         Write-Log -Message "Google: Fetching License Assignments" -Level Trace
 
         # Product IDs are a small public catalog (SKUs are discovered, not configured):
-        # Google-Apps = Workspace/Education Fundamentals, 101031 = Education Standard/Plus,
-        # 101037 = Teaching and Learning Upgrade. Override with Google.licenseProductIds.
-        $productIds = if ($IDConfig.Google.licenseProductIds) { $IDConfig.Google.licenseProductIds } else { @('Google-Apps', '101031', '101037') }
+        # 101031 = Education Standard/Plus, 101037 = Teaching and Learning Upgrade. Paid
+        # products only — the base license (product Google-Apps) self-releases when the
+        # deactivate step archives the user, and removing it by API just fights OU
+        # auto-licensing. Override with Google.licenseProductIds.
+        $productIds = if ($IDConfig.Google.licenseProductIds) { $IDConfig.Google.licenseProductIds } else { @('101031', '101037') }
 
         foreach ($productId in $productIds) {
             try {

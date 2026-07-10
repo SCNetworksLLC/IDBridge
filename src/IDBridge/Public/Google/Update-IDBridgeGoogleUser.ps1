@@ -19,6 +19,13 @@
 
 .PARAMETER Suspended
     (Optional) A value indicating whether the user is suspended. Accepts "true" or "false" values.
+    Used for temporary blocks (ForceDisable); real deactivations archive instead (see -Archived).
+
+.PARAMETER Archived
+    (Optional) A value indicating whether the user is archived. Accepts "true" or "false" values.
+    Archiving is the deactivation state: the user can't sign in, and their base Education
+    Fundamentals license self-releases (paid add-on licenses are NOT released — those are
+    removed separately by Remove-IDBridgeGoogleUserLicense).
 
 .PARAMETER PersonID
     (Optional) The unique person ID of the user. If provided, it will be added as the external ID for the user.
@@ -87,6 +94,10 @@ function Update-IDBridgeGoogleUser() {
         [ValidateSet("true", "false")]
         [string]$Suspended,
 
+        [parameter(Mandatory=$false)]  # Archived status is optional; set to "true" or "false"
+        [ValidateSet("true", "false")]
+        [string]$Archived,
+
         [parameter(Mandatory=$false)]  # PersonID is optional; provides an external ID for the user
         [string]$PersonID,
 
@@ -133,6 +144,11 @@ function Update-IDBridgeGoogleUser() {
     # If Suspended status is provided, add it to the update fields
     if ($Suspended) {
         $updateFields["suspended"] = $Suspended
+    }
+
+    # If Archived status is provided, add it to the update fields
+    if ($Archived) {
+        $updateFields["archived"] = $Archived
     }
 
     # If PersonID is provided, add it to the external IDs

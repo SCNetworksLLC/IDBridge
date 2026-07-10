@@ -71,8 +71,8 @@ the guard off (older configs keep working).
 | `enableGroupProcessingWhatIf` | bool   | Compute group diffs for logging without applying. | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip group memberships when deactivating. | `Invoke-IDBridge` |
-| `enableLicenseRemoval`        | bool   | Remove **all** of a user's discovered license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. **Default on**; set `$false` to disable (also drops the `apps.licensing` scope from token requests). | `Invoke-IDBridge` |
-| `licenseProductIds`           | array  | Products searched for a user's assignments (SKUs are discovered, not configured). Default `@('Google-Apps','101031','101037')`. IDs: [Google's product list](https://developers.google.com/workspace/admin/licensing/how-to/products). | `Get-TargetDataGoogle` |
+| `enableLicenseRemoval`        | bool   | Remove a user's discovered **paid** license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. The base Education Fundamentals license self-releases when the deactivate step archives the user. **Default on**; set `$false` to disable (also drops the `apps.licensing` scope from token requests). | `Invoke-IDBridge` |
+| `licenseProductIds`           | array  | Products searched for a user's assignments (SKUs are discovered, not configured). Default `@('101031','101037')` (Education Standard/Plus + Teaching and Learning Upgrade) — paid products only; the base license is not touched by API (archiving releases it, and API removal fights OU auto-licensing). IDs: [Google's product list](https://developers.google.com/workspace/admin/licensing/how-to/products). | `Get-TargetDataGoogle` |
 
 > License removal (on by default) needs the **License Management privilege** on the
 > service account's `IDBridge` admin role. Bootstrap-created roles include it (when the
