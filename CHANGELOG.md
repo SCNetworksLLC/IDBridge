@@ -5,6 +5,15 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.10.1] - 2026-07-10
+
+### Changed
+- **`Get-ADUsersToSetEmployeeID` now mirrors the Google side's unlinked-user logging.**
+  Unlinked source users with no AD account are logged at Trace only (previously Info),
+  with an explicit "inactive and has no AD account - nothing to reconcile" message for
+  inactive ones — the same refinement `Get-GoogleUsersToSetEmployeeID` already had, so
+  recurring inactive source rows no longer read like a problem in the log.
+
 ## [26.7.10.0] - 2026-07-10
 
 ### Changed

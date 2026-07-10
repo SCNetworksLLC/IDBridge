@@ -43,8 +43,12 @@ function Get-ADUsersToSetEmployeeID {
 
     foreach ($item in $UserList | Where-Object {-not $_.ADCurrentUserID}) {
         if ($item.personID -notin $CurrentADUsers.employeeID){
-            Write-Log -Message ("AD: No user found with EmployeeID: " + $item.personID)
-            
+            if ($item.username -notin $CurrentADUsers.SamAccountName -and $item.IDBActive -eq $false) {
+                Write-Log -Message ("AD: No user found with EmployeeID: $($item.personID). Source user is inactive and has no AD account - nothing to reconcile.") -Level Trace
+            } else {
+                Write-Log -Message ("AD: No user found with EmployeeID: " + $item.personID) -Level Trace
+            }
+
             if ($item.username -in $CurrentADUsers.SamAccountName) {
                 $ADUser = $null
 

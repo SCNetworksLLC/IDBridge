@@ -256,7 +256,9 @@ hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 ### `Get-ADUsersToSetEmployeeID` 🧮🌐
 **Params:** `-UserList`, `-CurrentADUsers`. For **any unlinked** source user (active or not),
 matches an existing AD user by SamAccountName **and** name — so deprovisioned users get linked
-and can then be deactivated. **Returns:** hashtable
+and can then be deactivated. Unlinked users with no AD account at all are logged at Trace only
+(inactive ones with an explicit "nothing to reconcile" message, mirroring
+`Get-GoogleUsersToSetEmployeeID`). **Returns:** hashtable
 `personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`.
 
 ### `Get-ADOrgUnitsForProcessing` 🧮
