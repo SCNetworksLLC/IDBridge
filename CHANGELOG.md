@@ -5,6 +5,15 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.10.2] - 2026-07-10
+
+### Fixed
+- **Telemetry timeout raised from 2s to 10s.** The 2-second budget was routinely exceeded
+  by the ingest backend's first response after idle (cold start), so sends failed with
+  `TaskCanceledException` whenever the endpoint wasn't already warm. Still fire-and-forget,
+  still a single attempt (a retry after a client-side timeout could double-count a Basic
+  event, which has no identifier to dedupe on), still never affects the run.
+
 ## [26.7.10.1] - 2026-07-10
 
 ### Changed

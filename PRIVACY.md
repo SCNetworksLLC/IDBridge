@@ -63,7 +63,7 @@ The exact payload is logged before sending. Run with `-TraceLogging` and look fo
 `Telemetry: Payload:` line in the log — that JSON is byte-for-byte what leaves your
 network, sent as a single HTTPS POST to `https://pulse.scnlabs.net/api/ingest`.
 
-Telemetry is fire-and-forget with a 2-second timeout and no retries: an unreachable
+Telemetry is fire-and-forget with a 10-second timeout and no retries: an unreachable
 endpoint (blocked egress, air-gapped network) is logged locally and never delays or
 fails a sync.
 

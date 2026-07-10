@@ -144,7 +144,9 @@ function Send-IDBridgeTelemetry {
     }
 
     try {
-        Invoke-RestMethod -Uri $endpoint -Method Post -Body $payloadJson -ContentType 'application/json' -TimeoutSec 2 | Out-Null
+        # 10s accommodates an ingest-backend cold start; 2s was routinely exceeded by the
+        # first request after idle. Still one attempt only — see the no-retries note above.
+        Invoke-RestMethod -Uri $endpoint -Method Post -Body $payloadJson -ContentType 'application/json' -TimeoutSec 10 | Out-Null
         Write-Log -Message "Telemetry: Sent." -Level Trace
     }
     catch {

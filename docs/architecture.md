@@ -96,7 +96,7 @@ Invoke-IDBridge
         │
  finally:
  13. Send-IDBridgeTelemetry (unless Telemetry.Tier = 'Off') → one anonymous usage event
-       (self-contained try/catch, 2s timeout, no retries — can never affect the run;
+       (self-contained try/catch, 10s timeout, no retries — can never affect the run;
        counts are APPLIED work so ReadOnly runs report zeros; see PRIVACY.md)
  14. Push-LogsToSheet (if Logging.GoogleSheetLoggingEnabled) → writes $script:Logs to sheet
 ```
