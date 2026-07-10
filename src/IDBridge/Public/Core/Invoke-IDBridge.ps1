@@ -263,7 +263,7 @@ function Invoke-IDBridge {
             $GoogleUsersToCreate = Get-GoogleUsersToCreate -UserList $sourceData -GoogleUsers $googleData.Users
             #Groups to Update
             if ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
-                $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName
+                $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups
             }
         }
         #endregion Google Processing Lists
@@ -385,8 +385,11 @@ function Invoke-IDBridge {
                 }
             }
 
-            #Process Group Membership
-            if ($IDConfig.AD.enableGroupProcessing -eq $true) {
+            #Process Group Membership (enableGroupProcessingWhatIf suppresses the writes - the change lists were already logged above)
+            if ($IDConfig.AD.enableGroupProcessing -eq $true -and $IDConfig.AD.enableGroupProcessingWhatIf -eq $true) {
+                Write-Log -Message "AD: Group processing WhatIf is enabled - group changes were logged but NOT applied."
+            }
+            if ($IDConfig.AD.enableGroupProcessing -eq $true -and $IDConfig.AD.enableGroupProcessingWhatIf -ne $true) {
                 #If there are users to create, refresh the group membership updates to ensure any new users are included in the group processing
                 if ($ADUsersToCreate.Count -gt 0) {
                     #Refresh AD User Groups to Update List to include newly created users
@@ -470,12 +473,14 @@ function Invoke-IDBridge {
                 Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
             }
 
+            #Strip group memberships on deactivate (batched) and remove licenses
+            $googleBatchRequests = @()
             foreach ($item in $GoogleUsersToDeactivate) {
                 if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true) {
                     foreach ($group in $item.GoogleCurrentGroups) {
                         try {
                             Write-Log -Message ("Google: Removing Group: $group from $($item.personID)")
-                            Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove"
+                            $googleBatchRequests += Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -AsBatchRequest -ContentId "$($item.personID)|$group"
                         }
                         catch {
                             Write-Log -Message ($_.Exception.Message) -Level Error
@@ -487,6 +492,9 @@ function Invoke-IDBridge {
                 if ($IDConfig.Google.enableLicenseRemoval -ne $false) {
                     Remove-IDBridgeGoogleUserLicense -UserEmail $item.GoogleObject.primaryEmail -Assignments $item.GoogleCurrentLicenses
                 }
+            }
+            if ($googleBatchRequests.Count -gt 0) {
+                Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
             }
 
             #Update, Move, Rename Users (batched; any RemoveAlias pre-step runs immediately at collect time)
@@ -531,40 +539,51 @@ function Invoke-IDBridge {
                 }
             }
 
-            #Process Group Membership
-            if ($IDConfig.Google.enableGroupProcessing -eq $true) {
+            #Process Group Membership (enableGroupProcessingWhatIf suppresses the writes - the change lists were already logged above)
+            if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingWhatIf -eq $true) {
+                Write-Log -Message "Google: Group processing WhatIf is enabled - group changes were logged but NOT applied."
+            }
+            if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingWhatIf -ne $true) {
                 if ($GoogleUsersToCreate.Count -gt 0) {
                     #Refresh Google User Groups to Update List to include newly created users
                     Write-Log -Message "Google: Refreshing User Groups to Update List to include newly created users." -Level Trace
                     
-                    $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName
+                    $GoogleUserGroupsToUpdate = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups
                 }
 
-                #Process Group Membership Add
+                #Process Group Membership Add (batched; adds and removes stay in separate batches since batch execution order is not guaranteed)
+                $googleBatchRequests = @()
                 foreach ($item in $GoogleUserGroupsToUpdate.Add) {
                     foreach ($group in $item.Groups) {
                         try {
                             Write-Log -Message "Google: Adding Group: $group to $($item.PersonID)"
-                            Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add"
+                            $googleBatchRequests += Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -AsBatchRequest -ContentId "$($item.PersonID)|$group"
                         }
                         catch {
                             Write-Log -Message ($_.Exception.Message) -Level Error
                         }
                     }
                 }
+                if ($googleBatchRequests.Count -gt 0) {
+                    Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+                }
 
-                #Process Group Membership Remove
+                #Process Group Membership Remove (batched)
                 if ($IDConfig.Google.enableGroupProcessingRemove -eq $true) {
+                    $googleBatchRequests = @()
                     foreach ($item in $GoogleUserGroupsToUpdate.Remove) {
                         foreach ($group in $item.Groups) {
                             try {
                                 Write-Log -Message "Google: Removing Group: $group from $($item.PersonID)"
-                                Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove"
+                                $googleBatchRequests += Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -AsBatchRequest -ContentId "$($item.PersonID)|$group"
                             }
                             catch {
                                 Write-Log -Message ($_.Exception.Message) -Level Error
                             }
                         }
+                    }
+                    if ($googleBatchRequests.Count -gt 0) {
+                        Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
                     }
                 }
             }

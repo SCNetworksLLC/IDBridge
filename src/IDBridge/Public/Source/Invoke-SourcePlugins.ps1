@@ -7,8 +7,9 @@ Iterates the Plugins array from the configuration in order. For each enabled des
 verifies <PluginsRoot>\<Function>.ps1 exists, dot-sources it, and confirms the function resolves
 — disabling the plugin with a Warn if the file fails to load or the function is missing. Each
 plugin is invoked with no arguments. Source plugin output is passed through
-Test-IDBridgeSourceData before being collected; Override output is collected as-is. Throws if no
-source data was gathered after all plugins run.
+Test-IDBridgeSourceData before being collected; when Debug.testRun is set, each source plugin's
+validated output is then capped at the first 10 records for faster iteration. Override output is
+collected as-is. Throws if no source data was gathered after all plugins run.
 
 .OUTPUTS
 [pscustomobject] @{ SourceData; OverrideData } — the combined results split by plugin Type.
@@ -66,7 +67,15 @@ function Invoke-SourcePlugins {
 
         if ($pluginData) {
             if ($plugin.Type -eq "Source") {
-                $sourceData += Test-IDBridgeSourceData -InputObject $pluginData -PluginName $plugin.Function
+                $validData = Test-IDBridgeSourceData -InputObject $pluginData -PluginName $plugin.Function
+
+                #Limit each source plugin's data to 10 records if Test Run is active
+                if ($IDConfig.Debug.testRun -eq $true -and $validData.Count -gt 0) {
+                    $validData = @($validData | Select-Object -First 10)
+                    Write-Log -Message "TEST RUN: LIMITING $($plugin.Function) SOURCE DATA TO $($validData.Count) USERS - $($validData.PersonID)"
+                }
+
+                $sourceData += $validData
             }
             if ($plugin.Type -eq "Override") {
                 $overrideData += $pluginData

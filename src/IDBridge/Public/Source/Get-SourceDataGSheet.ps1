@@ -8,7 +8,6 @@ present, and enforces a safety floor on the row count — aborting if the sheet 
 than userCount * userCountSafetyPercentage% (protection against a truncated or empty sheet).
 Returns only rows flagged Process = 'TRUE' that have every required column populated
 (TerminationDate excepted); rows missing data or not flagged to process are logged and skipped.
-When testRun is set, the result is capped at the first 10 rows.
 
 .PARAMETER sheetID
 The Google Spreadsheet ID to read.
@@ -21,9 +20,6 @@ The expected baseline row count used for the safety-floor calculation.
 
 .PARAMETER userCountSafetyPercentage
 The percentage of userCount that must be exceeded for the run to proceed. Default 75.
-
-.PARAMETER testRun
-When $true, limit the returned rows to the first 10 for faster iteration. Default $false.
 
 .OUTPUTS
 [object[]] the validated rows flagged to process.
@@ -47,9 +43,7 @@ function Get-SourceDataGSheet {
         [Parameter(Mandatory = $true)]
         [int]$userCount,
 
-        [int]$userCountSafetyPercentage = 75,
-
-        [bool]$testRun = $false
+        [int]$userCountSafetyPercentage = 75
     )
 
     #Get Data from Spreadsheet
@@ -90,13 +84,6 @@ function Get-SourceDataGSheet {
         Write-Log -Message "Source Data: Successfully retrieved $($data.count) Users"
     } else {
         Throw (Write-Log -Message "Source Data: $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
-    }
-
-
-    #Limit data to 10 objects if Test Run is active
-    if ($testRun -eq $true) {
-        $data = $data | Select-Object -first 10
-        Write-Log -Message "TEST RUN: LIMITING DATA SOURCE TO TEN USERS - $($data.PersonID)"
     }
 
 

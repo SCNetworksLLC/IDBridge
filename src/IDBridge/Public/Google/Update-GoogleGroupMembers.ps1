@@ -5,7 +5,9 @@ Add or remove a single user's membership in a Google group.
 .DESCRIPTION
 Adds the user (by id) to the group as a MEMBER (POST .../groups/{email}/members) when UpdateType is
 'Add', or removes them (DELETE .../groups/{email}/members/{id}) when 'Remove'. Auth headers come
-from Get-GoogleHeaders. On error the error record is returned rather than thrown.
+from Get-GoogleHeaders. On error the error record is returned rather than thrown. With
+-AsBatchRequest no API call is made; a request descriptor for Invoke-GoogleBatchRequest is
+returned instead.
 
 .PARAMETER GroupEmail
 The group's email address.
@@ -15,6 +17,14 @@ The Google user id to add or remove (the member id).
 
 .PARAMETER UpdateType
 'Add' to add the member, 'Remove' to remove them.
+
+.PARAMETER AsBatchRequest
+Return a request descriptor (Method/Path/Body/ContentId) for Invoke-GoogleBatchRequest instead of
+calling the API directly.
+
+.PARAMETER ContentId
+The identifier echoed back on the matching batch response part (only used with AsBatchRequest).
+Defaults to "<PersonID>|<GroupEmail>".
 
 .EXAMPLE
 Update-GoogleGroupMembers -GroupEmail 'staff@example.org' -PersonID $googleUserId -UpdateType 'Add'
@@ -34,7 +44,13 @@ function Update-GoogleGroupMembers() {
 
         [parameter(Mandatory=$true)]  # UpdateType is mandatory to specify adding users to the group or removing users from the group
         [ValidateSet("Add", "Remove")]
-        [string]$UpdateType
+        [string]$UpdateType,
+
+        [parameter(Mandatory=$false)]  # Return a batch request descriptor instead of calling the API
+        [switch]$AsBatchRequest,
+
+        [parameter(Mandatory=$false)]  # Batch response correlation id; defaults to "<PersonID>|<GroupEmail>"
+        [string]$ContentId
     )
 
     #Import Google API Headers (with access token)
@@ -57,6 +73,24 @@ function Update-GoogleGroupMembers() {
         $updateParams["Uri"] = ("https://admin.googleapis.com/admin/directory/v1/groups/$GroupEmail/members/$PersonID")
         $updateParams["Method"] = 'Delete'
         $updateParams["Headers"] = $headers
+    }
+
+    # If AsBatchRequest is set, return the request descriptor for Invoke-GoogleBatchRequest
+    if ($AsBatchRequest) {
+        if (-not $ContentId) { $ContentId = "$PersonID|$GroupEmail" }
+        if ($UpdateType -eq "Add") {
+            return @{
+                Method    = "POST"
+                Path      = "/admin/directory/v1/groups/$GroupEmail/members"
+                Body      = $updateParams["Body"]
+                ContentId = $ContentId
+            }
+        }
+        return @{
+            Method    = "DELETE"
+            Path      = "/admin/directory/v1/groups/$GroupEmail/members/$PersonID"
+            ContentId = $ContentId
+        }
     }
 
     # Send the API request

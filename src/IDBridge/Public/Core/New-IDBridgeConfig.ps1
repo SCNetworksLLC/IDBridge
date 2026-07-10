@@ -92,7 +92,6 @@ function New-IDBridgeConfig {
         enabled                     = $false
         customerID                  = 'C00000000'         # Workspace customer ID
         userRootOU                  = '/YourDistrict'     # Managed root OU path; anchors the ChangeThreshold safety guard's population count
-        GroupPrimaryDomainName      = 'yourdomain.org'    # Domain used to build group emails (name@domain)
         enableGroupProcessing       = $false
         enableGroupProcessingWhatIf = $true    # Log-only while $true; set $false to actually apply group changes
         enableGroupProcessingRemove = $false   # Set $true to allow group membership removals

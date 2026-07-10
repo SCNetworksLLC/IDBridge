@@ -19,7 +19,10 @@ For each enabled `Plugins` entry, in config order:
    warn + disable).
 3. Require `Get-Command <Function>` to resolve (missing ⇒ warn + disable).
 4. Invoke with **no arguments**: `& $plugin.Function`.
-5. Append the returned object(s) to `SourceData` or `OverrideData` based on `Type`.
+5. Append the returned object(s) to `SourceData` or `OverrideData` based on `Type`. When
+   `Debug.testRun` is set, each source plugin's validated output is capped at the first 10
+   records before collection (after `Test-IDBridgeSourceData` and the plugin's own safety
+   floors) — plugins don't need to implement test-run logic themselves.
 
 Returns `[PSCustomObject]@{ SourceData; OverrideData }`. **Throws** if `SourceData` is empty
 after all plugins run. A plugin therefore:

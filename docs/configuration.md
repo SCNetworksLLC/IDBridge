@@ -24,7 +24,7 @@ vault under `C:\IDBridge\Vault\` (see [Secrets](#secrets-not-in-the-config-file)
 | Key            | Type | Effect | Read by |
 |----------------|------|--------|---------|
 | `ReadOnly`     | bool | `$true` ⇒ compute change lists but **write nothing**. Shipped default `$true`. | `Invoke-IDBridge` (gates both execute regions) |
-| `TestRun`      | bool | Plugins process a small subset for fast iteration. | Plugins (via `Get-SourceData*` `testRun`) |
+| `TestRun`      | bool | Each source plugin's output is capped at 10 records for fast iteration. | `Invoke-SourcePlugins` |
 | `SkipADCheck`  | bool | Don't throw if the `ActiveDirectory` module fails to import. | `Initialize-IDBridge` |
 | `TraceLogging` | bool | Emit `Trace`-level logs (and enables parallel-logging path in `Get-TargetDataGoogle`). | `Write-Log`, `Invoke-IDBridge`, `Get-TargetDataGoogle` |
 
@@ -66,9 +66,8 @@ the guard off (older configs keep working).
 | `enabled`                     | bool   | Master switch for Google processing (auto-set `$false` if auth fails). | `Invoke-IDBridge`, `Get-TargetDataGoogle` |
 | `customerID`                  | string | Workspace customer ID. | Google target/API calls |
 | `userRootOU`                  | string | Root OU path, e.g. `/Marshfield`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
-| `GroupPrimaryDomainName`      | string | Domain used to build group emails (`name@domain`). | `Get-GoogleUserGroupsToUpdate` |
 | `enableGroupProcessing`       | bool   | Enable Google group sync. | `Invoke-IDBridge` |
-| `enableGroupProcessingWhatIf` | bool   | Compute group diffs for logging without applying. | `Invoke-IDBridge` |
+| `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip group memberships when deactivating. | `Invoke-IDBridge` |
 | `enableLicenseRemoval`        | bool   | Remove a user's discovered **paid** license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. The base Education Fundamentals license self-releases when the deactivate step archives the user. **Default on**; set `$false` to disable (also drops the `apps.licensing` scope from token requests). | `Invoke-IDBridge` |
@@ -85,7 +84,7 @@ the guard off (older configs keep working).
 | `enabled`                     | bool   | Master switch for AD processing. | `Initialize-IDBridge`, `Invoke-IDBridge` |
 | `userRootOU`                  | string | Root OU DN, e.g. `OU=Marshfield,DC=sdom,DC=local`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
 | `enableGroupProcessing`       | bool   | Enable AD group sync. | `Invoke-IDBridge` |
-| `enableGroupProcessingWhatIf` | bool   | Compute group diffs for logging without applying. | `Invoke-IDBridge` |
+| `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals. | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip groups on deactivate (passed to `Disable-IDBridgeADUser`). | `Invoke-IDBridge` |
 

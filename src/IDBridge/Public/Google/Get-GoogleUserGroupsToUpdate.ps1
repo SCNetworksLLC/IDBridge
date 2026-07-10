@@ -5,8 +5,10 @@ Diff proposed vs current Google group membership for active linked users.
 .DESCRIPTION
 For each active, Google-provisioned, linked user, compares GroupsProposed against
 GoogleCurrentGroups and builds an Add list (proposed groups that exist in Google and the user isn't
-already in) and a Remove list (current memberships no longer proposed). Group emails are formed as
-name@GroupPrimaryDomainName; adds are limited to groups present in GoogleGroups.
+already in) and a Remove list (current memberships no longer proposed). Membership is compared by
+each group's real email from GoogleGroups (a group's email does not always match its name), so a
+group named Grade-PK with email studentsgradepk@domain diffs correctly. Adds are limited to groups
+present in GoogleGroups.
 
 .PARAMETER UserList
 The enriched source records.
@@ -14,14 +16,11 @@ The enriched source records.
 .PARAMETER GoogleGroups
 The Google groups (null allowed); a proposed group must exist here (by name) to be added.
 
-.PARAMETER GroupPrimaryDomainName
-The domain used to build group email addresses (name@domain).
-
 .OUTPUTS
 [pscustomobject] @{ Add; Remove }, each an array of @{ PersonID; GoogleCurrentUserID; Groups }.
 
 .EXAMPLE
-$groups = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups -GroupPrimaryDomainName $IDConfig.Google.GroupPrimaryDomainName
+$groups = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $googleData.Groups
 
 .NOTES
    Created by: Sam Cattanach
@@ -35,21 +34,26 @@ function Get-GoogleUserGroupsToUpdate {
 
         [Parameter(Mandatory = $true)]
         [AllowNull()]
-        $GoogleGroups,
-
-        [Parameter(Mandatory = $true)]
-        $GroupPrimaryDomainName
+        $GoogleGroups
     )
 
     $itemListAdd = @()
     $itemListRemove = @()
 
+    #Map group names to emails (and back) so membership is compared by each group's real email
+    $groupEmailByName = @{}
+    $groupNameByEmail = @{}
+    foreach ($group in $GoogleGroups) {
+        $groupEmailByName[$group.name] = $group.email
+        $groupNameByEmail[$group.email] = $group.name
+    }
+
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionGoogle -eq $true -and $_.GoogleCurrentUserID}) {
         #Create list for adding groups
         $userGroupsAdd = @()
 
-        foreach ($group in $item.GroupsProposed | Where-Object {$_ -in $GoogleGroups.name}) {
-            if (("$group@$($GroupPrimaryDomainName)") -notin $item.GoogleCurrentGroups) {
+        foreach ($group in $item.GroupsProposed | Where-Object {$groupEmailByName.ContainsKey($_)}) {
+            if ($groupEmailByName[$group] -notin $item.GoogleCurrentGroups) {
                 $userGroupsAdd += $group
             }
         }
@@ -67,7 +71,7 @@ function Get-GoogleUserGroupsToUpdate {
         $userGroupsRemove = @()
 
         foreach ($group in $item.GoogleCurrentGroups) {
-            if ($group.Split("@")[0] -notin $item.GroupsProposed) {
+            if ($groupNameByEmail[$group] -notin $item.GroupsProposed) {
                 $userGroupsRemove += $group
             }
         }

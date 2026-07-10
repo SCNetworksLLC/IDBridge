@@ -172,7 +172,8 @@ via `nextLink`; includes everything the app registration can see in that vault).
 Discovers/runs plugins from `$IDConfig.Plugins`. For each enabled entry: verifies
 `<PluginsRoot>\<Function>.ps1` exists, dot-sources it, confirms the function via
 `Get-Command`, invokes with no args. Source results are passed through
-`Test-IDBridgeSourceData` before collection. **Returns:** `@{ SourceData; OverrideData }`
+`Test-IDBridgeSourceData` before collection; when `Debug.testRun` is set, each source
+plugin's validated output is capped at the first 10 records. **Returns:** `@{ SourceData; OverrideData }`
 (split by each plugin's `Type`). Throws if no source data gathered. See [plugins.md](plugins.md).
 
 ### `New-IDBridgeSourceRecord` 🧮
@@ -194,10 +195,9 @@ keeps the rest. **Returns:** the valid records as an array. Called per source pl
 `Invoke-SourcePlugins`.
 
 ### `Get-SourceDataGSheet` 🌐
-**Params:** `-sheetID`, `-sheetRange`, `-userCount`, `-userCountSafetyPercentage` (def 75),
-`-testRun` (def `$false`). Reads a sheet via `Get-GoogleSheetData`, validates required
-columns, enforces a count safety floor, returns rows where `Process='TRUE'` (capped at 10
-when `testRun`). **Returns:** array of row objects.
+**Params:** `-sheetID`, `-sheetRange`, `-userCount`, `-userCountSafetyPercentage` (def 75).
+Reads a sheet via `Get-GoogleSheetData`, validates required columns, enforces a count
+safety floor, returns rows where `Process='TRUE'`. **Returns:** array of row objects.
 
 ### `Get-SourceDataSkywardSMS` 🌐
 **Params:** `-ClientId`, `-ClientSecret`, `-TokenUrl`, `-BaseUrl`, `-ExcludeEntityIDs`,
@@ -363,9 +363,9 @@ update list only covers active users, so the deactivate write persists the link 
 account would be re-matched every run). **Returns:** user objects.
 
 ### `Get-GoogleUserGroupsToUpdate` 🧮
-**Params:** `-UserList`, `-GoogleGroups` (nullable), `-GroupPrimaryDomainName`. Diffs
-proposed vs current groups (adds must exist in Google; group email = `name@domain`).
-**Returns:** `@{ Add; Remove }`.
+**Params:** `-UserList`, `-GoogleGroups` (nullable). Diffs proposed vs current groups
+(adds must exist in Google; membership compared by each group's real email from
+`GoogleGroups` — a group's email does not always match its name). **Returns:** `@{ Add; Remove }`.
 
 ### `Get-GoogleUsersOrphaned` 🧮
 **Params:** `-UserList`, `-GoogleUsers`, `-TrashOU`. Finds Google users whose ID isn't in
@@ -403,8 +403,12 @@ creates as three sequential batches). Batching cuts round trips, not quota. **Re
 ID from config — `my_customer` doesn't resolve for the service account's own token).
 
 ### `Update-GoogleGroupMembers` 🌐
-**Params:** `-GroupEmail`, `-PersonID`, `-UpdateType {Add|Remove}`. Add → POST
-`/groups/{email}/members` (role MEMBER); Remove → DELETE `/groups/{email}/members/{id}`.
+**Params:** `-GroupEmail`, `-PersonID`, `-UpdateType {Add|Remove}`, `-AsBatchRequest`,
+`-ContentId` (def `<PersonID>|<GroupEmail>`). Add → POST `/groups/{email}/members` (role
+MEMBER); Remove → DELETE `/groups/{email}/members/{id}`. With `-AsBatchRequest` returns a
+descriptor for `Invoke-GoogleBatchRequest` instead of calling the API — `Invoke-IDBridge`
+sends all membership adds, removes, and deactivate group-strips as three separate batches
+(order inside one batch isn't guaranteed, so change types don't share a batch).
 
 ### `Connect-IDBridgeGoogle` 🌐
 No params. Reads the `GoogleAuth-ServiceAccount` vault secret, validates the `private_key`,

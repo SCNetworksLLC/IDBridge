@@ -5,6 +5,46 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.10.6] - 2026-07-10
+
+### Changed
+- **Google group membership changes are now batched** like the user create/update/
+  deactivate calls. `Update-GoogleGroupMembers` gains `-AsBatchRequest`/`-ContentId`, and
+  `Invoke-IDBridge` sends membership adds, membership removes, and deactivate group-strips
+  through `Invoke-GoogleBatchRequest` as three separate batches (Google doesn't guarantee
+  execution order inside a batch, so change types don't share one). Wall-clock win only —
+  quota usage is unchanged. Batch item failures now log with a `<personID>|<group>`
+  correlation id instead of a bare HTTP status.
+
+## [26.7.10.5] - 2026-07-10
+
+### Fixed
+- **Google group diff no longer assumes a group's email matches its name.**
+  `Get-GoogleUserGroupsToUpdate` built membership emails as `<name>@GroupPrimaryDomainName`;
+  for a group whose real email differs (e.g. `Grade-PK` = `studentsgradepk@…`) every run
+  proposed a bogus add (409 Conflict — already a member) **and** a bogus remove of the
+  correct membership, oscillating the group every other run. Adds and removes now compare
+  by each group's real email from the fetched group list. The `GroupPrimaryDomainName`
+  parameter and config key are removed (unused; a leftover key in existing configs is
+  ignored).
+- **`enableGroupProcessingWhatIf` now actually suppresses group writes.** The flag was only
+  consulted when *computing* the change lists; with `enableGroupProcessing = $true` the
+  add/remove writes executed regardless — contrary to the documented log-only semantics.
+  The AD and Google group execute regions are now skipped (with an explicit log line) while
+  WhatIf is `$true`.
+
+## [26.7.10.4] - 2026-07-10
+
+### Fixed
+- **`-TestRun` works again.** The switch (and `Debug.testRun`) had no effect: the only
+  consumer was `Get-SourceDataGSheet -testRun`, which the plugins stopped passing at some
+  point — so a "test run" silently processed the full dataset. The cap now lives centrally
+  in `Invoke-SourcePlugins`: each source plugin's validated output is limited to the first
+  10 records when `Debug.testRun` is set, after `Test-IDBridgeSourceData` and after each
+  source's own safety-floor checks (which still see the full dataset). Works for every
+  source plugin — including Skyward, which never supported it — with no plugin-side code.
+  The now-redundant `testRun` parameter is removed from `Get-SourceDataGSheet`.
+
 ## [26.7.10.3] - 2026-07-10
 
 ### Changed

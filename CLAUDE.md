@@ -54,7 +54,7 @@ Switches (override the config file at runtime):
 |------------------|------------------------------------------------------------------|
 | `-RootPath`      | Base dir for Config/Logs/Exports/Plugins/Data/Vault (def `C:\IDBridge`) |
 | `-ReadOnly`      | Sets `Debug.readOnly`; when `$true`, computes but writes nothing  |
-| `-TestRun`       | Sets `Debug.testRun`; plugins process a small subset             |
+| `-TestRun`       | Sets `Debug.testRun`; each source plugin's output is capped at 10 records |
 | `-SkipADCheck`   | Don't fail startup if the AD module can't import                 |
 | `-TraceLogging`  | Enable verbose/trace logging                                     |
 | `-SkipAD`        | Disable all AD processing for this run                           |
@@ -117,6 +117,7 @@ Note: All logs should use the Write-Log function.  Look this up prior and see ho
 Note: Any new code should be in the same style of writing as the code that is currently in the module and files
 
 Note: Update the CHANGELOG.md file as you make changes
+
 
 
 
@@ -237,6 +238,8 @@ they weren't alphabetical before. Reformatting creates massive diffs that hide y
 
 The test: look at your diff. Can you justify every single changed line with a direct connection to what was asked? If any line is there because "while I was in there I
 thought I'd ... " then revert it.
+
+Do not commit to Github or update to a release until I say so.
 
 ## 5. Verification
 

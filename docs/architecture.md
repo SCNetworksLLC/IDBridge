@@ -90,7 +90,7 @@ Invoke-IDBridge
        New-IDBridgeGoogleOrgUnit → Update-IDBridgeGoogleUser (archive+trash deactivates,
        + Remove-IDBridgeGoogleUserLicense when enableLicenseRemoval) →
        Update-IDBridgeGoogleUser (update/move/rename) → New-IDBridgeGoogleUser (create) →
-       [refresh group list if users created] → Update-GoogleGroupMembers add/remove
+       [refresh group list if users created] → Update-GoogleGroupMembers add/remove (batched)
         │
  12. Export non-students → <ExportsRoot>\UserList-Staff.csv   (PersonTypeID ≠ "1")
         │
