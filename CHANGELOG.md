@@ -5,6 +5,45 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.9.0] - 2026-07-09
+
+### Added
+- **`New-IDBridgeConfig`.** First-run scaffold: creates the runtime folder tree
+  (`Config/Logs/Exports/Plugins/Data/Vault`) under `-RootPath` (default `C:\IDBridge`) and
+  writes a default `IDBridgeConfig.psd1` with every feature disabled, all plugins off, and
+  obvious placeholder values for the site-specific settings. Safety brakes ship on
+  (`ReadOnly = $true`, group `WhatIf = $true`, `ChangeThreshold` enabled). An existing
+  config file is never overwritten — the function throws instead, and there is deliberately
+  no `-Force`. Runs before any state exists (no `Write-Log`/`Initialize-IDBridge` needed).
+
+### Documentation
+- **Published source-sheet template for fresh deployments.** Onboarding without existing
+  directory data now starts from a pre-built Google Sheet template (copy link:
+  `https://docs.google.com/spreadsheets/d/1OUlm-5WGce_x2z0L1dM2kD8Ejk_f3RNF3EC8sa6uHhE/copy`) that ships the source and override tabs with
+  tables, Process checkboxes, a TerminationDate date column, a Groups reference tab, and
+  multi-select group dropdowns. Documented in the README and `docs/functions.md`. (Replaces the
+  never-released `New-IDBridgeSourceSheet` builder, which the API couldn't give multi-select
+  dropdowns.)
+- **First-class IDBridge Pulse pointer in the README.** Added a short `IDBridge Pulse` section
+  describing the companion dashboard (`pulse.scnlabs.net`), what a claimed install shows, and
+  how to claim one with `Get-IDBridgeSiteID` — so Pulse reads as a product to use, not just a
+  telemetry endpoint.
+
+### Changed
+- **Dropped the unused `-UserRootOU` parameter from `Get-ADOrgUnitsForProcessing` and
+  `Get-GoogleOrgUnitsForProcessing`.** Both declared it `Mandatory` but never used it —
+  ancestor expansion derives the needed OUs from the user list alone. Removed the parameter,
+  its doc block, and the two call sites in `Invoke-IDBridge`. **No config change:** the
+  `AD.userRootOU` / `Google.userRootOU` keys stay — they're read directly by the
+  `ChangeThreshold` change-volume guard as its managed-population anchor, which is now their
+  only consumer (docs and the config template comments updated to say so).
+- **`Export-IDBridgeDirectoryToSheet` is now scope-driven, not config-driven.** The
+  `-ADSearchBase` / `-GoogleOrgUnitPath` parameters no longer default to the config root OUs;
+  a directory is fetched only when its scope is named. An omitted scope is skipped entirely
+  (never fetched, never a failure) instead of falling back to `AD.enabled`/`Google.enabled`,
+  so a Google-only run (only `-GoogleOrgUnitPath`) never touches or requires Active Directory
+  and vice versa. At least one of the two scopes must now be provided.
+
 ## [26.7.8.0] - 2026-07-08
 
 ### Added

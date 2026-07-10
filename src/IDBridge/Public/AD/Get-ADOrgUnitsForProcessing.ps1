@@ -10,10 +10,6 @@
 .PARAMETER UserList
     Full user list from the identity database. Only active users are processed.
 
-.PARAMETER UserRootOU
-    Root OU for users. Retained for consistency but not directly used since
-    ancestor expansion covers it automatically.
-
 .PARAMETER CurrentOrgUnits
     OUs that already exist in AD, used to filter out OUs that don't need creating.
 
@@ -24,9 +20,6 @@ function Get-ADOrgUnitsForProcessing {
     param (
         [Parameter(Mandatory = $true)]
         $UserList,
-
-        [Parameter(Mandatory = $true)]
-        $UserRootOU,
 
         [Parameter(Mandatory = $true)]
         $CurrentOrgUnits

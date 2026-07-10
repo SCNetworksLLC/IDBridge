@@ -234,7 +234,7 @@ function Invoke-IDBridge {
         #region AD Processing Lists
         if ($IDConfig.AD.enabled -eq $true) {
             #Org Units to Create
-            $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $sourceData -UserRootOU $IDConfig.AD.userRootOU -CurrentOrgUnits $adData.OrgUnits
+            $ADOrgUnitsForProcessing = Get-ADOrgUnitsForProcessing -UserList $sourceData -CurrentOrgUnits $adData.OrgUnits
             #Users to Deactivate
             $ADUsersToDeactivate = Get-ADUsersToDeactivate -UserList $sourceData
             #Users to Update
@@ -254,7 +254,7 @@ function Invoke-IDBridge {
         #region Google Processing Lists
         if ($IDConfig.Google.enabled -eq $true) {
             #Org Units to Create
-            $GoogleOrgUnitsForProcessing = Get-GoogleOrgUnitsForProcessing -UserList $sourceData -UserRootOU $IDConfig.Google.userRootOU -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath
+            $GoogleOrgUnitsForProcessing = Get-GoogleOrgUnitsForProcessing -UserList $sourceData -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath
             #Users to Update
             $GoogleUsersToUpdate = Get-GoogleUsersToUpdate -UserList $sourceData -LookupByID $googleData.LookupByID -GoogleUsers $googleData.Users
             #Users to Deactivate

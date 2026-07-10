@@ -4,8 +4,8 @@ Seed the staff source Google Sheet from the current AD and Google Workspace dire
 
 .DESCRIPTION
 One-time onboarding tool for a new IDBridge deployment. Reads the current users, attributes, and
-group memberships from Active Directory (Get-TargetDataAD) and Google Workspace
-(Get-TargetDataGoogle), scopes each to an OU subtree, merges the two directories per person by
+group memberships from Active Directory (Get-TargetDataAD) and/or Google Workspace
+(Get-TargetDataGoogle), scoped to the OU subtree(s) you name, merges the directories per person by
 UPN/primaryEmail, and writes one row per person to a NEW tab in the target spreadsheet using the
 staff source-sheet column layout (PersonID, NameFirst, NameLast, Username, Building, PersonType,
 JobTitle, TerminationDate, ApplicationGroups, EmailGroups, Word, Process, ForceDisable,
@@ -23,7 +23,11 @@ TerminationDate so the staff plugin computes IDBActive = $false; a mixed state (
 but Google active) is logged as a warning and left active. The function throws if the target tab
 already exists — it never appends to or overwrites existing sheet data.
 
-Requires Initialize-IDBridge and Connect-IDBridgeGoogle to have run first.
+A directory is processed only when its scope is named: pass -ADSearchBase to include AD, pass
+-GoogleOrgUnitPath to include Google, or pass both. A directory whose scope is omitted is skipped
+entirely (never fetched, never a failure) — so a Google-only run does not touch or require AD, and
+vice versa. At least one of the two must be provided. Requires Initialize-IDBridge and
+Connect-IDBridgeGoogle to have run first (Google auth is always needed to write the result sheet).
 
 .PARAMETER SpreadsheetId
 The target spreadsheet ID to write the seed tab into.
@@ -32,16 +36,16 @@ The target spreadsheet ID to write the seed tab into.
 The tab name to create (default StaffSeed-<yyyy-MM-dd>). Throws if the tab already exists.
 
 .PARAMETER ADSearchBase
-OU DN to scope the AD users to (subtree). Default AD.userRootOU from config.
+OU DN to scope the AD users to (subtree). Omit to skip Active Directory entirely. No config default.
 
 .PARAMETER GoogleOrgUnitPath
-OU path to scope the Google users to (subtree). Default Google.userRootOU from config.
+OU path to scope the Google users to (subtree). Omit to skip Google Workspace entirely. No config default.
 
 .OUTPUTS
 [pscustomobject] @{ SpreadsheetId; SheetName; RowsWritten }.
 
 .EXAMPLE
-Export-IDBridgeDirectoryToSheet -SpreadsheetId '1qrZ...' -SheetName 'StaffSeed'
+Export-IDBridgeDirectoryToSheet -SpreadsheetId '1qrZ...' -GoogleOrgUnitPath '/Marshfield/Staff'
 
 .EXAMPLE
 Export-IDBridgeDirectoryToSheet -SpreadsheetId '1qrZ...' -ADSearchBase 'OU=Staff,OU=Marshfield,DC=sdom,DC=local' -GoogleOrgUnitPath '/Marshfield/Staff'
@@ -63,41 +67,37 @@ function Export-IDBridgeDirectoryToSheet {
         [string]$GoogleOrgUnitPath
     )
 
-    #region Import Configuration
-    try { $IDConfig = Get-IDBridgeConfig } catch { Throw $_ }
-
-    #Import Google API Headers (with access token) - needed for the sheet write even if Google processing is disabled
-    try { $headers = Get-GoogleHeaders } catch { Throw $_ }
-
-    #Default the OU scopes to the managed root OUs from config
-    if (-not $ADSearchBase) { $ADSearchBase = $IDConfig.AD.userRootOU }
-    if (-not $GoogleOrgUnitPath) { $GoogleOrgUnitPath = $IDConfig.Google.userRootOU }
-
-    if (-not $IDConfig.AD.enabled -and -not $IDConfig.Google.enabled) {
-        Write-Log -Message "Export: Both AD and Google processing are disabled in config - nothing to export" -Level Error
-        Throw "Export: Both AD and Google processing are disabled in config - nothing to export"
+    #region Validate Scope
+    #Each directory is processed only when its OU scope is named - no config defaults, and an
+    #omitted scope is skipped entirely (never fetched, never a failure). Require at least one.
+    if (-not $ADSearchBase -and -not $GoogleOrgUnitPath) {
+        Write-Log -Message "Export: Specify at least one of -ADSearchBase or -GoogleOrgUnitPath - neither was provided." -Level Error
+        Throw "Export: Specify at least one of -ADSearchBase or -GoogleOrgUnitPath - neither was provided."
     }
 
+    #Import Google API Headers (with access token) - always needed to write the result sheet
+    try { $headers = Get-GoogleHeaders } catch { Throw $_ }
+
     Write-Log -Message "Export: Starting directory export to spreadsheet $SpreadsheetId tab '$SheetName'" -Level Info
-    #endregion Import Configuration
+    #endregion Validate Scope
 
     #region Get AD Users
     $adUsers = @()
-    if ($IDConfig.AD.enabled) {
+    if ($ADSearchBase) {
         $adData = Get-TargetDataAD
 
         #Scope to the subtree under the search base
         $adUsers = @($adData.Users | Where-Object { $_.DistinguishedName -like ("*," + $ADSearchBase) })
         Write-Log -Message "Export: $($adUsers.Count) of $($adData.Users.Count) AD users are under $ADSearchBase" -Level Info
     } else {
-        Write-Log -Message "Export: AD processing is disabled in config - exporting Google data only" -Level Warn
+        Write-Log -Message "Export: No -ADSearchBase specified - skipping Active Directory" -Level Info
     }
     #endregion Get AD Users
 
     #region Get Google Users
     $googleUsers = @()
     $googleGroupNameByEmail = @{}
-    if ($IDConfig.Google.enabled) {
+    if ($GoogleOrgUnitPath) {
         $googleData = Get-TargetDataGoogle
 
         #Map group emails back to group names for the sheet dump
@@ -110,7 +110,7 @@ function Export-IDBridgeDirectoryToSheet {
         $googleUsers = @($googleData.Users | Where-Object { $_.orgUnitPath -eq $GoogleOrgUnitPath -or $_.orgUnitPath -like $googlePathPrefix })
         Write-Log -Message "Export: $($googleUsers.Count) of $($googleData.Users.Count) Google users are under $GoogleOrgUnitPath" -Level Info
     } else {
-        Write-Log -Message "Export: Google processing is disabled in config - exporting AD data only" -Level Warn
+        Write-Log -Message "Export: No -GoogleOrgUnitPath specified - skipping Google Workspace" -Level Info
     }
     #endregion Get Google Users
 

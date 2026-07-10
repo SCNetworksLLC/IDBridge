@@ -7,7 +7,9 @@ C:\IDBridge\Config\IDBridgeConfig.psd1
 ```
 
 It is loaded by `Initialize-IDBridge` into `$script:IDBridgeConfig` and read everywhere via
-`Get-IDBridgeConfig`. The file holds **site-specific values** (customer ID, sheet IDs, admin
+`Get-IDBridgeConfig`. On a fresh install, `New-IDBridgeConfig` scaffolds the folder tree and
+writes a default all-features-off config with placeholder values (it never overwrites an
+existing config). The file holds **site-specific values** (customer ID, sheet IDs, admin
 email, OU paths) but **no raw secrets** — secrets are read at runtime from the encrypted
 vault under `C:\IDBridge\Vault\` (see [Secrets](#secrets-not-in-the-config-file)).
 
@@ -62,7 +64,7 @@ the guard off (older configs keep working).
 |-----|------|--------|---------|
 | `enabled`                     | bool   | Master switch for Google processing (auto-set `$false` if auth fails). | `Invoke-IDBridge`, `Get-TargetDataGoogle` |
 | `customerID`                  | string | Workspace customer ID. | Google target/API calls |
-| `userRootOU`                  | string | Root OU path, e.g. `/Marshfield`. | `Get-GoogleOrgUnitsForProcessing` |
+| `userRootOU`                  | string | Root OU path, e.g. `/Marshfield`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
 | `GroupPrimaryDomainName`      | string | Domain used to build group emails (`name@domain`). | `Get-GoogleUserGroupsToUpdate` |
 | `enableGroupProcessing`       | bool   | Enable Google group sync. | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | Compute group diffs for logging without applying. | `Invoke-IDBridge` |
@@ -81,7 +83,7 @@ the guard off (older configs keep working).
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `enabled`                     | bool   | Master switch for AD processing. | `Initialize-IDBridge`, `Invoke-IDBridge` |
-| `userRootOU`                  | string | Root OU DN, e.g. `OU=Marshfield,DC=sdom,DC=local`. | `Get-ADOrgUnitsForProcessing` |
+| `userRootOU`                  | string | Root OU DN, e.g. `OU=Marshfield,DC=sdom,DC=local`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
 | `enableGroupProcessing`       | bool   | Enable AD group sync. | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | Compute group diffs for logging without applying. | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals. | `Invoke-IDBridge` |

@@ -10,9 +10,6 @@ sorts shallowest-first so parents are created before children.
 .PARAMETER UserList
 The enriched source records. Only active users are considered.
 
-.PARAMETER UserRootOU
-The Google root OU path. Retained for consistency; ancestor expansion covers it automatically.
-
 .PARAMETER CurrentOrgUnits
 The OU paths that already exist in Google, used to filter out OUs that don't need creating.
 
@@ -20,7 +17,7 @@ The OU paths that already exist in Google, used to filter out OUs that don't nee
 [string[]] the OU paths to create, parents-first.
 
 .EXAMPLE
-$ous = Get-GoogleOrgUnitsForProcessing -UserList $sourceData -UserRootOU $IDConfig.Google.userRootOU -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath
+$ous = Get-GoogleOrgUnitsForProcessing -UserList $sourceData -CurrentOrgUnits $googleData.OrgUnits.orgUnitPath
 
 .NOTES
    Created by: Sam Cattanach
@@ -30,9 +27,6 @@ function Get-GoogleOrgUnitsForProcessing {
     param (
         [Parameter(Mandatory = $true)]
         $UserList,
-
-        [Parameter(Mandatory = $true)]
-        $UserRootOU,
 
         [Parameter(Mandatory = $true)]
         $CurrentOrgUnits

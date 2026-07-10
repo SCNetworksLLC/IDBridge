@@ -25,6 +25,15 @@ module, applies feature cascade. No Google auth — that happens in `Invoke-IDBr
 fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`.
 **Returns:** nothing; sets `$script:IDBridgeConfig`, `$script:Logs`.
 
+### `New-IDBridgeConfig` 🌐(filesystem)
+First-run scaffold. Creates the runtime folder tree (`Config/Logs/Exports/Plugins/Data/
+Vault`) under `-RootPath` (def `C:\IDBridge`) and writes a default `IDBridgeConfig.psd1`
+with every feature disabled and placeholder site values (safety brakes on: `ReadOnly`,
+group `WhatIf`, `ChangeThreshold`). **Throws if the config file already exists — never
+overwrites, no `-Force`.** Needs no initialized state (`Write-Host` only, no `Write-Log`);
+run it before `Initialize-IDBridge` on a fresh install. **Params:** `-RootPath`.
+**Returns:** nothing; prints the created config path.
+
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.
 
@@ -98,8 +107,10 @@ Skipped }`. Used by the change-volume safety guard between the compute and execu
 One-time onboarding tool: seeds the staff source sheet from the current directory state.
 **Params:** `-SpreadsheetId` (mandatory), `-SheetName` (def `StaffSeed-<yyyy-MM-dd>`; throws
 if the tab already exists — never appends/overwrites), `-ADSearchBase` / `-GoogleOrgUnitPath`
-(subtree scopes, def the config root OUs). Pulls `Get-TargetDataAD`/`Get-TargetDataGoogle`,
-merges per person by UPN=primaryEmail, and writes one row per person in the staff sheet
+(subtree scopes; **no config default** — a directory is fetched only when its scope is named,
+and an omitted scope is skipped entirely rather than failing, so a Google-only run never touches
+or requires AD and vice versa; at least one is required). Pulls `Get-TargetDataAD` and/or
+`Get-TargetDataGoogle`, merges per person by UPN=primaryEmail, and writes one row per person in the staff sheet
 layout plus review-helper columns (`InAD`/`InGoogle`/`ADEnabled`/`GoogleSuspended`/
 `ADOrgUnit`/`GoogleOrgUnit`). All rows get `Process=FALSE`; `PersonType`/`Word`/`EmailGroups`
 are left blank (nothing derived from OU names); `ApplicationGroups` is the full de-duped dump
@@ -108,6 +119,12 @@ exist in get yesterday's date as `TerminationDate` (mixed state ⇒ Warn, treate
 PersonID = AD `EmployeeID`, falling back to the Google externalId (mismatch ⇒ Warn, AD wins).
 Requires `Initialize-IDBridge` + `Connect-IDBridgeGoogle` first. **Returns:**
 `@{ SpreadsheetId; SheetName; RowsWritten }`.
+
+> For a deployment with **no** directory data to seed from, start from the published source-sheet
+> template (copy link: <https://docs.google.com/spreadsheets/d/1OUlm-5WGce_x2z0L1dM2kD8Ejk_f3RNF3EC8sa6uHhE/copy>) instead — it ships the source
+> and override tabs pre-built with tables, Process checkboxes, a TerminationDate date column, a
+> Groups reference tab, and multi-select group dropdowns. Point the source plugin's sheet range at
+> the copied spreadsheet.
 
 ---
 
@@ -243,7 +260,7 @@ and can then be deactivated. **Returns:** hashtable
 `personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`.
 
 ### `Get-ADOrgUnitsForProcessing` 🧮
-**Params:** `-UserList`, `-UserRootOU`, `-CurrentOrgUnits`. Collects needed OU DNs (+trash),
+**Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU DNs (+trash),
 expands ancestors, removes existing, sorts parents-first. **Returns:** ordered OU DN array.
 
 ### `Get-ADUsersToCreate` 🧮🌐
@@ -302,7 +319,7 @@ source rows with no account are expected and recur until the row leaves the sour
 **Returns:** hashtable `personID → @{ ID; Groups; SuspendedStatus; User }`.
 
 ### `Get-GoogleOrgUnitsForProcessing` 🧮
-**Params:** `-UserList`, `-UserRootOU`, `-CurrentOrgUnits`. Collects needed OU paths
+**Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU paths
 (+trash), expands ancestors (`/A/B/C`→`/A`,`/A/B`,`/A/B/C`), removes existing, sorts
 shallow-first. **Returns:** ordered OU path array.
 

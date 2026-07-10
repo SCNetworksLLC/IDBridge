@@ -29,6 +29,16 @@ Invoke-IDBridge -ReadOnly -TraceLogging
 
 `Invoke-IDBridge` is the entry point; `-RootPath` defaults to `C:\IDBridge`.
 
+## Source sheet template
+
+A new deployment reads its people from a Google Sheet. To start from scratch, copy the published
+template — **<https://docs.google.com/spreadsheets/d/1OUlm-5WGce_x2z0L1dM2kD8Ejk_f3RNF3EC8sa6uHhE/copy>** — which opens Google's "Make a copy"
+prompt and drops a ready-made workbook into your Drive: source and override tabs pre-built with
+tables (filter/sort), Process checkboxes, a TerminationDate date column, a Groups reference tab,
+and multi-select group dropdowns. Point your source plugin's sheet range at the copied
+spreadsheet's ID. Migrating a site that already has AD/Google accounts? Use
+`Export-IDBridgeDirectoryToSheet` to seed the sheet from current directory state instead.
+
 ## Safety model
 
 IDBridge **decides, then acts**: it computes every change list read-only first and only writes
@@ -41,9 +51,19 @@ Google. See [docs/architecture.md](docs/architecture.md).
 IDBridge reports **anonymous, aggregate usage counts** (runs, creates/deactivates, duration —
 never names, usernames, IDs, or any directory record) to help improve the module. The default
 `Basic` tier sends no identifier of any kind; opt-in `Enhanced` adds a random install-scoped
-SiteID that unlocks a run-history timeline in the [IDBridge Pulse](https://pulse.scnlabs.net)
-dashboard. Disable it with `Telemetry = @{ Tier = 'Off' }` in config or `-DisableTelemetry`
-per run, and verify exactly what's sent with `-TraceLogging`. Full details: [PRIVACY.md](PRIVACY.md).
+SiteID that unlocks your install's run-history timeline in IDBridge Pulse (below). Disable it
+with `Telemetry = @{ Tier = 'Off' }` in config or `-DisableTelemetry` per run, and verify exactly
+what's sent with `-TraceLogging`. Full details: [PRIVACY.md](PRIVACY.md).
+
+### IDBridge Pulse
+
+[**IDBridge Pulse**](https://pulse.scnlabs.net) is the companion dashboard for the `Enhanced`
+telemetry tier. Claim an install by its SiteID and Pulse shows that install's run history — a
+timeline of syncs, per-run counts of users created/updated/deactivated, run success/failure, and
+(on failed runs) the exception class and function that threw. To claim one, run
+`Get-IDBridgeSiteID` on that server and enter the SiteID at the dashboard. Installs on the default
+`Basic` tier or `Off` send no identifier and never appear in Pulse. What each tier transmits — and
+the district-data-out privacy posture — is spelled out in [PRIVACY.md](PRIVACY.md).
 
 ## Code vs. configuration layout
 
