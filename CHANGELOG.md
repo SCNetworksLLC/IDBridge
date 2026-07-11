@@ -5,6 +5,29 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.10.8] - 2026-07-10
+
+### Added
+- **Group skip lists: `Google.groupsExcluded` and `AD.groupsExcluded`.** Wildcard patterns
+  (matched against the group **email** on the Google side, the group **name** on the AD
+  side) for groups IDBridge must never touch — e.g. manually curated clubs or committees,
+  which the remove step would otherwise strip from managed users. Matching groups are
+  dropped at target-data retrieval (`Get-TargetDataGoogle`/`Get-TargetDataAD`), making them
+  invisible to ALL group processing: no adds (even if a plugin proposes them), no removes,
+  no deactivate group-strips — and their member lists are never fetched. The previously
+  hardcoded `classroom_teachers@*` exclusion moved into the Google default; a config
+  without the key keeps that behavior, and a config that sets the key should include the
+  pattern itself.
+
+## [26.7.10.7] - 2026-07-10
+
+### Added
+- **`Get-IDBridgeGoogleProjectId`** — accessor for the install's GCP project ID. The ID was
+  already persisted in the vault (the `project_id` field of the `GoogleAuth-ServiceAccount`
+  key JSON) but had no way to read it back without opening the secret by hand. Mirrors
+  `Get-IDBridgeGoogleServiceAccountEmail`: `Connect-IDBridgeGoogle` stashes it at connect
+  time, with a pre-connect fallback to parsing the vault secret.
+
 ## [26.7.10.6] - 2026-07-10
 
 ### Changed

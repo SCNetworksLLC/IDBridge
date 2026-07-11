@@ -221,13 +221,15 @@ null/blank values skipped. **Returns:** mutated source array.
 
 ### `Get-TargetDataAD` 🌐
 No params. Pulls all AD users (rich property set incl. `EmployeeID`, `MemberOf`,
-`extensionAttribute1-5`), groups, OUs; resolves `MemberOf`→names into `CurrentGroups`;
+`extensionAttribute1-5`), groups (minus `AD.groupsExcluded` name patterns — excluded groups
+are invisible to all group processing), OUs; resolves `MemberOf`→names into `CurrentGroups`;
 detects duplicate `EmployeeID`s; builds `LookupByID` keyed by EmployeeID. **Returns:**
 `@{ Users; Groups; OrgUnits; DuplicateUsers; LookupByID }`.
 
 ### `Get-TargetDataGoogle` 🌐
-No params. Pulls all Google users (via `Get-GoogleData`), groups (excludes
-`classroom_teachers`), and OUs; fetches group members **in parallel** (throttle 10) into
+No params. Pulls all Google users (via `Get-GoogleData`), groups (minus
+`Google.groupsExcluded` email patterns, default `classroom_teachers@*` — excluded groups
+are invisible to all group processing), and OUs; fetches group members **in parallel** (throttle 10) into
 `CurrentGroups`; enumerates license assignments per `Google.licenseProductIds` product into
 `CurrentLicenses` (skipped when `enableLicenseRemoval = $false`); detects duplicate
 `externalIds`; builds `LookupByID` keyed by externalID.
@@ -414,8 +416,9 @@ sends all membership adds, removes, and deactivate group-strips as three separat
 No params. Reads the `GoogleAuth-ServiceAccount` vault secret, validates the `private_key`,
 exchanges a JWT issued to the service account **itself** (no impersonation — authorization
 comes from the SA's `IDBridge` Workspace admin role) via `Get-GoogleApiAccessToken`, and
-sets `$script:GoogleHeaders` plus the script-scoped SA email
-(`Get-IDBridgeGoogleServiceAccountEmail`). Called by `Invoke-IDBridge` at run start (when
+sets `$script:GoogleHeaders` plus the script-scoped SA email and GCP project ID
+(`Get-IDBridgeGoogleServiceAccountEmail` / `Get-IDBridgeGoogleProjectId`). Called by
+`Invoke-IDBridge` at run start (when
 `GoogleToken.Enabled`); run it standalone to verify the auth chain after seeding the key
 or assigning the role (a later API `403` ⇒ role missing/not yet propagated; Sheets `403`
 ⇒ sheet not shared with the SA). Throws on any failure.
@@ -425,6 +428,12 @@ No params. Returns the service account's email (`client_email`). Uses the value 
 `Connect-IDBridgeGoogle`; before a connect it falls back to parsing the
 `GoogleAuth-ServiceAccount` vault secret (initialized session required, no token needed) —
 handy to know which address to share a sheet with.
+
+### `Get-IDBridgeGoogleProjectId` 🌐
+No params. Returns the service account's GCP project ID (`project_id`). Same sourcing as
+`Get-IDBridgeGoogleServiceAccountEmail`: stashed by `Connect-IDBridgeGoogle`, with a
+pre-connect fallback to parsing the `GoogleAuth-ServiceAccount` vault secret — handy to
+find the install's Cloud project or to re-run the bootstrap with `-ProjectId`.
 
 ### `Initialize-IDBridgeGoogleServiceAccount` 🌐
 **Params:** `-ProjectId` (default `idbridge-<random>` with `-CreateProject`), `-ProjectName`

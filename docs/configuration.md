@@ -70,6 +70,7 @@ the guard off (older configs keep working).
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip group memberships when deactivating. | `Invoke-IDBridge` |
+| `groupsExcluded`              | array  | Group **email** wildcard patterns IDBridge never touches — matching groups are dropped at target-data retrieval, so no adds, removes, or deactivate strips ever reach them (exclusion wins even over a proposed group). Key absent = `@('classroom_teachers@*')` (the previous hardcoded behavior); if you set the key, include that pattern yourself. | `Get-TargetDataGoogle` |
 | `enableLicenseRemoval`        | bool   | Remove a user's discovered **paid** license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. The base Education Fundamentals license self-releases when the deactivate step archives the user. **Default on**; set `$false` to disable (also drops the `apps.licensing` scope from token requests). | `Invoke-IDBridge` |
 | `licenseProductIds`           | array  | Products searched for a user's assignments (SKUs are discovered, not configured). Default `@('101031','101037')` (Education Standard/Plus + Teaching and Learning Upgrade) — paid products only; the base license is not touched by API (archiving releases it, and API removal fights OU auto-licensing). IDs: [Google's product list](https://developers.google.com/workspace/admin/licensing/how-to/products). | `Get-TargetDataGoogle` |
 
@@ -87,6 +88,7 @@ the guard off (older configs keep working).
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals. | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip groups on deactivate (passed to `Disable-IDBridgeADUser`). | `Invoke-IDBridge` |
+| `groupsExcluded`              | array  | Group **name** wildcard patterns IDBridge never touches — matching groups are dropped at target-data retrieval, so no adds, removes, or deactivate strips ever reach them (exclusion wins even over a proposed group). Default `@()`. | `Get-TargetDataAD` |
 
 ### `Logging`
 | Key | Type | Effect | Read by |

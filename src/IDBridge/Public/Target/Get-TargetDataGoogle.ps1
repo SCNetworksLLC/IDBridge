@@ -8,7 +8,7 @@
       - All users (with a CurrentGroups property listing their group memberships, and a
         CurrentLicenses property listing their license assignments unless
         Google.enableLicenseRemoval = $false)
-      - All groups (excluding "classroom_teachers")
+      - All groups (excluding Google.groupsExcluded patterns; default classroom_teachers@*)
       - All organizational units
 
     For each group, retrieves its members and builds a hashtable mapping user emails to their group memberships.
@@ -21,7 +21,7 @@
     PSCustomObject
     An object with properties:
         - Users: Array of user objects, each with a CurrentGroups property.
-        - Groups: Array of group objects (excluding "classroom_teachers").
+        - Groups: Array of group objects (excluding Google.groupsExcluded patterns).
         - OrgUnits: Array of organizational unit objects.
 
 .EXAMPLE
@@ -73,8 +73,17 @@ function Get-TargetDataGoogle {
         Write-Log -Message "Google: Fetching Groups" -Level Trace
         $googleGroups = Get-GoogleData -GoogleHeaders $headers -APIUri "https://www.googleapis.com/admin/directory/v1/groups?customer=$($IDConfig.Google.customerID)&maxResults=500" -ErrorAction Stop
 
-        #Remove Classroom Teachers Group
-        $googleGroups = $googleGroups | Where-Object {$_.email -notlike "classroom_teachers@*"}
+        #Remove excluded groups (Google.groupsExcluded - wildcard patterns matched against the group email).
+        #Excluded groups become invisible to ALL group processing: no adds, no removes, no deactivate strips.
+        #When the config key is absent, the Google Classroom auto-groups stay excluded (previous hardcoded behavior).
+        $groupsExcluded = if ($null -ne $IDConfig.Google.groupsExcluded) { $IDConfig.Google.groupsExcluded } else { @('classroom_teachers@*') }
+        foreach ($pattern in $groupsExcluded) {
+            $excludedGroups = @($googleGroups | Where-Object {$_.email -like $pattern})
+            if ($excludedGroups.Count -gt 0) {
+                Write-Log -Message "Google: Excluding $($excludedGroups.Count) group(s) matching '$pattern' from group processing: $($excludedGroups.email -join ', ')" -Level Trace
+                $googleGroups = $googleGroups | Where-Object {$_.email -notlike $pattern}
+            }
+        }
 
         Write-Log -Message "Google: Successfully fetched groups" -Level Trace
     }

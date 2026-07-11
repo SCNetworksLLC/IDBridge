@@ -4,7 +4,8 @@ Retrieve current Active Directory users, groups, and OUs as the AD target snapsh
 
 .DESCRIPTION
 Pulls every AD user with a rich property set (UPN, EmployeeID, MemberOf, extensionAttribute1-5,
-etc.), all groups, and all organizational units. Resolves each user's MemberOf into a
+etc.), all groups (excluding AD.groupsExcluded name patterns), and all organizational units.
+Resolves each user's MemberOf into a
 CurrentGroups name list, detects duplicate EmployeeIDs, and builds a LookupByID hashtable keyed by
 EmployeeID (excluding duplicates) for fast source-to-target matching. Throws if AD returns no
 users, groups, or OUs.
@@ -86,6 +87,17 @@ function Get-TargetDataAD {
     catch {
         Write-Log -Message "AD: No groups fetched" -Level Error
         Throw $_
+    }
+
+    #Remove excluded groups (AD.groupsExcluded - wildcard patterns matched against the group name).
+    #Excluded groups become invisible to ALL group processing: no adds, no removes, no deactivate strips.
+    $IDConfig = Get-IDBridgeConfig
+    foreach ($pattern in $IDConfig.AD.groupsExcluded) {
+        $excludedGroups = @($ADGroups | Where-Object {$_.Name -like $pattern})
+        if ($excludedGroups.Count -gt 0) {
+            Write-Log -Message "AD: Excluding $($excludedGroups.Count) group(s) matching '$pattern' from group processing: $($excludedGroups.Name -join ', ')" -Level Trace
+            $ADGroups = $ADGroups | Where-Object {$_.Name -notlike $pattern}
+        }
     }
 
     # Build a hashtable mapping DistinguishedName -> Group Name to avoid repeated Get-ADGroup calls

@@ -97,6 +97,7 @@ function New-IDBridgeConfig {
         enableGroupProcessingRemove = $false   # Set $true to allow group membership removals
         enableGroupProcessingTrash  = $false   # Set $true to strip group memberships on deactivate
         enableLicenseRemoval        = $false   # Set $true to remove paid license assignments on deactivate (the base license self-releases when the user is archived)
+        groupsExcluded              = @('classroom_teachers@*')   # Group email patterns IDBridge never touches (no adds/removes/deactivate strips)
         # licenseProductIds = @('101031', '101037')   # Paid products searched for license assignments
     }
 
@@ -108,6 +109,7 @@ function New-IDBridgeConfig {
         enableGroupProcessingWhatIf = $true    # Log-only while $true; set $false to actually apply group changes
         enableGroupProcessingRemove = $false   # Set $true to allow group membership removals
         enableGroupProcessingTrash  = $false   # Set $true to strip group memberships on deactivate
+        groupsExcluded              = @()      # Group name patterns IDBridge never touches (no adds/removes/deactivate strips)
     }
 
     # ── Google Log ────────────────────────────────────────────────────────────

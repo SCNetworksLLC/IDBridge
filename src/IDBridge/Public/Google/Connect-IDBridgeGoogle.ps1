@@ -14,8 +14,8 @@ the sheets with the service account's email. The scopes come from the module its
 (Get-IDBridgeGoogleScope) — directory user/orgunit/group + Sheets, plus apps.licensing
 unless Google.enableLicenseRemoval = $false. The resulting auth headers are stored
 script-scoped and read everywhere via Get-GoogleHeaders; the service account's email
-(client_email from the key) is stored alongside and read via
-Get-IDBridgeGoogleServiceAccountEmail.
+(client_email from the key) and GCP project ID (project_id) are stored alongside and read
+via Get-IDBridgeGoogleServiceAccountEmail / Get-IDBridgeGoogleProjectId.
 
 Invoke-IDBridge calls this at the start of every run (when GoogleToken.Enabled). It is
 also useful standalone: after seeding the key or assigning the admin role, running it
@@ -63,6 +63,7 @@ function Connect-IDBridgeGoogle {
     Write-Log -Message "Loaded Google service-account key from secret 'GoogleAuth-ServiceAccount'" -Level Trace
 
     $script:GoogleServiceAccountEmail = $googleAuthContent.client_email
+    $script:GoogleProjectId = $googleAuthContent.project_id
 
     try {
         $paramsGoogleHeaders = @{

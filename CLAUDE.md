@@ -70,6 +70,9 @@ Switches (override the config file at runtime):
 2. **Group writes are double-gated** by `enableGroupProcessing`, plus
    `enableGroupProcessingWhatIf` (log-only), `enableGroupProcessingRemove`
    (allow removals), and `enableGroupProcessingTrash` (strip groups on deactivate).
+   `Google.groupsExcluded` / `AD.groupsExcluded` list wildcard patterns (email / name)
+   for groups IDBridge must never touch — dropped at target-data retrieval, so no adds,
+   removes, or deactivate strips ever reach them.
    License removal is **on by default** (`Google.enableLicenseRemoval = $false` disables):
    the user's assignments are discovered dynamically and removed only on the full
    deactivate (trash) step, never on `ForceDisable`.
@@ -116,7 +119,10 @@ Note: All logs should use the Write-Log function.  Look this up prior and see ho
 
 Note: Any new code should be in the same style of writing as the code that is currently in the module and files
 
-Note: Update the CHANGELOG.md file as you make changes
+Note: Update the CHANGELOG.md file as you make changes — always under an `## [Unreleased]`
+heading at the top (create it if missing). NEVER increment `ModuleVersion` in IDBridge.psd1
+and NEVER create a new versioned changelog heading — versioning happens only at release
+time, when I say so (the Unreleased entries get folded into the new version then).
 
 
 

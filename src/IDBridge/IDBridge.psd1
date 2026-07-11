@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.10.6'
+    ModuleVersion     = '26.7.10.8'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -79,6 +79,7 @@
         'Get-GoogleApiAccessToken'
         'Get-GoogleHeaders'
         'Get-IDBridgeGoogleServiceAccountEmail'  # SA email (client_email) from connect-time state or the vault key; the address to share sheets with.
+        'Get-IDBridgeGoogleProjectId'  # GCP project ID (project_id) from connect-time state or the vault key; locates the install's Cloud project.
         'Initialize-IDBridgeGoogleServiceAccount'  # One-command bootstrap: project, APIs, service account, key into vault, admin role created + assigned.
 
         # Logging & lifecycle
