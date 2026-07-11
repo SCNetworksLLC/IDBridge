@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.10.8'
+    ModuleVersion     = '26.7.10.9'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -73,6 +73,7 @@
         'Get-IDBridgeSecretInfo'  # Lists vault secret names and metadata (never values).
         'Remove-IDBridgeSecret'   # Deletes a named secret from the vault.
         'New-IDBridgeSecretCertificate'  # Creates the Document Encryption certificate used by the Cms provider.
+        'Grant-IDBridgeCertificatePrivateKeyAccess'  # Grants an account read on a machine-store certificate's private key (e.g. the gMSA, after the cert exists).
 
         #Auth
         'Connect-IDBridgeGoogle'   # Vault key -> JWT (as the SA itself, no impersonation) -> bearer headers; standalone auth verification after bootstrap/role changes.

@@ -151,9 +151,18 @@ Key Vault under the same name instead. Re-running with the same `-Name` overwrit
 ### `New-IDBridgeSecretCertificate` 🌐
 **Params:** `-Subject` (def `'CN=IDBridge Secrets'`), `-StoreLocation {LocalMachine|CurrentUser}`
 (def `LocalMachine`, needs elevation), `-ValidityYears` (def 10), `-GrantRead` (optional account,
-e.g. the gMSA, granted private-key read; machine store only). Creates the self-signed Document
-Encryption certificate the `Cms` provider needs (non-exportable RSA 3072). **Returns:** the
-certificate; put its thumbprint in `Secrets.Cms.Thumbprint`.
+e.g. the gMSA, granted private-key read via `Grant-IDBridgeCertificatePrivateKeyAccess`; machine
+store only). Creates the self-signed Document Encryption certificate the `Cms` provider needs
+(non-exportable RSA 3072). **Returns:** the certificate; put its thumbprint in
+`Secrets.Cms.Thumbprint`.
+
+### `Grant-IDBridgeCertificatePrivateKeyAccess` 🌐
+**Params:** `-Thumbprint` (mandatory; certificate in `Cert:\LocalMachine\My`), `-Identity`
+(mandatory account, e.g. `'DOMAIN\gMSA-IDBridge$'`). Adds a read ACE for the account on the
+certificate's private-key file (under `%ProgramData%\Microsoft\Crypto`) — what an account needs
+to decrypt Cms secrets or authenticate to Azure Key Vault with the cert. Same grant
+`New-IDBridgeSecretCertificate -GrantRead` does at creation time, for a certificate that
+already exists. Machine store only; needs elevation. **Returns:** nothing.
 
 ### `Get-IDBridgeSecretInfo` 🌐(AzKeyVault)
 No params. Lists every vault envelope as `Name / Provider / ProtectedTo / Created / Path` —

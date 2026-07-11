@@ -5,6 +5,16 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.10.9] - 2026-07-10
+
+### Added
+- **`Grant-IDBridgeCertificatePrivateKeyAccess`** — grants an account read access to a
+  machine-store certificate's private key by thumbprint. The grant already existed inside
+  `New-IDBridgeSecretCertificate -GrantRead`, but only at creation time; the new function
+  covers certificates that already exist (e.g. adding the gMSA later, or an Azure Key Vault
+  auth certificate). `New-IDBridgeSecretCertificate -GrantRead` now delegates to it — same
+  behavior, one implementation.
+
 ## [26.7.10.8] - 2026-07-10
 
 ### Added

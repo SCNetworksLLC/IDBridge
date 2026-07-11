@@ -78,15 +78,7 @@ function New-IDBridgeSecretCertificate {
     Write-Log -Message "Secret: Created CMS certificate '$Subject' in Cert:\$StoreLocation\My (thumbprint $($cert.Thumbprint), expires $($cert.NotAfter.ToString('yyyy-MM-dd')))." -Level Info
 
     if ($GrantRead) {
-        try {
-            # CNG machine private keys live under ProgramData; find this key's file and add a read ACE.
-            $rsaKey = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
-            $keyFile = Get-ChildItem -Path "$env:ProgramData\Microsoft\Crypto" -Recurse -Filter $rsaKey.Key.UniqueName -ErrorAction Stop
-            $acl = Get-Acl -Path $keyFile.FullName
-            $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($GrantRead, 'Read', 'Allow'))
-            Set-Acl -Path $keyFile.FullName -AclObject $acl
-            Write-Log -Message "Secret: Granted private-key read on '$Subject' to '$GrantRead'." -Level Info
-        }
+        try { Grant-IDBridgeCertificatePrivateKeyAccess -Thumbprint $cert.Thumbprint -Identity $GrantRead }
         catch { Throw "Certificate created (thumbprint $($cert.Thumbprint)) but granting private-key read to '$GrantRead' failed: $($_)" }
     }
 

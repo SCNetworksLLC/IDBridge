@@ -70,6 +70,13 @@ read on the key when creating the cert:
 New-IDBridgeSecretCertificate -GrantRead 'DOMAIN\gMSA-IDBridge$'
 ```
 
+For a certificate that already exists (or to add another account later), grant the same
+access by thumbprint (elevated session):
+
+```powershell
+Grant-IDBridgeCertificatePrivateKeyAccess -Thumbprint '<thumbprint>' -Identity 'DOMAIN\gMSA-IDBridge$'
+```
+
 **Recovery.** The private key is non-exportable by design: if the machine (or the cert) is
 lost, re-create the certificate and re-seed the secrets — every secret is a re-issuable API
 key or a re-downloadable JSON key.
