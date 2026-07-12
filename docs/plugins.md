@@ -5,6 +5,12 @@ in `C:\IDBridge\Plugins\` (= `Paths.PluginsRoot`) and are registered in the `Plu
 of [`IDBridgeConfig.psd1`](configuration.md#plugins). Each plugin is a single `.ps1` file
 whose function name matches both the config `Function` value and the file name.
 
+Sanitized **templates** of the three shipped plugins are packaged with the module
+(`Templates\Plugins\`) and copied into `PluginsRoot` by `New-IDBridgeConfig` on first-run
+scaffold (existing files are never overwritten). Each template throws until its placeholder
+values (spreadsheet ID / API URLs, domain, OUs) are edited. The worked examples below
+describe the full deployment versions the templates were derived from.
+
 There are two kinds:
 - **Source** — produce the canonical list of people to manage (one record per person).
 - **Override** — modify already-loaded source records, matched by `personID`.

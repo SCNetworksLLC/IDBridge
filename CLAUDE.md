@@ -29,6 +29,7 @@ src\IDBridge\          # The publishable module package (publish from here)
     Google\            # Google Workspace create/update/deactivate/OU/group logic
     Google\Sheets\     # Sheets API helpers (read/write/format)
   Private\             # (reserved for internal helpers; not loaded yet)
+  Templates\Plugins\   # sanitized plugin templates — copied to <Root>\Plugins by New-IDBridgeConfig (never dot-sourced by the loader)
 docs\                  # Reference docs (repo only — NOT in the package)
 images\                # Logos (non-code, repo only)
 CLAUDE.md  README.md  LICENSE  CHANGELOG.md  CONTRIBUTING.md   # repo root (not packaged)
@@ -105,6 +106,7 @@ Switches (override the config file at runtime):
 
 ## Deeper references (`docs/`)
 
+- [docs/getting-started.md](docs/getting-started.md) — first-run setup walkthrough: clean machine → first sync (Gallery install path).
 - [docs/architecture.md](docs/architecture.md) — startup + the full ordered pipeline, data-object lifecycle, logging model (start here).
 - [docs/functions.md](docs/functions.md) — every exported function by layer: purpose, params, returns, diffing predicates.
 - [docs/configuration.md](docs/configuration.md) — full `IDBridgeConfig.psd1` schema, runtime `Paths`, and secret file locations.

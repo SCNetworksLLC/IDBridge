@@ -31,6 +31,9 @@ Invoke-IDBridge -ReadOnly -TraceLogging
 
 `Invoke-IDBridge` is the entry point; `-RootPath` defaults to `C:\IDBridge`.
 
+Setting up a new deployment? Follow [docs/getting-started.md](docs/getting-started.md) —
+the ordered walkthrough from a clean machine to a first successful sync.
+
 ## Source sheet template
 
 A new deployment reads its people from a Google Sheet. To start from scratch, copy the published
@@ -85,6 +88,7 @@ C:\IDBridge\{Auth,Logs,Exports,Data}\    runtime dirs (outside repo)
 ## Documentation
 
 - [CLAUDE.md](CLAUDE.md) — onboarding / orientation
+- [docs/getting-started.md](docs/getting-started.md) — first-run setup: clean machine → first sync (Gallery install)
 - [docs/architecture.md](docs/architecture.md) — startup + the full execution pipeline
 - [docs/functions.md](docs/functions.md) — every exported function by layer
 - [docs/configuration.md](docs/configuration.md) — `IDBridgeConfig.psd1` schema + paths

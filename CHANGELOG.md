@@ -5,6 +5,23 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [Unreleased]
+
+### Added
+- **Shipped plugin templates.** Sanitized templates of the three plugins
+  (`Invoke-PluginGSheetStaff`, `Invoke-PluginStaffOverride`,
+  `Invoke-PluginSkywardSMSStudents`) are now packaged with the module under
+  `Templates\Plugins\` (outside the loader's path, so they're never dot-sourced at import)
+  and copied into `<RootPath>\Plugins` by `New-IDBridgeConfig` (existing files are never
+  overwritten). Every site-specific value is a placeholder, and each template throws with
+  an edit-me message naming the file until its placeholders are edited — a
+  copied-but-unconfigured plugin can't silently run.
+- **`docs/getting-started.md`** — ordered first-run walkthrough (PowerShell Gallery
+  install): scaffold, secret vault, Google bootstrap, source sheet, source plugin, config
+  fill-in, read-only first run, and enabling writes incrementally. Linked from the README
+  quick start / documentation list and the CLAUDE.md references. Docs only — no code
+  changes.
+
 ## [26.7.10.9] - 2026-07-10
 
 ### Added

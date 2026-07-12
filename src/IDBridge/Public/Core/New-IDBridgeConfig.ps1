@@ -6,12 +6,15 @@ First-run scaffold: create the IDBridge folder tree and a default IDBridgeConfig
 One-time setup helper for a fresh install. It:
   - creates the runtime directory tree under RootPath (Config/Logs/Exports/Plugins/Data/Vault);
   - writes a default <RootPath>\Config\IDBridgeConfig.psd1 with every feature disabled and
-    placeholder values for all site-specific settings.
+    placeholder values for all site-specific settings;
+  - copies the shipped plugin templates (module Templates\Plugins) into <RootPath>\Plugins.
 
 An existing config file is NEVER overwritten — the function throws instead (there is
-deliberately no -Force). The generated config is safe to load immediately: ReadOnly stays
-$true, AD/Google processing and every plugin are disabled, and all site-specific values are
-obvious placeholders to fill in before enabling anything.
+deliberately no -Force); an existing plugin file is likewise left alone. The generated
+config is safe to load immediately: ReadOnly stays $true, AD/Google processing and every
+plugin are disabled, and all site-specific values are obvious placeholders to fill in
+before enabling anything — the plugin templates themselves throw until their placeholder
+values are edited.
 
 This runs before any state exists, so it does not use Write-Log or require
 Initialize-IDBridge — run it first, edit the config, then run Initialize-IDBridge.
@@ -61,6 +64,19 @@ function New-IDBridgeConfig {
         }
     }
     #endregion Create Directories
+
+    #region Copy Plugin Templates
+    $templateSource = Join-Path $PSScriptRoot "..\..\Templates\Plugins"
+    foreach ($template in (Get-ChildItem -Path $templateSource -Filter '*.ps1' -ErrorAction SilentlyContinue)) {
+        $destination = Join-Path "$RootPath\Plugins" $template.Name
+        if (Test-Path $destination) {
+            Write-Host "Plugin already exists and will not be overwritten: $destination" -ForegroundColor Yellow
+        } else {
+            Copy-Item -Path $template.FullName -Destination $destination
+            Write-Host "Copied plugin template: $destination" -ForegroundColor Green
+        }
+    }
+    #endregion Copy Plugin Templates
 
     #region Write Default Config
     $defaultConfig = @'
@@ -146,6 +162,8 @@ function New-IDBridgeConfig {
     }
 
     # ── Plugins ───────────────────────────────────────────────────────────────
+    # Templates for these were copied to <RootPath>\Plugins — edit their placeholder
+    # values for your district, then set Enabled = $true.
     Plugins = @(
         @{ Enabled = $false; Type = "Source"; Function = 'Invoke-PluginGSheetStaff' }
         @{ Enabled = $false; Type = "Source"; Function = 'Invoke-PluginSkywardSMSStudents' }

@@ -27,11 +27,13 @@ fresh install initializes cleanly before any secrets exist. **Params:** `-RootPa
 
 ### `New-IDBridgeConfig` 🌐(filesystem)
 First-run scaffold. Creates the runtime folder tree (`Config/Logs/Exports/Plugins/Data/
-Vault`) under `-RootPath` (def `C:\IDBridge`) and writes a default `IDBridgeConfig.psd1`
+Vault`) under `-RootPath` (def `C:\IDBridge`), writes a default `IDBridgeConfig.psd1`
 with every feature disabled and placeholder site values (safety brakes on: `ReadOnly`,
-group `WhatIf`, `ChangeThreshold`). **Throws if the config file already exists — never
-overwrites, no `-Force`.** Needs no initialized state (`Write-Host` only, no `Write-Log`);
-run it before `Initialize-IDBridge` on a fresh install. **Params:** `-RootPath`.
+group `WhatIf`, `ChangeThreshold`), and copies the shipped plugin templates (module
+`Templates\Plugins\`) into `<RootPath>\Plugins`. **Throws if the config file already
+exists — never overwrites, no `-Force`; existing plugin files are likewise left alone.**
+Needs no initialized state (`Write-Host` only, no `Write-Log`); run it before
+`Initialize-IDBridge` on a fresh install. **Params:** `-RootPath`.
 **Returns:** nothing; prints the created config path.
 
 ### `Get-IDBridgeConfig`
