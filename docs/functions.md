@@ -56,7 +56,7 @@ wasn't set up.
 Posts one anonymous usage event per run to the IDBridge Pulse ingest endpoint from the
 `finally` block of `Invoke-IDBridge` (see [PRIVACY.md](../PRIVACY.md)). **Params:**
 `-Success` (mandatory bool), `-DurationSeconds -ManagedCount -CreateCount -UpdateCount
--DeactivateCount` (ints), `-RunError` (ErrorRecord — Enhanced tier extracts exception
+-DeactivateCount -GroupAddCount -GroupRemoveCount` (ints), `-RunError` (ErrorRecord — Enhanced tier extracts exception
 *class* + throwing *function* name only, never the message). Tier from `Telemetry.Tier`
 (missing = `Basic`, unrecognized = `Off`); logs the exact payload at Trace; sends with a
 10 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.

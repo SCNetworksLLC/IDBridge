@@ -42,6 +42,14 @@ Users updated/renamed/moved across all enabled directories (0 in ReadOnly).
 .PARAMETER DeactivateCount
 Users deactivated across all enabled directories (0 in ReadOnly).
 
+.PARAMETER GroupAddCount
+Group memberships added across all enabled directories (0 in ReadOnly, and a
+directory contributes 0 while its group processing is off or in WhatIf).
+
+.PARAMETER GroupRemoveCount
+Group memberships removed across all enabled directories (0 in ReadOnly, and a
+directory contributes 0 while its group processing is off or in WhatIf).
+
 .PARAMETER RunError
 The ErrorRecord of a failed run. Only the exception class name and throwing function
 name are extracted from it, and only at the Enhanced tier.
@@ -50,7 +58,7 @@ name are extracted from it, and only at the Enhanced tier.
 None. Side effects: one HTTP POST (Basic/Enhanced) and log output.
 
 .EXAMPLE
-Send-IDBridgeTelemetry -Success $true -DurationSeconds 42 -ManagedCount 1250 -CreateCount 3 -UpdateCount 12 -DeactivateCount 1
+Send-IDBridgeTelemetry -Success $true -DurationSeconds 42 -ManagedCount 1250 -CreateCount 3 -UpdateCount 12 -DeactivateCount 1 -GroupAddCount 5 -GroupRemoveCount 2
 
 .NOTES
    Created by: Sam Cattanach
@@ -67,6 +75,8 @@ function Send-IDBridgeTelemetry {
         [int]$CreateCount = 0,
         [int]$UpdateCount = 0,
         [int]$DeactivateCount = 0,
+        [int]$GroupAddCount = 0,
+        [int]$GroupRemoveCount = 0,
 
         [System.Management.Automation.ErrorRecord]$RunError
     )
@@ -109,11 +119,13 @@ function Send-IDBridgeTelemetry {
         readOnly        = ($IDConfig.Debug.readOnly -eq $true)
         testRun         = ($IDConfig.Debug.testRun -eq $true)
         directories     = $directories
-        managedCount    = $ManagedCount
-        createCount     = $CreateCount
-        updateCount     = $UpdateCount
-        deactivateCount = $DeactivateCount
-        durationSeconds = $DurationSeconds
+        managedCount     = $ManagedCount
+        createCount      = $CreateCount
+        updateCount      = $UpdateCount
+        deactivateCount  = $DeactivateCount
+        groupAddCount    = $GroupAddCount
+        groupRemoveCount = $GroupRemoveCount
+        durationSeconds  = $DurationSeconds
     }
 
     if ($tier -eq 'Enhanced') {

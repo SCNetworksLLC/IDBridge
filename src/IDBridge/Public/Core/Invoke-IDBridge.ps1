@@ -652,20 +652,38 @@ function Invoke-IDBridge {
                 # Counts are APPLIED work, so ReadOnly runs report zeros (the readOnly flag in the
                 # payload tells the story). .Where filters the lone $null that @() wraps when a list
                 # was never assigned (failed/partial runs), matching the Run Summary counting above.
-                $telemetryCounts = @{ Create = 0; Update = 0; Deactivate = 0 }
+                $telemetryCounts = @{ Create = 0; Update = 0; Deactivate = 0; GroupAdd = 0; GroupRemove = 0 }
                 if ($IDConfig.Debug.readOnly -eq $false) {
                     $telemetryCounts.Create     = @($ADUsersToCreate).Where({ $null -ne $_ }).Count + @($GoogleUsersToCreate).Where({ $null -ne $_ }).Count
                     $telemetryCounts.Update     = @($ADUsersToUpdate.UpdateList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.RenameList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.MoveList).Where({ $null -ne $_ }).Count + @($GoogleUsersToUpdate).Where({ $null -ne $_ }).Count
                     $telemetryCounts.Deactivate = @($ADUsersToDeactivate).Where({ $null -ne $_ }).Count + @($GoogleUsersToDeactivate).Where({ $null -ne $_ }).Count
+
+                    # Group counts mirror the write gates above: a directory contributes only when its
+                    # group processing is live (not WhatIf), and removes additionally require the
+                    # enableGroupProcessingRemove flag - so WhatIf/remove-off runs report 0, like ReadOnly.
+                    if ($IDConfig.AD.enableGroupProcessing -eq $true -and $IDConfig.AD.enableGroupProcessingWhatIf -ne $true) {
+                        $telemetryCounts.GroupAdd += @($ADUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
+                        if ($IDConfig.AD.enableGroupProcessingRemove -eq $true) {
+                            $telemetryCounts.GroupRemove += @($ADUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
+                        }
+                    }
+                    if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingWhatIf -ne $true) {
+                        $telemetryCounts.GroupAdd += @($GoogleUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
+                        if ($IDConfig.Google.enableGroupProcessingRemove -eq $true) {
+                            $telemetryCounts.GroupRemove += @($GoogleUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
+                        }
+                    }
                 }
 
                 $telemetrySplat = @{
-                    Success         = (-not $runError)
-                    DurationSeconds = [int]((Get-Date) - $runStart).TotalSeconds
-                    ManagedCount    = @($sourceData).Where({ $null -ne $_ }).Count
-                    CreateCount     = $telemetryCounts.Create
-                    UpdateCount     = $telemetryCounts.Update
-                    DeactivateCount = $telemetryCounts.Deactivate
+                    Success          = (-not $runError)
+                    DurationSeconds  = [int]((Get-Date) - $runStart).TotalSeconds
+                    ManagedCount     = @($sourceData).Where({ $null -ne $_ }).Count
+                    CreateCount      = $telemetryCounts.Create
+                    UpdateCount      = $telemetryCounts.Update
+                    DeactivateCount  = $telemetryCounts.Deactivate
+                    GroupAddCount    = $telemetryCounts.GroupAdd
+                    GroupRemoveCount = $telemetryCounts.GroupRemove
                 }
                 if ($runError) { $telemetrySplat.RunError = $runError }
 

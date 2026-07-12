@@ -5,6 +5,17 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.12.1] - 2026-07-12
+
+### Added
+- **Group-change counts in run telemetry.** The Pulse payload now includes
+  `groupAddCount`/`groupRemoveCount` — group memberships added/removed this run,
+  matching the Run Summary's GroupAdd/GroupRemove figures. Like the other counts
+  they are **applied** work only: a directory contributes 0 while ReadOnly is on,
+  while its group processing is off or in WhatIf, and removes also require
+  `enableGroupProcessingRemove`. Group *names* are never transmitted
+  (see PRIVACY.md).
+
 ## [26.7.12.0] - 2026-07-12
 
 ### Added
