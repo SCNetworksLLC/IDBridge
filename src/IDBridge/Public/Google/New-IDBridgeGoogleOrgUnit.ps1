@@ -68,8 +68,8 @@ function New-IDBridgeGoogleOrgUnit() {
         $response = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body -ContentType "application/json"
         Write-Log -Message "Response: $($response | ConvertTo-Json -Depth 5)"
     } catch {
-        # Log any errors that occur during the API request
+        # Log the error, then rethrow - Invoke-IDBridge treats a failed OU creation as fatal
         Write-Log -Message "Error: $($_.Exception.Message)" -Level Error
-        return $_
+        Throw
     }
 }

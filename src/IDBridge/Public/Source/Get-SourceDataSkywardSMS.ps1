@@ -20,7 +20,8 @@
     The client secret for OAuth authentication.
 
 .PARAMETER ExcludeEntityIDs
-    The Entity ID(s) to exclude (used to filter results). Comma-separated if multiple.
+    The Entity ID(s) to exclude (used to filter results). Pass an array for multiple,
+    e.g. @('800','801').
 
 .PARAMETER SafetyCheckCount
     The expected baseline student count used for the safety-floor calculation.
@@ -31,11 +32,11 @@
 
 .EXAMPLE
     $params = @{
-        BaseUrl      = "https://skyward.iscorp.com/APImarshfieldwiSTU/v1"
-        TokenUrl     = "https://skyward.iscorp.com/APImarshfieldwiSTU/token"
+        BaseUrl      = "https://skyward.iscorp.com/APIyourdistrictSTU/v1"
+        TokenUrl     = "https://skyward.iscorp.com/APIyourdistrictSTU/token"
         ClientId     = "IDBridge"
         ClientSecret = "your_secret"   # <-- Replace with your real secret
-        ExcludeEntityIDs = "your_census_entity_id"   # <-- Replace with your real census entity ID and other Entity IDs to exclude, comma-separated
+        ExcludeEntityIDs = @("your_census_entity_id")   # <-- Replace with your real census entity ID and any other Entity IDs to exclude
     }
 
     $students = Get-SourceDataSkywardSMS @params
@@ -78,6 +79,9 @@ function Get-SourceDataSkywardSMS {
     #region Import Configuration
     try { $IDConfig = Get-IDBridgeConfig } catch { Throw $_ }
     #endregion Import Configuration
+
+    #Normalize ExcludeEntityIDs to an array so -notin filters work (a comma-separated string is split)
+    $ExcludeEntityIDs = @($ExcludeEntityIDs -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
     # Prepare OAuth token request
     $tokenBody = @{

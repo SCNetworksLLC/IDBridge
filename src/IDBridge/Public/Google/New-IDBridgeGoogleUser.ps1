@@ -50,11 +50,11 @@
     primary email so the batch response (with the new Google ID) can be matched back.
 
 .EXAMPLE
-    New-IDBridgeGoogleUser -PrimaryEmail "newuser@example.com" -PersonID "12345" -FirstName "John" -LastName "Doe" 
-                        -OrgUnitPath "/students" -Password "SecurePassword123" -tokenInformation $authToken
+    New-IDBridgeGoogleUser -PrimaryEmail "newuser@example.com" -PersonID "12345" -FirstName "John" -LastName "Doe"
+                        -OrgUnitPath "/students" -Password (ConvertTo-SecureString "SecurePassword123" -AsPlainText -Force)
 
-    Creates a new user with the specified details in the "/students" organizational unit, 
-    using the provided OAuth token for authentication.
+    Creates a new user with the specified details in the "/students" organizational unit.
+    Auth headers are obtained internally via Get-GoogleHeaders.
 
 .NOTES
     Version: 1.0

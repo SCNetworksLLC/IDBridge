@@ -82,7 +82,7 @@ CLAUDE.md            agent/developer onboarding (repo only)
 
 C:\IDBridge\Config\IDBridgeConfig.psd1   configuration   (outside repo)
 C:\IDBridge\Plugins\*.ps1                source/override plugins (outside repo)
-C:\IDBridge\{Auth,Logs,Exports,Data}\    runtime dirs (outside repo)
+C:\IDBridge\{Logs,Exports,Data,Vault}\   runtime dirs incl. the secret vault (outside repo)
 ```
 
 ## Documentation

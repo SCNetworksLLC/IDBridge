@@ -21,7 +21,7 @@ Thumbprint of the certificate in Cert:\LocalMachine\My.
 Account to grant private-key read access, e.g. 'DOMAIN\gMSA-IDBridge$'.
 
 .EXAMPLE
-Grant-IDBridgeCertificatePrivateKeyAccess -Thumbprint 'AB12CD34...' -Identity 'SDOM\gMSA-IDBridge$'
+Grant-IDBridgeCertificatePrivateKeyAccess -Thumbprint 'AB12CD34...' -Identity 'DOMAIN\gMSA-IDBridge$'
 
 .NOTES
    Created by: Sam Cattanach

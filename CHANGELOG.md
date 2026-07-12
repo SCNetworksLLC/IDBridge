@@ -5,7 +5,7 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
-## [Unreleased]
+## [26.7.12.0] - 2026-07-12
 
 ### Added
 - **Shipped plugin templates.** Sanitized templates of the three plugins
@@ -21,6 +21,81 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   fill-in, read-only first run, and enabling writes incrementally. Linked from the README
   quick start / documentation list and the CLAUDE.md references. Docs only — no code
   changes.
+
+### Fixed
+- **OU-creation failures now abort the run as documented.** `New-IDBridgeADOrgUnit` and
+  `New-IDBridgeGoogleOrgUnit` returned the ErrorRecord instead of throwing, so
+  `Invoke-IDBridge`'s catch (which logs and aborts — a missing OU cascades into user
+  create/move failures) could never fire. Both now throw; the Google function still logs
+  the error first.
+- **The AD username-collision check on renames actually works now.** `Get-ADUsersToUpdate`
+  checked for a taken username with `Get-ADUser -Identity <UPN>`, but `-Identity` does not
+  accept a UPN — the lookup always failed as not-found, so the guard could never fire and a
+  rename into a taken username only surfaced later as a `Set-ADUser` error. The check now
+  runs in-memory against the `Get-TargetDataAD` snapshot (new `-CurrentADUsers` parameter,
+  passed from `Invoke-IDBridge`), skipping the user when a **different** account (by
+  ObjectGUID, so a SamAccountName-only change doesn't self-collide on its own unchanged
+  UPN) already holds the new SamAccountName or UPN — the same pattern as
+  `Get-GoogleUsersToUpdate`'s primaryEmail collision check, with no per-user AD query.
+- **Group-membership fetch errors are detected reliably.** The parallel-processing error
+  check in `Get-TargetDataGoogle` string-matched the whole log entry (`-like "*error*"`),
+  which also tripped on any *trace* message containing "error" — e.g. a group email like
+  `data-errors@…` would have aborted every run. It now checks the entry's `Level`
+  explicitly.
+- **`Push-LogsToSheet` no longer crashes on an empty log buffer** — it passed
+  `-Level Warning` to `Write-Log`, whose ValidateSet only allows `Warn`, turning the
+  intended warning into a parameter-binding error.
+- **`Get-SourceDataGSheet` failures now throw real messages.** Three `Throw (Write-Log …)`
+  calls threw `$null` (Write-Log returns nothing), producing empty exceptions; each now
+  logs and throws the message. The safety-floor failure also reports the actual computed
+  row floor (e.g. `75 (75% of 100)`) instead of the bare fraction, and the retrieval
+  failure includes the underlying error.
+- **`Get-SourceDataSkywardSMS -ExcludeEntityIDs` accepts a comma-separated string.** The
+  filter uses `-notin`, which needs an array — a string like `'800,801'` silently filtered
+  nothing. Input is now normalized to a trimmed array (arrays pass through unchanged).
+- **Google JWT segments are now base64url-encoded** (RFC 7515) in
+  `Get-GoogleApiAccessToken` instead of standard Base64 with padding — Google's token
+  endpoint tolerated the old encoding, but it was out of spec; the Azure auth helper
+  already did this correctly. Verified live against the token endpoint.
+- **Log-message corrections:** the Google create-skip message said "ADKey is not set"
+  (now GoogleKey); `Initialize-IDBridge`'s AD-module error said "does not exit" (now
+  "does not exist").
+- **Docs/help accuracy pass (docs only — no code changes).** Corrected drift between the
+  docs/comment-based help and the current code: Google auth is acquired by
+  `Connect-IDBridgeGoogle` at run start, not by `Initialize-IDBridge`
+  (configuration.md, `Get-GoogleHeaders` help); `Write-Log`'s help now describes the
+  IDBridge behavior (Trace gating, in-memory buffer, config-derived path) instead of the
+  original 2015 gallery text; `Get-ColumnLetter` is documented as zero-based (its actual
+  behavior; help/functions.md said 1-based with a wrong example); Google deactivation is
+  archive + move-to-trash, not suspend (`Remove-IDBridgeGoogleUserLicense` help); telemetry
+  timeout is 10 s (functions.md said 2 s); `Get-StudentGrade` maps graduation year, not
+  birth year (functions.md); fixed stale examples (`New-IDBridgeGoogleUser` referenced a
+  removed `-tokenInformation` parameter; `Get-GoogleApiAccessToken` passed JSON content to
+  `-ServiceAccountKeyPath`); `Get-SourceDataSkywardSMS -ExcludeEntityIDs` takes an array,
+  not a comma-separated string; plugins.md Skyward example updated to the vault secret and
+  the template's `Provision` keys; README runtime dirs no longer list the removed `Auth\`
+  folder (now `Vault\`); CLAUDE.md no longer pins a stale version and correctly says
+  `Private\` helpers are loaded.
+- **Pilot-district specifics scrubbed from docs and help examples.** District names,
+  domains, OU paths, the Skyward tenant URL, gMSA domain, and the source-spreadsheet ID
+  prefix in `docs/plugins.md`, `docs/configuration.md`, and six functions' comment-based
+  help examples now use the generic placeholders the templates use (`YourDistrict`,
+  `yourdistrict.org`, `DC=yourdomain,DC=local`, `DOMAIN\gMSA-IDBridge$`,
+  `<spreadsheet id>`).
+
+### Removed
+- **`Get-RandomPassword` removed.** Nothing in the module or the shipped plugin templates
+  called it (the `RANDOM` password type uses `New-Guid`, and the other types use
+  Word/FSPIN/the passphrase API), and its implementation had real flaws: lengths over 40
+  were silently capped at 40 (it sampled a 40-character pool without replacement),
+  characters never repeated, no character class was guaranteed, and it used a
+  non-cryptographic RNG. Rather than rewrite an unused helper, it's gone — a plugin that
+  needs a random password should use `New-Guid`, the passphrase API, or its own generator
+  (PowerShell 7.4+ ships `Get-SecureRandom`).
+- **`New-Passphrase` no longer falls back to `$env:PASSPHRASE_AUTH_TOKEN`.** The fallback
+  was broken anyway (assigning the env string to the SecureString-typed parameter threw),
+  and the env var was an unencrypted escape hatch around the vault. `-AuthToken` is now
+  required; a missing token throws immediately with a clear message.
 
 ## [26.7.10.9] - 2026-07-10
 

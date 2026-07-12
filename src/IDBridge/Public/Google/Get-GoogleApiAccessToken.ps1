@@ -13,7 +13,7 @@ function Get-GoogleApiAccessToken {
     Sheets access comes from sharing the sheet with the service account's email.
 
     .PARAMETER ServiceAccountKeyPath
-    PAth to a JSON file containing the service account credentials, including the private key and client email.
+    Path to a JSON file containing the service account credentials, including the private key and client email.
     This is the Google credential file downloaded from the Google Cloud Console.
 
     .PARAMETER ServiceAccountKeyJson
@@ -23,11 +23,17 @@ function Get-GoogleApiAccessToken {
     .PARAMETER Scope
     The scope of access requested from Google API (e.g., 'https://www.googleapis.com/auth/drive').
 
-    .EXAMPLE
-    $credentialsJson = Get-Content 'C:\path\to\credentials.json' -Raw
-    $accessToken = Get-GoogleApiAccessToken -ServiceAccountKeyPath $credentialsJson -Scope 'https://www.googleapis.com/auth/drive.readonly'
+    .OUTPUTS
+    [hashtable] ready-to-use request headers: @{ Authorization = 'Bearer <token>'; Accept = 'application/json' }.
 
-    Use the $accessToken for authenticated API requests.
+    .EXAMPLE
+    $headers = Get-GoogleApiAccessToken -ServiceAccountKeyPath 'C:\path\to\credentials.json' -Scope 'https://www.googleapis.com/auth/drive.readonly'
+
+    .EXAMPLE
+    $credentialsJson = Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -AsPlainText
+    $headers = Get-GoogleApiAccessToken -ServiceAccountKeyJson $credentialsJson -Scope (Get-IDBridgeGoogleScope)
+
+    Use the returned $headers hashtable on authenticated API requests.
 
     .NOTES
     Ensure that the service account has the necessary permissions for the requested scope.
@@ -56,12 +62,12 @@ function Get-GoogleApiAccessToken {
     $ServiceAccountEmail = $jsonContent.client_email
     $PrivateKey = $jsonContent.private_key -replace '-----BEGIN PRIVATE KEY-----\n' -replace '\n-----END PRIVATE KEY-----\n' -replace '\n'
 
-    # Create JWT Header (Base64-encoded JSON)
+    # Create JWT Header (JSON) - JWT segments are base64url encoded (base64 with -/_ and no padding)
     $header = @{
         alg = "RS256"
         typ = "JWT"
     }
-    $headerBase64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($header | ConvertTo-Json -Compress)))
+    $headerBase64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($header | ConvertTo-Json -Compress))) -replace '\+', '-' -replace '/', '_' -replace '='
 
     # Generate JWT Payload (Claim Set)
     $timestamp = [Math]::Round((Get-Date -UFormat %s))  # Current time in seconds
@@ -72,7 +78,7 @@ function Get-GoogleApiAccessToken {
         exp   = $timestamp + 3600  # Token expiration (1 hour)
         iat   = $timestamp         # Issued at time
     }
-    $claimSetBase64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($claimSet | ConvertTo-Json -Compress)))
+    $claimSetBase64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($claimSet | ConvertTo-Json -Compress))) -replace '\+', '-' -replace '/', '_' -replace '='
 
     # Generate JWT Signature
     $signatureInput = "$headerBase64.$claimSetBase64"
@@ -86,7 +92,7 @@ function Get-GoogleApiAccessToken {
 
     # Sign the JWT using SHA-256 and PKCS1 padding
     $signature = $rsaProvider.SignData($signatureBytes, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
-    $signatureBase64 = [System.Convert]::ToBase64String($signature)
+    $signatureBase64 = [System.Convert]::ToBase64String($signature) -replace '\+', '-' -replace '/', '_' -replace '='
 
     # Construct the final JWT
     $jwt = "$headerBase64.$claimSetBase64.$signatureBase64"

@@ -21,8 +21,7 @@
     Number of words for 'words' mode. 2-6, default 3.
 
 .PARAMETER AuthToken
-    Bearer token as a SecureString authorizing the Function call. Falls back to
-    $env:PASSPHRASE_AUTH_TOKEN when not supplied; throws if neither is present.
+    Bearer token as a SecureString authorizing the Function call. Throws when not supplied.
 
 .PARAMETER FunctionUrl
     Base URL of the Azure Function App. Defaults to https://passphrase.azurewebsites.net.
@@ -68,11 +67,7 @@ function New-Passphrase {
 
     # ── Resolve auth token ────────────────────────────────────────────────────
     if (-not $AuthToken) {
-        if ($env:PASSPHRASE_AUTH_TOKEN) {
-            $AuthToken = $env:PASSPHRASE_AUTH_TOKEN
-        } else {
-            throw "AuthToken is required. Pass -AuthToken or set `$env:PASSPHRASE_AUTH_TOKEN."
-        }
+        throw "AuthToken is required. Pass -AuthToken as a SecureString."
     }
 
     $FunctionUrl = $FunctionUrl.TrimEnd('/')

@@ -25,7 +25,7 @@ The percentage of userCount that must be exceeded for the run to proceed. Defaul
 [object[]] the validated rows flagged to process.
 
 .EXAMPLE
-Get-SourceDataGSheet -sheetID '1qrZ...' -sheetRange 'Staff' -userCount 650
+Get-SourceDataGSheet -sheetID '<spreadsheet id>' -sheetRange 'Staff' -userCount 650
 
 .NOTES
    Created by: Sam Cattanach
@@ -52,7 +52,8 @@ function Get-SourceDataGSheet {
         Write-Log -Message "Source Data: Successfully retrieved Google Sheet data"
     }
     catch {
-        Throw (Write-Log -Message "Source Data: Failed to Retrieve Google Sheet Data" -Level Error)
+        Write-Log -Message "Source Data: Failed to Retrieve Google Sheet Data: $($_)" -Level Error
+        Throw "Source Data: Failed to Retrieve Google Sheet Data: $($_)"
     }
 
     #Required Columns in the Google Sheet
@@ -80,16 +81,19 @@ function Get-SourceDataGSheet {
 
 
     #Check data fetched count for safety
-    if ($data.count -gt ([int]$userCount * ([int]$userCountSafetyPercentage / 100))) {
+    $safetyFloor = [int]$userCount * ([int]$userCountSafetyPercentage / 100)
+    if ($data.count -gt $safetyFloor) {
         Write-Log -Message "Source Data: Successfully retrieved $($data.count) Users"
     } else {
-        Throw (Write-Log -Message "Source Data: $($data.count) retrieved but does not meet the threshold of $([int]$userCountSafetyPercentage / 100)" -Level Error)
+        Write-Log -Message "Source Data: $($data.count) rows retrieved but does not meet the safety floor of $safetyFloor ($userCountSafetyPercentage% of $userCount)" -Level Error
+        Throw "Source Data: $($data.count) rows retrieved but does not meet the safety floor of $safetyFloor ($userCountSafetyPercentage% of $userCount)"
     }
 
 
     #Check to see if there is actually any data to process
     if ($data.Process -notcontains "TRUE") {
-        Throw (Write-Log -Message "Source Data: Data fetched but no users are set to process" -Level Error)
+        Write-Log -Message "Source Data: Data fetched but no users are set to process" -Level Error
+        Throw "Source Data: Data fetched but no users are set to process"
     }
 
 

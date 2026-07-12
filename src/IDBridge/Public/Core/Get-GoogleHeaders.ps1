@@ -4,8 +4,9 @@ Return the Google API authorization headers acquired at startup.
 
 .DESCRIPTION
 Accessor for the script-scoped Google headers (bearer token + Accept) set by
-Initialize-IDBridge via Get-GoogleApiAccessToken. Used by all Google API calls. Throws if
-Google authentication was not initialized (e.g. GoogleToken.Enabled is $false or auth failed).
+Connect-IDBridgeGoogle (called by Invoke-IDBridge at run start when GoogleToken.Enabled).
+Used by all Google API calls. Throws if Google authentication has not run
+(e.g. GoogleToken.Enabled is $false or auth failed).
 
 .OUTPUTS
 [hashtable] @{ Authorization = 'Bearer <token>'; Accept = 'application/json' }.

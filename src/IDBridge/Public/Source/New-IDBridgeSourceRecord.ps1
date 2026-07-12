@@ -37,10 +37,14 @@ Optional AD mail attribute (Set/New-ADUser -EmailAddress). Applied only when non
 AD passwordNeverExpires flag (boolean). Defaults to $false.
 
 .PARAMETER ExtensionAttribute2
-.PARAMETER ExtensionAttribute3
-.PARAMETER ExtensionAttribute4
-Optional AD extensionAttributes 2-4 (extensionAttribute1 is set from PersonTypeID by the AD
+Optional AD extensionAttribute2 (extensionAttribute1 is set from PersonTypeID by the AD
 code). Applied only when non-empty. Reserved for future use.
+
+.PARAMETER ExtensionAttribute3
+Optional AD extensionAttribute3. Applied only when non-empty. Reserved for future use.
+
+.PARAMETER ExtensionAttribute4
+Optional AD extensionAttribute4. Applied only when non-empty. Reserved for future use.
 
 .PARAMETER ForceDisable
 Override-driven flag (boolean) to force-disable/suspend an active user. Defaults to $false.

@@ -238,7 +238,7 @@ function Invoke-IDBridge {
             #Users to Deactivate
             $ADUsersToDeactivate = Get-ADUsersToDeactivate -UserList $sourceData
             #Users to Update
-            $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $sourceData -LookupByID $adData.LookupByID
+            $ADUsersToUpdate = Get-ADUsersToUpdate -UserList $sourceData -LookupByID $adData.LookupByID -CurrentADUsers $adData.Users
             #Users to Create
             $ADUsersToCreate = Get-ADUsersToCreate -UserList $sourceData -CurrentADUsers $adData.Users
             #Groups to Update

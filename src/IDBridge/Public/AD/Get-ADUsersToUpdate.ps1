@@ -18,6 +18,10 @@ The enriched source records.
 .PARAMETER LookupByID
 The AD LookupByID hashtable (EmployeeID -> AD user) from Get-TargetDataAD.
 
+.PARAMETER CurrentADUsers
+All current AD users (from Get-TargetDataAD .Users); used for the username/UPN collision
+check on renames — a new username or UPN already held by a different account skips the user.
+
 .OUTPUTS
 [pscustomobject] @{ UpdateList; RenameList; MoveList }.
 
@@ -35,7 +39,10 @@ function Get-ADUsersToUpdate {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        $LookupByID
+        $LookupByID,
+
+        [Parameter(Mandatory = $true)]
+        $CurrentADUsers
     )
 
     $itemUpdateList = @()
@@ -49,21 +56,22 @@ function Get-ADUsersToUpdate {
         $itemUpdateSplat = @{}
 
         if ($ADUser.SamAccountName -ne $item.Username) {
-            try {
-                Get-ADUser -Identity $item.UPN -ErrorAction Stop | Out-Null
+            #Check the target-data snapshot for a DIFFERENT account already holding the new
+            #username or UPN (mirrors the primaryEmail collision check in Get-GoogleUsersToUpdate).
+            #Excluding the user's own ObjectGUID matters when only the SamAccountName changes:
+            #the unchanged UPN would otherwise match the user's own account.
+            $conflictUser = $CurrentADUsers | Where-Object { ($_.SamAccountName -eq $item.Username -or $_.UserPrincipalName -eq $item.UPN) -and $_.ObjectGUID -ne $ADUser.ObjectGUID } | Select-Object -First 1
 
-                Write-Log -Message ("AD: Another user account has the username of " + $item.Username + ". Terminating updating person: " + $item.PersonID) -Level Error
+            if ($conflictUser) {
+                Write-Log -Message ("AD: Another user account (" + $conflictUser.UserPrincipalName + ") has the username of " + $item.Username + ". Terminating updating person: " + $item.PersonID) -Level Error
 
                 continue
             }
-            catch {
-                if ($_.CategoryInfo.Reason -eq 'ADIdentityNotFoundException') {
-                    Write-Log -Message ("AD: New Username found for " + $item.PersonID + ". Old username is " + $ADUser.SamAccountName + ". New username is " + $item.Username + ".")
 
-                    $itemUpdateSplat["SamAccountName"] = $item.Username
-                    $itemUpdateSplat["UserPrincipalName"] = $item.UPN
-                }
-            }
+            Write-Log -Message ("AD: New Username found for " + $item.PersonID + ". Old username is " + $ADUser.SamAccountName + ". New username is " + $item.Username + ".")
+
+            $itemUpdateSplat["SamAccountName"] = $item.Username
+            $itemUpdateSplat["UserPrincipalName"] = $item.UPN
         }
 
         if ($ADUser.EmployeeID -ne $item.PersonID) {

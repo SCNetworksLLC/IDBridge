@@ -19,7 +19,7 @@ There is **no domain-wide delegation and no admin impersonation**: no human or s
 bootstrap. Sheets access comes from **sharing the sheets with the service account's
 email** (`Get-IDBridgeGoogleServiceAccountEmail` prints it any time).
 
-What it does (idempotent — re-running is safe):
+What it does (re-running is safe):
 
 | Step | Automated? | Notes |
 |------|------------|-------|

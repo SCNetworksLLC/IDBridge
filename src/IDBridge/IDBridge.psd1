@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.10.9'
+    ModuleVersion     = '26.7.12.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -93,7 +93,6 @@
 
         # Helpers
         'Get-StudentGrade'
-        'Get-RandomPassword'
         'New-Passphrase'
         'Format-IDBridgeName'
 

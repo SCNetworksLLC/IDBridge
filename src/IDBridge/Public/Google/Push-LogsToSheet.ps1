@@ -36,7 +36,7 @@ function Push-LogsToSheet {
         # Pull the structured in-memory log buffer (oldest-first)
         $logs = @(Get-IDBridgeLogs)
         if ($logs.Count -eq 0) {
-            Write-Log -Message "Push-LogsToSheet: Log buffer is empty; nothing to push." -Level Warning
+            Write-Log -Message "Push-LogsToSheet: Log buffer is empty; nothing to push." -Level Warn
             return
         }
 

@@ -34,7 +34,7 @@ Account to grant private-key read access, e.g. 'DOMAIN\gMSA-IDBridge$'. Machine 
 New-IDBridgeSecretCertificate
 
 .EXAMPLE
-New-IDBridgeSecretCertificate -GrantRead 'SDOM\gMSA-IDBridge$'
+New-IDBridgeSecretCertificate -GrantRead 'DOMAIN\gMSA-IDBridge$'
 
 .EXAMPLE
 New-IDBridgeSecretCertificate -StoreLocation CurrentUser   # dev machine, no elevation

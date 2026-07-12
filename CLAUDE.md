@@ -4,7 +4,7 @@ IDBridge ("IdentityBridge") is a **PowerShell 7.5 module** that provisions and
 synchronizes identity accounts in **Active Directory** and **Google Workspace** from
 school SIS / Google-Sheet source data. For each person it can create, update, deactivate,
 move, and rename users, create the OUs they belong in, and reconcile group membership.
-Module version comes from `IDBridge.psd1` (`ModuleVersion`, currently `26.6.21.0`).
+Module version comes from `IDBridge.psd1` (`ModuleVersion`).
 
 > ⚠️ **Code and config/plugins live in DIFFERENT places.**
 > - **Code (this git repo):** `C:\GIT\IDBridge`
@@ -18,7 +18,7 @@ Module version comes from `IDBridge.psd1` (`ModuleVersion`, currently `26.6.21.0
 
 ```
 src\IDBridge\          # The publishable module package (publish from here)
-  IDBridge.psm1        # Loader: dot-sources every Public\**\*.ps1; breaks on import error
+  IDBridge.psm1        # Loader: dot-sources every Private\**\*.ps1 and Public\**\*.ps1; breaks on import error
   IDBridge.psd1        # Manifest: explicit FunctionsToExport (public surface)
   Public\
     Core\              # Orchestrator, init, config, logging, helpers
@@ -28,7 +28,7 @@ src\IDBridge\          # The publishable module package (publish from here)
     AD\                # Active Directory create/update/deactivate/OU/group logic
     Google\            # Google Workspace create/update/deactivate/OU/group logic
     Google\Sheets\     # Sheets API helpers (read/write/format)
-  Private\             # (reserved for internal helpers; not loaded yet)
+  Private\             # Internal helpers (secrets providers, Google scopes) — loaded but never exported
   Templates\Plugins\   # sanitized plugin templates — copied to <Root>\Plugins by New-IDBridgeConfig (never dot-sourced by the loader)
 docs\                  # Reference docs (repo only — NOT in the package)
 images\                # Logos (non-code, repo only)

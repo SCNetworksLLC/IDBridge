@@ -1,18 +1,20 @@
 <#
 .SYNOPSIS
-Convert a 1-based column number to its spreadsheet column letter(s).
+Convert a zero-based column index to its spreadsheet column letter(s).
 
 .DESCRIPTION
-Returns the Excel/Sheets column label for a 1-based column number (1 -> A, 26 -> Z, 27 -> AA).
+Returns the Excel/Sheets column label for a zero-based column index (0 -> A, 25 -> Z,
+26 -> AA) — the same zero-based convention the Sheets API GridRange and
+Convert-CellToIndex use. Supports up to two-letter columns (through index 701 = ZZ).
 
 .PARAMETER ColumnNumber
-The 1-based column number to convert.
+The zero-based column index to convert.
 
 .OUTPUTS
 [string] the column letter(s).
 
 .EXAMPLE
-Get-ColumnLetter -ColumnNumber 28   # -> AB
+Get-ColumnLetter -ColumnNumber 27   # -> AB
 
 .NOTES
    Created by: Sam Cattanach

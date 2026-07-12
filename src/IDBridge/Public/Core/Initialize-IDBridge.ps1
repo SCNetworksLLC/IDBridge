@@ -100,9 +100,9 @@ function Initialize-IDBridge {
             Write-Log -Message "Imported Active Directory Module" -Level Trace
         }
         catch {
-            Write-Host "AD Powershell Module does not exit on the local machine: $($_)" -ForegroundColor Red
+            Write-Host "AD Powershell Module does not exist on the local machine: $($_)" -ForegroundColor Red
             if ($script:IDBridgeConfig.Debug.skipADCheck -ne $true) {
-                Throw "AD Powershell Module does not exit on the local machine: $_"
+                Throw "AD Powershell Module does not exist on the local machine: $_"
             }
         }
     }

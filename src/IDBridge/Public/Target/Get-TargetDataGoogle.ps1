@@ -190,8 +190,8 @@ function Get-TargetDataGoogle {
         Write-Log -Message $entry.Message -Level $entry.Level
     }
 
-    #Check for errors during parallel processing
-    if ($sharedLogs.GetEnumerator() -like "*error*") {
+    #Check for errors during parallel processing (by entry Level, not message text)
+    if ($sharedLogs.Values.Level -contains 'error') {
         Throw "Errors occurred while retrieving group memberships. Check the log for details."
     }
 

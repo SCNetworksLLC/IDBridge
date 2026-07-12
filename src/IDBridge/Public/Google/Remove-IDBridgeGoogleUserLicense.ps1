@@ -10,7 +10,7 @@
     looked up at write time and the decide phase / ReadOnly runs already logged exactly
     what would be removed.
 
-    Called by Invoke-IDBridge during the full deactivation (suspend + move-to-trash) step —
+    Called by Invoke-IDBridge during the full deactivation (archive + move-to-trash) step —
     NOT on a ForceDisable update. On by default; set Google.enableLicenseRemoval = $false
     to disable. Every removed license is logged by SKU name; an error on one assignment
     doesn't stop the rest.

@@ -45,10 +45,10 @@ OU path to scope the Google users to (subtree). Omit to skip Google Workspace en
 [pscustomobject] @{ SpreadsheetId; SheetName; RowsWritten }.
 
 .EXAMPLE
-Export-IDBridgeDirectoryToSheet -SpreadsheetId '1qrZ...' -GoogleOrgUnitPath '/Marshfield/Staff'
+Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -GoogleOrgUnitPath '/YourDistrict/Staff'
 
 .EXAMPLE
-Export-IDBridgeDirectoryToSheet -SpreadsheetId '1qrZ...' -ADSearchBase 'OU=Staff,OU=Marshfield,DC=sdom,DC=local' -GoogleOrgUnitPath '/Marshfield/Staff'
+Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -ADSearchBase 'OU=Staff,OU=YourDistrict,DC=yourdomain,DC=local' -GoogleOrgUnitPath '/YourDistrict/Staff'
 
 .NOTES
    Created by: Sam Cattanach

@@ -118,18 +118,18 @@ touches the fields it sets.
 
 ### `Invoke-PluginGSheetStaff` — Source *(enabled)*
 File: `C:\IDBridge\Plugins\Invoke-PluginGSheetStaff.ps1`. Pulls staff from a Google Sheet via
-`Get-SourceDataGSheet` (sheet `1qrZ…`, range `Staff`, safety floor 650 @ 75%).
-- `UPN = <Username>@marshfieldschools.org`; AD OU `OU=<PersonType>,OU=Staff,<root>`,
-  Google OU `/Marshfield/Staff/<PersonType>`; trash OUs use the current year.
+`Get-SourceDataGSheet` (spreadsheet ID + range `Staff`, safety floor 650 @ 75%).
+- `UPN = <Username>@yourdistrict.org`; AD OU `OU=<PersonType>,OU=Staff,<root>`,
+  Google OU `/YourDistrict/Staff/<PersonType>`; trash OUs use the current year.
 - `PersonTypeID = "3"` when `PersonType` is in a leadership/role list (Administrator, Teacher,
   Principal, …), else `"2"`.
 - `IDBActive = $false` when `TerminationDate` is in the past.
-- AD password type `WORD` (prefix `Mfld-` + sheet `Word`), Google `RANDOM` (GUID). Passphrase
+- AD password type `WORD` (prefix `Temp-` + sheet `Word`), Google `RANDOM` (GUID). Passphrase
   API only if a type is `API-PASSPHRASE` (reads the `ApiKey-PassphraseNonceStaff` +
   `ApiKey-Passphrase` vault secrets via `Get-IDBridgeSecret`).
 - Groups = `Get-CustomStaffGroups -building -personType` (optional, bundled in-file) **+**
   comma-split `ApplicationGroups` **+** `EmailGroups`, de-duplicated. The bundled helper
-  encodes Marshfield's group policy (All Staff, building Staff/Faculty/Support, Admin tiers,
+  encodes the district's group policy (All Staff, building Staff/Faculty/Support, Admin tiers,
   All Principals, etc.) via building/person-type allow- and deny-lists.
 
 ### `Invoke-PluginStaffOverride` — Override *(enabled)*
@@ -143,19 +143,19 @@ File: `C:\IDBridge\Plugins\Invoke-PluginStaffOverride.ps1`. Reads `Get-GoogleShe
 
 ### `Invoke-PluginSkywardSMSStudents` — Source *(disabled in config)*
 File: `C:\IDBridge\Plugins\Invoke-PluginSkywardSMSStudents.ps1`. Pulls students via
-`Get-SourceDataSkywardSMS` (OneRoster API; client secret from `ApiKey-SkywardSMS.txt`; exclude
-entity `800`; safety floor 3700 @ 75%).
-- Keeps only students with a `FoodServiceKeyPadNumber > 0`, padded to 4 digits (used as the
-  FSPIN password).
+`Get-SourceDataSkywardSMS` (OneRoster API; client secret from the vault secret
+`ApiKey-SkywardSMS`; exclude entity `800`; safety floor 3700 @ 75%).
+- Pads `FoodServiceKeyPadNumber` to 4 digits when present (used as the FSPIN password); an
+  optional commented-out filter drops students without a PIN when a grade uses FSPIN.
 - `PersonID/Username = DisplayId`, `InternalID = NameId`,
-  `UPN = <DisplayId>@my.marshfieldschools.org`, `PersonTypeID = "1"`.
+  `UPN = <DisplayId>@my.yourdistrict.org`, `PersonTypeID = "1"`.
 - Grade from `GradeLevel`; building from a `SchoolID`→name/code map (fallback `000`).
 - **Per-grade settings** (`GradeDefaultSettings` + `GradeOverrides`, merged across
-  `ValidGrades`) control Enabled state and AD/Google password type/prefix/change-flag. AD OU
-  `OU=Grade-<grade>,OU=Students,<root>`, Google `/Marshfield/Students/Grade-<grade>`.
-- **Per-directory provisioning:** `ProvisionAD = [bool]$GradeSettings.<grade>.AD.Enabled` and
-  `ProvisionGoogle = [bool]…Google.Enabled` — so "younger grades = Google only" is set by adding
-  a `GradeOverrides` entry with `AD = @{ Enabled = $false }`.
+  `ValidGrades`) control provisioning and AD/Google password type/prefix/change-flag. AD OU
+  `OU=Grade-<grade>,OU=Students,<root>`, Google `/YourDistrict/Students/Grade-<grade>`.
+- **Per-directory provisioning:** `ProvisionAD = [bool]$GradeSettings.<grade>.AD.Provision` and
+  `ProvisionGoogle = [bool]…Google.Provision` — so "younger grades = Google only" is set by adding
+  a `GradeOverrides` entry with `AD = @{ Provision = $false }`.
 - **Name casing:** `NameFirst`/`NameLast` are run through the module's `Format-IDBridgeName`
   (Skyward returns ALL-CAPS → Title Case). Because the update functions compare names
   case-sensitively (`-cne`), existing accounts get the casing fix too, not just new ones.

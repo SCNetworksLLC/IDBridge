@@ -1,45 +1,35 @@
-<# 
-.Synopsis 
-   Write-Log writes a message to a specified log file with the current time stamp. 
-.DESCRIPTION 
-   The Write-Log function is designed to add logging capability to other scripts. 
-   In addition to writing output and/or verbose you can write to a log file for 
-   later debugging. 
-.NOTES 
-   Created by: Jason Wasser @wasserja 
-   Modified: 11/24/2015 09:30:19 AM   
- 
-   Changelog: 
-    * Code simplification and clarification - thanks to @juneb_get_help 
-    * Added documentation. 
-    * Renamed LogPath parameter to Path to keep it standard - thanks to @JeffHicks 
-    * Revised the Force switch to work as it should - thanks to @JeffHicks 
- 
-   To Do: 
-    * Add error handling if trying to create a log file in a inaccessible location. 
-    * Add ability to write $Message to $Verbose or $Error pipelines to eliminate 
-      duplicates. 
-.PARAMETER Message 
-   Message is the content that you wish to add to the log file.  
-.PARAMETER Path 
-   The path to the log file to which you would like to write. By default the function will  
-   create the path and file if it does not exist.  
-.PARAMETER Level 
-   Specify the criticality of the log information being written to the log (i.e. Error, Warning, Informational) 
-.PARAMETER NoClobber 
-   Use NoClobber if you do not wish to overwrite an existing file. 
-.EXAMPLE 
-   Write-Log -Message 'Log message'  
-   Writes the message to c:\Logs\PowerShellLog.log. 
-.EXAMPLE 
-   Write-Log -Message 'Restarting Server.' -Path c:\Logs\Scriptoutput.log 
-   Writes the content to the specified log file and creates the path and file specified.  
-.EXAMPLE 
-   Write-Log -Message 'Folder does not exist.' -Path c:\Logs\Script.log -Level Error 
-   Writes the message to the specified log file as an error message, and writes the message to the error pipeline. 
-.LINK 
-   https://gallery.technet.microsoft.com/scriptcenter/Write-Log-PowerShell-999c32d0 
-#> 
+<#
+.SYNOPSIS
+   The IDBridge logging function: timestamped entries to the log file, the in-memory buffer, and the console.
+.DESCRIPTION
+   Every IDBridge log line goes through Write-Log. Each message is written to three places:
+   the log file (Paths.LogFile by default, created if missing and rotated by
+   Initialize-IDBridge past 5 MB), the in-memory buffer read via Get-IDBridgeLogs (used by
+   Push-LogsToSheet for Google Sheet logging), and the console (Error/Warn map to the
+   error/warning streams; Info/Trace to the verbose stream).
+
+   Trace-level messages are dropped entirely unless Debug.TraceLogging is $true. Requires an
+   initialized session (Initialize-IDBridge) — the config supplies the default log path.
+.PARAMETER Message
+   The message to log (alias LogContent). Accepts pipeline input by property name.
+.PARAMETER Path
+   The log file to write to (alias LogPath). Defaults to Paths.LogFile from the config.
+   The path and file are created if they do not exist.
+.PARAMETER Level
+   Severity: Error, Warn, Info (default), or Trace. Trace is suppressed unless
+   Debug.TraceLogging is enabled.
+.PARAMETER NoClobber
+   Throw instead of writing when the log file already exists.
+.EXAMPLE
+   Write-Log -Message 'AD: Fetching Users' -Level Trace
+.EXAMPLE
+   Write-Log -Message ($_.Exception.Message) -Level Error
+.NOTES
+   Based on Write-Log by Jason Wasser @wasserja; adapted for IDBridge (Trace level,
+   in-memory buffer, config-derived default path).
+.LINK
+   https://gallery.technet.microsoft.com/scriptcenter/Write-Log-PowerShell-999c32d0
+#>
 function Write-Log { 
     [CmdletBinding()] 
     Param 

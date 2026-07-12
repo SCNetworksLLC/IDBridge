@@ -78,7 +78,7 @@ function Get-GoogleUsersToCreate {
         } elseif ($item.GoogleKey) {
             $itemCreateSplat["Password"] = $item.GoogleKey
         } else {
-            Write-Log -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  ADKey is not set. Skipping User Creation.") -Level "Warn"
+            Write-Log -Message ("Google: No user found for $($item.PersonID). No Account Password could be set for $($item.PersonID).  GoogleKey is not set. Skipping User Creation.") -Level "Warn"
             Continue
         }
 

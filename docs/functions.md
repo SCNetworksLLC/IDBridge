@@ -59,7 +59,7 @@ Posts one anonymous usage event per run to the IDBridge Pulse ingest endpoint fr
 -DeactivateCount` (ints), `-RunError` (ErrorRecord — Enhanced tier extracts exception
 *class* + throwing *function* name only, never the message). Tier from `Telemetry.Tier`
 (missing = `Basic`, unrecognized = `Off`); logs the exact payload at Trace; sends with a
-2 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.
+10 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.
 
 ### `Get-IDBridgeSiteID`
 Returns the install's telemetry SiteID from `<ConfigRoot>\IDBridgeSiteID.json`, generating
@@ -67,19 +67,16 @@ a random GUID (plain-text file, deliberately unencrypted/non-secret) on first us
 the file is invalid. Only transmitted at the Enhanced tier; used to claim the install in
 the Pulse dashboard. Delete the file when cloning a config to a new install.
 
-### `Get-RandomPassword`
-**Params:** `-PasswordLength` (1–256, def 10). **Returns:** random string mixing
-lower/upper/digit/special.
-
 ### `New-Passphrase` 🌐
 Deterministic passphrase generator backed by an Azure Function. **Params:** `-Nonce`
 (SecureString), `-Username` (string/array), `-Mode {words|verbnoun}`, `-WordCount` (2–6,
-def 3), `-AuthToken` (SecureString, def `$env:PASSPHRASE_AUTH_TOKEN`), `-FunctionUrl`.
+def 3), `-AuthToken` (SecureString, required — throws when absent), `-FunctionUrl`.
 POSTs to `<FunctionUrl>/api/generate`. **Returns:** phrase string(s).
 
 ### `Get-StudentGrade`
-**Params:** `-gradYear` (2000–2099), `-gradeAdvanceDate`. **Returns:** grade code
-(`12`..`01`, `KG`, `K4`, `PK`, or `GD`) from birth year vs. school-year rollover.
+**Params:** `-gradYear` (2000–2099), `-gradeAdvanceDate` (`MM-dd` rollover date). **Returns:**
+grade code (`12`..`01`, `KG`, `K4`, `PK`, or `GD`) from graduation year vs. the school-year
+rollover; `$null` when the year is out of range.
 
 ### `Format-IDBridgeName`
 **Params:** `-Name` (pipeline-friendly). Title-cases a name, capitalizing after spaces,
@@ -284,12 +281,15 @@ expands ancestors, removes existing, sorts parents-first. **Returns:** ordered O
 `ProvisionAD=true` AND no `ADCurrentUserID` AND UPN absent from AD. Builds a `New-ADUser` splat
 (password from `ADKey` or `ADPassphraseAPI`→`New-Passphrase`). **Returns:** `@{ PersonID; Splat }[]`.
 
-### `Get-ADUsersToUpdate` 🧮🌐
-**Params:** `-UserList`, `-LookupByID`. **Predicate:** `IDBActive=true` AND `ProvisionAD=true`
-AND has `ADCurrentUserID` + any delta (name, username/UPN, EmployeeID, office/title/company/
-dept, description/phone/email, enabled state, employeeType/ext-attr, passwordNeverExpires, CN,
-OU). Name comparisons are **case-sensitive** (`-cne`) so a casing fix from the plugin (e.g.
-ALL-CAPS→Title-Case) is applied. **Returns:** `@{ UpdateList; RenameList; MoveList }`.
+### `Get-ADUsersToUpdate` 🧮
+**Params:** `-UserList`, `-LookupByID`, `-CurrentADUsers`. **Predicate:** `IDBActive=true` AND
+`ProvisionAD=true` AND has `ADCurrentUserID` + any delta (name, username/UPN, EmployeeID,
+office/title/company/dept, description/phone/email, enabled state, employeeType/ext-attr,
+passwordNeverExpires, CN, OU). A username/UPN change already held by a **different** account in
+the `CurrentADUsers` snapshot is logged as an error and the user is skipped that run (mirrors
+`Get-GoogleUsersToUpdate`'s primaryEmail collision check). Name comparisons are
+**case-sensitive** (`-cne`) so a casing fix from the plugin (e.g. ALL-CAPS→Title-Case) is
+applied. **Returns:** `@{ UpdateList; RenameList; MoveList }`.
 
 ### `Get-ADUsersToDeactivate` 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionAD=false)` AND
@@ -301,7 +301,8 @@ ALL-CAPS→Title-Case) is applied. **Returns:** `@{ UpdateList; RenameList; Move
 Groups}`).
 
 ### `New-IDBridgeADOrgUnit` 🌐
-**Params:** `-OrgUnit` (DN). Parses DN → `New-ADOrganizationalUnit`.
+**Params:** `-OrgUnit` (DN). Parses DN → `New-ADOrganizationalUnit`. Throws on failure —
+`Invoke-IDBridge` treats a failed OU creation as fatal and aborts the run.
 
 ### `Disable-IDBridgeADUser` 🌐
 **Params:** `-User`, `-GroupRemovalProcessingStatus`. Disables account, stamps `Division`
@@ -414,6 +415,7 @@ creates as three sequential batches). Batching cuts round trips, not quota. **Re
 **Params:** `-OrgUnit` (path). POST
 `/customer/<Google.customerID>/orgunits` with name + parentOrgUnitPath (the real customer
 ID from config — `my_customer` doesn't resolve for the service account's own token).
+Logs then throws on failure — `Invoke-IDBridge` treats a failed OU creation as fatal.
 
 ### `Update-GoogleGroupMembers` 🌐
 **Params:** `-GroupEmail`, `-PersonID`, `-UpdateType {Add|Remove}`, `-AsBatchRequest`,
@@ -491,7 +493,7 @@ sets `-append` (POST `:append`) or `-rangeA1` (PUT `…!A1`), `-valueInputOption
 sheetId (throws if not found).
 
 ### `Get-ColumnLetter`
-**Params:** `-ColumnNumber` (1-based). **Returns:** Excel column letter(s) (A, …, AA).
+**Params:** `-ColumnNumber` (0-based). **Returns:** Excel column letter(s) (0→A, 25→Z, 26→AA).
 
 ### `Convert-CellToIndex`
 **Params:** `-cell` (e.g. `B2`). **Returns:** `@{ row; column }` (0-based).

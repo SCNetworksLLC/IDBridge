@@ -48,7 +48,7 @@ the guard off (older configs keep working).
 ### `GoogleToken` (API authentication)
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
-| `Enabled`         | bool   | Gate Google token acquisition at startup. | `Initialize-IDBridge` |
+| `Enabled`         | bool   | Gate Google token acquisition at run start. | `Invoke-IDBridge` (→ `Connect-IDBridgeGoogle`) |
 
 > The service-account key itself is the vault secret `GoogleAuth-ServiceAccount`
 > (see [secrets.md](secrets.md)) — no file path is configured or discovered. The token is
@@ -63,9 +63,9 @@ the guard off (older configs keep working).
 ### `Google` (Workspace processing)
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
-| `enabled`                     | bool   | Master switch for Google processing (auto-set `$false` if auth fails). | `Invoke-IDBridge`, `Get-TargetDataGoogle` |
+| `enabled`                     | bool   | Master switch for Google processing (an auth failure throws — see behavioral notes). | `Invoke-IDBridge`, `Get-TargetDataGoogle` |
 | `customerID`                  | string | Workspace customer ID. | Google target/API calls |
-| `userRootOU`                  | string | Root OU path, e.g. `/Marshfield`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
+| `userRootOU`                  | string | Root OU path, e.g. `/YourDistrict`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
 | `enableGroupProcessing`       | bool   | Enable Google group sync. | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
@@ -83,7 +83,7 @@ the guard off (older configs keep working).
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `enabled`                     | bool   | Master switch for AD processing. | `Initialize-IDBridge`, `Invoke-IDBridge` |
-| `userRootOU`                  | string | Root OU DN, e.g. `OU=Marshfield,DC=sdom,DC=local`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
+| `userRootOU`                  | string | Root OU DN, e.g. `OU=YourDistrict,DC=yourdomain,DC=local`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
 | `enableGroupProcessing`       | bool   | Enable AD group sync. | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals. | `Invoke-IDBridge` |
@@ -214,19 +214,19 @@ key. **Only names/locations are documented here — never values.** See [secrets
 
 | Secret / item | Used by |
 |---------------|---------|
-| `GoogleAuth-ServiceAccount` (vault)     | `Initialize-IDBridge` → `Get-GoogleApiAccessToken` (the service-account key JSON; no file fallback) |
+| `GoogleAuth-ServiceAccount` (vault)     | `Connect-IDBridgeGoogle` → `Get-GoogleApiAccessToken` (the service-account key JSON; no file fallback) |
 | `ApiKey-SkywardSMS` (vault)             | Skyward students plugin (client secret) |
 | `ApiKey-Passphrase` (vault)             | Passphrase API bearer token (`New-Passphrase`) |
 | `ApiKey-PassphraseNonceStaff` (vault)   | Staff passphrase nonce |
 | `ApiKey-PassphraseNonceStudent` (vault) | Student passphrase nonce |
-| `$env:PASSPHRASE_AUTH_TOKEN`            | Fallback auth token for `New-Passphrase` |
 
 ---
 
 ## Behavioral notes
 
-- **Auth failures throw:** if `Initialize-IDBridge` can't read the Google key secret or
-  acquire a token, the run fails at startup (no silent degradation). Disabling Google or AD
+- **Auth failures throw:** if `Connect-IDBridgeGoogle` (called by `Invoke-IDBridge` at run
+  start when `GoogleToken.Enabled`) can't read the Google key secret or acquire a token, the
+  run fails at startup (no silent degradation). Disabling Google or AD
   (config or `-SkipGoogle`/`-SkipAD`) also disables that side's `enableGroupProcessing`.
 - **WhatIf vs. ReadOnly:** `Debug.ReadOnly` blocks *all* writes; `enableGroupProcessingWhatIf`
   scopes only group changes to log-only while other writes still happen (when not ReadOnly).
