@@ -87,6 +87,7 @@ function Get-GoogleUsersToCreate {
 
         $itemList += [PSCustomObject]@{
             UPN = $item.UPN
+            PersonID = $item.PersonID
             Splat = $itemCreateSplat
         }
     }

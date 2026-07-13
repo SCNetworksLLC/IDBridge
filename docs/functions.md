@@ -56,7 +56,9 @@ wasn't set up.
 Posts one anonymous usage event per run to the IDBridge Pulse ingest endpoint from the
 `finally` block of `Invoke-IDBridge` (see [PRIVACY.md](../PRIVACY.md)). **Params:**
 `-Success` (mandatory bool), `-DurationSeconds -ManagedCount -CreateCount -UpdateCount
--DeactivateCount -GroupAddCount -GroupRemoveCount` (ints), `-RunError` (ErrorRecord — Enhanced tier extracts exception
+-DeactivateCount -GroupAddCount -GroupRemoveCount -WriteFailureCount` (ints; the action
+counts are actual applied successes, the failure count is failures — all aggregated from
+the run's per-write results), `-RunError` (ErrorRecord — Enhanced tier extracts exception
 *class* + throwing *function* name only, never the message). Tier from `Telemetry.Tier`
 (missing = `Basic`, unrecognized = `Off`); logs the exact payload at Trace; sends with a
 10 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.
@@ -299,7 +301,8 @@ passwordNeverExpires, CN, OU). A username/UPN change already held by a **differe
 the `CurrentADUsers` snapshot is logged as an error and the user is skipped that run (mirrors
 `Get-GoogleUsersToUpdate`'s primaryEmail collision check). Name comparisons are
 **case-sensitive** (`-cne`) so a casing fix from the plugin (e.g. ALL-CAPS→Title-Case) is
-applied. **Returns:** `@{ UpdateList; RenameList; MoveList }`.
+applied. **Returns:** `@{ UpdateList; RenameList; MoveList }` (items carry `CN` +
+`PersonID` for write-result attribution).
 
 ### `Get-ADUsersToDeactivate` 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionAD=false)` AND
@@ -355,14 +358,14 @@ shallow-first. **Returns:** ordered OU path array.
 **Params:** `-UserList`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
 `ProvisionGoogle=true` AND no `GoogleCurrentUserID` AND UPN absent from Google. Builds create
 splat (password from `GooglePassphraseAPI`→`New-Passphrase` or `GoogleKey`; skips if neither;
-honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; Splat }[]`.
+honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; PersonID; Splat }[]`.
 
 ### `Get-GoogleUsersToUpdate` 🧮
 **Params:** `-UserList`, `-LookupByID`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
 `ProvisionGoogle=true` AND linked + delta in primaryEmail (with alias-conflict handling →
 `RemoveAlias`), externalId, name, dept/title, suspended/archived state (archived rehires are
 unarchived; `ForceDisable` suspends — the temporary block, never an archive), or OU
-(unless `GoogleOUOverride`). **Returns:** `@{ UPN; Splat }[]` only for changed users.
+(unless `GoogleOUOverride`). **Returns:** `@{ UPN; PersonID; Splat }[]` only for changed users.
 
 > **Alias removal on renames — exact scope.** `RemoveAlias` is set only when ALL of these
 > hold: the user is being *renamed* (desired UPN ≠ current primaryEmail), the new UPN is

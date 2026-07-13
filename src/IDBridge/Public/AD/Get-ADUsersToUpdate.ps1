@@ -158,6 +158,7 @@ function Get-ADUsersToUpdate {
 
             $itemUpdateList += [PSCustomObject]@{
                 CN = $ADUser.CN
+                PersonID = $item.PersonID
                 Splat = $itemUpdateSplat
             }
         }
@@ -167,6 +168,7 @@ function Get-ADUsersToUpdate {
 
             $itemRenameList += [PSCustomObject]@{
                 CN = $ADUser.CN
+                PersonID = $item.PersonID
                 ADUserID = $item.ADCurrentUserID
                 NewName = "$($item.NameFirst.trim()) $($item.NameLast.trim()) $($item.PersonID)"
             }
@@ -177,6 +179,7 @@ function Get-ADUsersToUpdate {
 
             $itemMoveList += [PSCustomObject]@{
                 CN = $ADUser.CN
+                PersonID = $item.PersonID
                 ADUserID = $item.ADCurrentUserID
                 NewOrgUnit = $item.ADOrganizationalUnit
             }

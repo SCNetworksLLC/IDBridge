@@ -108,6 +108,7 @@ function Get-GoogleUsersToUpdate {
 
             $itemUpdateList += [PSCustomObject]@{
                 UPN = $item.UPN
+                PersonID = $item.PersonID
                 Splat = $itemUpdateSplat
             }
         }

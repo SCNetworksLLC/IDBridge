@@ -149,7 +149,8 @@ ones won't be renamed. Check `SchemaVersion` if you depend on shape.
 | `RunError` | The full `ErrorRecord` of a failed run (message + stack — nothing is stripped locally), or `$null`. |
 | `RunStart` / `RunEnd` / `DurationSeconds` | Run timing. |
 | `ReadOnly` / `TestRun` | Effective mode flags **after** switch overrides — interpret zero counts with these. |
-| `Counts` | `Managed/Create/Update/Deactivate/GroupAdd/GroupRemove` — **applied** work, same semantics as telemetry (zeros in ReadOnly; a directory contributes 0 while its group processing is off or in WhatIf). |
+| `Counts` | `Managed/Create/Update/Deactivate/GroupAdd/GroupRemove/Failed` — **actual applied outcomes** aggregated from `Applied` (`Update` includes renames/moves; `Failed` = total failed writes). Zeros in ReadOnly or while a directory's group processing is off/WhatIf — nothing attempted, nothing recorded. |
+| `Applied` | One record per **attempted** write: `Timestamp/Directory/Action/PersonID/Target/Success/Error` (`Action` ∈ Create, Update, Rename, Move, Deactivate, GroupAdd, GroupRemove; `Error` `$null` on success). Empty in ReadOnly. |
 | `SourceData` | The full enriched source records (incl. matched `ADObject`/`GoogleObject` where found). |
 | `ThresholdResults` | Change-volume guard results (`Directory/Percent/Exceeded/Skipped` per enabled directory), empty if the guard is off. |
 | `AD` | `Enabled`, `UsersToCreate`, `UsersToUpdate` (keeps its `UpdateList/RenameList/MoveList` shape), `UsersToDeactivate`, `GroupsToUpdate` (keeps its `Add/Remove` shape), `OrgUnitsToCreate`. |
@@ -165,9 +166,12 @@ Two things to know about the data:
   with `$null` before any plugin sees the RunResult. Everything else — names, IDs, UPNs,
   group names — is intact: it's your data on your server, but **think before shipping
   records off the box**; a webhook payload built from counts can't leak a student record.
-- **The change lists are *computed* work, not confirmed writes.** Per-user write failures
-  during apply are logged, not collected — scan `Get-IDBridgeLogs` for `Warn`/`Error`
-  entries to report on what actually failed (the shipped report template does this).
+- **The change lists are *computed* work; `Applied` is what actually happened.** The
+  `AD`/`Google` lists are what the run intended; `Applied` records the per-write outcome
+  ("did user 1001's update stick?") — filter on `Success -eq $false` for a failure report
+  (the shipped report template does this). Two write types are not covered by `Applied`
+  and remain log-only: Google license removals and OU creation (an OU failure aborts the
+  run anyway).
 
 ---
 
@@ -224,9 +228,10 @@ File: `C:\IDBridge\Plugins\Invoke-PluginSkywardSMSStudents.ps1`. Pulls students 
 ### `Invoke-PluginPostRunReport` — PostRun *(works as-is)*
 File: `C:\IDBridge\Plugins\Invoke-PluginPostRunReport.ps1`. Writes
 `RunSummary-<timestamp>.json` to `Paths.ExportsRoot` after every run: outcome, timing, mode
-flags, applied counts, per-directory *proposed* change-list sizes, threshold results, and
-the run's `Warn`/`Error` log lines (via `Get-IDBridgeLogs`). Counts and log lines only — no
-per-user records — so the file is safe to feed a dashboard. The only template with no
+flags, actual applied counts, an `Applied` section (succeeded/failed write tallies + one
+line per failed write), per-directory *proposed* change-list sizes, threshold results, and
+the run's `Warn`/`Error` log lines (via `Get-IDBridgeLogs`). Counts, failure lines, and log
+lines only — no full user records — so the file is safe to feed a dashboard. The only template with no
 placeholders: enable its descriptor and it runs.
 
 ### `Invoke-PluginPostRunWebhook` — PostRun *(disabled in config)*

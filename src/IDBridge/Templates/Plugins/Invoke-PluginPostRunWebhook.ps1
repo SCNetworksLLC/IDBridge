@@ -43,6 +43,7 @@ function Invoke-PluginPostRunWebhook {
         deactivateCount = $RunResult.Counts.Deactivate
         groupAddCount   = $RunResult.Counts.GroupAdd
         groupRemoveCount = $RunResult.Counts.GroupRemove
+        writeFailureCount = $RunResult.Counts.Failed
     }
 
     try {

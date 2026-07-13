@@ -41,7 +41,14 @@ function Invoke-PluginPostRunReport {
         DurationSeconds  = $RunResult.DurationSeconds
         ReadOnly         = $RunResult.ReadOnly
         TestRun          = $RunResult.TestRun
-        AppliedCounts    = $RunResult.Counts   # applied work - zeros in ReadOnly
+        AppliedCounts    = $RunResult.Counts   # actual applied outcomes - zeros in ReadOnly
+        Applied          = [ordered]@{          # per-write results (RunResult.Applied)
+            Succeeded = @($RunResult.Applied | Where-Object { $_.Success }).Count
+            Failed    = @($RunResult.Applied | Where-Object { -not $_.Success }).Count
+            Failures  = @($RunResult.Applied | Where-Object { -not $_.Success } | ForEach-Object {
+                "$($_.Directory) $($_.Action) $($_.PersonID) ($($_.Target)): $($_.Error)"
+            })
+        }
         Proposed         = [ordered]@{          # computed change lists, sizes only
             AD = [ordered]@{
                 Enabled     = $RunResult.AD.Enabled

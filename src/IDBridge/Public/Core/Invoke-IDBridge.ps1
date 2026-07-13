@@ -326,10 +326,13 @@ function Invoke-IDBridge {
             #Disable Users
             foreach ($item in $ADUsersToDeactivate) {
                 try {
-                    Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash
+                    #Disable-IDBridgeADUser returns the ErrorRecord on failure instead of throwing
+                    $disableResult = Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash
+                    Add-IDBridgeWriteResult -Directory AD -Action Deactivate -PersonID $item.PersonID -Target $item.UPN -Success ($null -eq $disableResult) -ErrorMessage "$($disableResult)"
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    Add-IDBridgeWriteResult -Directory AD -Action Deactivate -PersonID $item.PersonID -Target $item.UPN -Success $false -ErrorMessage $_.Exception.Message
                 }
             }
 
@@ -340,9 +343,11 @@ function Invoke-IDBridge {
                     Write-Log -Message "AD: Updating User: $($item.CN) Properties: $($item.splat | ConvertTo-Json -Compress)"
                     $itemSplat = $item.splat
                     Set-ADUser @itemSplat -ErrorAction Stop
+                    Add-IDBridgeWriteResult -Directory AD -Action Update -PersonID $item.PersonID -Target $item.CN -Success $true
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    Add-IDBridgeWriteResult -Directory AD -Action Update -PersonID $item.PersonID -Target $item.CN -Success $false -ErrorMessage $_.Exception.Message
                 }
             }
 
@@ -352,9 +357,11 @@ function Invoke-IDBridge {
                     Write-Log -Message "AD: Renaming User: $($item.CN) to $($item.NewName)"
                     Set-ADUser -Identity $item.ADUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
                     Rename-ADObject -Identity $item.ADUserID -NewName $item.NewName -ErrorAction Stop
+                    Add-IDBridgeWriteResult -Directory AD -Action Rename -PersonID $item.PersonID -Target $item.NewName -Success $true
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    Add-IDBridgeWriteResult -Directory AD -Action Rename -PersonID $item.PersonID -Target $item.NewName -Success $false -ErrorMessage $_.Exception.Message
                 }
             }
 
@@ -364,18 +371,24 @@ function Invoke-IDBridge {
                     Write-Log -Message "AD: Moving User: $($item.CN) to $($item.NewOrgUnit)"
                     Set-ADUser -Identity $item.ADUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm)
                     Move-ADObject -Identity $item.ADUserID -TargetPath $item.NewOrgUnit -ErrorAction Stop
+                    Add-IDBridgeWriteResult -Directory AD -Action Move -PersonID $item.PersonID -Target $item.CN -Success $true
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    Add-IDBridgeWriteResult -Directory AD -Action Move -PersonID $item.PersonID -Target $item.CN -Success $false -ErrorMessage $_.Exception.Message
                 }
             }
 
             #Create Users
             foreach ($item in $ADUsersToCreate) {
+                $itemCreated = $false
                 try {
                     Write-Log -Message "AD: Creating User: $($item.PersonID) Properties: $($item.splat | ConvertTo-Json -Compress)"
                     $itemSplat = $item.splat
                     $newUser = New-ADUser @itemSplat -ErrorAction Stop
+                    #Recorded before the GUID match-back below, which can fail independently of the create
+                    $itemCreated = $true
+                    Add-IDBridgeWriteResult -Directory AD -Action Create -PersonID $item.PersonID -Target $itemSplat.UserPrincipalName -Success $true
 
                     #Add the GUID to the data object
                     ($sourceData | Where-Object UPN -eq $itemSplat.UserPrincipalName).ADCurrentUserID = $newUser.ObjectGUID
@@ -383,6 +396,9 @@ function Invoke-IDBridge {
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    if (-not $itemCreated) {
+                        Add-IDBridgeWriteResult -Directory AD -Action Create -PersonID $item.PersonID -Target $itemSplat.UserPrincipalName -Success $false -ErrorMessage $_.Exception.Message
+                    }
                 }
             }
 
@@ -404,9 +420,11 @@ function Invoke-IDBridge {
                         try {
                             Write-Log -Message "AD: Adding Group: $group to $($item.PersonID)"
                             Add-ADPrincipalGroupMembership -Identity $item.ADCurrentUserID -MemberOf $group
+                            Add-IDBridgeWriteResult -Directory AD -Action GroupAdd -PersonID $item.PersonID -Target $group -Success $true
                         }
                         catch {
                             Write-Log -Message ($_.Exception.Message) -Level Error
+                            Add-IDBridgeWriteResult -Directory AD -Action GroupAdd -PersonID $item.PersonID -Target $group -Success $false -ErrorMessage $_.Exception.Message
                         }
                     }
                 }
@@ -418,9 +436,11 @@ function Invoke-IDBridge {
                             try {
                                 Write-Log -Message "AD: Removing Group: $group from $($item.PersonID)"
                                 Remove-ADGroupMember -Identity $group -Members $item.ADCurrentUserID -Confirm:$false
+                                Add-IDBridgeWriteResult -Directory AD -Action GroupRemove -PersonID $item.PersonID -Target $group -Success $true
                             }
                             catch {
                                 Write-Log -Message ($_.Exception.Message) -Level Error
+                                Add-IDBridgeWriteResult -Directory AD -Action GroupRemove -PersonID $item.PersonID -Target $group -Success $false -ErrorMessage $_.Exception.Message
                             }
                         }
                     }
@@ -449,6 +469,7 @@ function Invoke-IDBridge {
             #Archiving (not suspending) self-releases the base Education Fundamentals license;
             #paid add-on licenses are removed below. Pre-archive suspended users are grandfathered.
             $googleBatchRequests = @()
+            $identityMap = @{}
             foreach ($item in $GoogleUsersToDeactivate) {
                 try {
                     Write-Log -Message ("Google: Archiving account for $($item.UPN)")
@@ -465,26 +486,32 @@ function Invoke-IDBridge {
                     }
 
                     $googleBatchRequests += Update-IDBridgeGoogleUser @deactivateSplat -AsBatchRequest
+                    $identityMap["$($item.GoogleCurrentUserID)"] = @{ PersonID = $item.personID; Target = $item.UPN }
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    Add-IDBridgeWriteResult -Directory Google -Action Deactivate -PersonID $item.personID -Target $item.UPN -Success $false -ErrorMessage $_.Exception.Message
                 }
             }
             if ($googleBatchRequests.Count -gt 0) {
-                Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+                $batchResponses = Invoke-GoogleBatchRequest -Requests $googleBatchRequests
+                Add-IDBridgeGoogleBatchResult -Action Deactivate -Requests $googleBatchRequests -Responses $batchResponses -IdentityMap $identityMap
             }
 
             #Strip group memberships on deactivate (batched) and remove licenses
             $googleBatchRequests = @()
+            $identityMap = @{}
             foreach ($item in $GoogleUsersToDeactivate) {
                 if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true) {
                     foreach ($group in $item.GoogleCurrentGroups) {
                         try {
                             Write-Log -Message ("Google: Removing Group: $group from $($item.personID)")
                             $googleBatchRequests += Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -AsBatchRequest -ContentId "$($item.personID)|$group"
+                            $identityMap["$($item.personID)|$group"] = @{ PersonID = $item.personID; Target = $group }
                         }
                         catch {
                             Write-Log -Message ($_.Exception.Message) -Level Error
+                            Add-IDBridgeWriteResult -Directory Google -Action GroupRemove -PersonID $item.personID -Target $group -Success $false -ErrorMessage $_.Exception.Message
                         }
                     }
                 }
@@ -495,11 +522,13 @@ function Invoke-IDBridge {
                 }
             }
             if ($googleBatchRequests.Count -gt 0) {
-                Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+                $batchResponses = Invoke-GoogleBatchRequest -Requests $googleBatchRequests
+                Add-IDBridgeGoogleBatchResult -Action GroupRemove -Requests $googleBatchRequests -Responses $batchResponses -IdentityMap $identityMap
             }
 
             #Update, Move, Rename Users (batched; any RemoveAlias pre-step runs immediately at collect time)
             $googleBatchRequests = @()
+            $identityMap = @{}
             foreach ($item in $GoogleUsersToUpdate) {
                 try {
                     Write-Log -Message "Google: Updating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
@@ -509,30 +538,39 @@ function Invoke-IDBridge {
                     #A failed RemoveAlias pre-step returns an ErrorRecord instead of a descriptor - skip those
                     if ($itemRequest -is [hashtable]) {
                         $googleBatchRequests += $itemRequest
+                        $identityMap["$($itemRequest.ContentId)"] = @{ PersonID = $item.PersonID; Target = $item.UPN }
+                    } else {
+                        Add-IDBridgeWriteResult -Directory Google -Action Update -PersonID "$($item.PersonID)" -Target $item.UPN -Success $false -ErrorMessage "RemoveAlias pre-step failed: $($itemRequest)"
                     }
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    Add-IDBridgeWriteResult -Directory Google -Action Update -PersonID "$($item.PersonID)" -Target $item.UPN -Success $false -ErrorMessage $_.Exception.Message
                 }
             }
             if ($googleBatchRequests.Count -gt 0) {
-                Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+                $batchResponses = Invoke-GoogleBatchRequest -Requests $googleBatchRequests
+                Add-IDBridgeGoogleBatchResult -Action Update -Requests $googleBatchRequests -Responses $batchResponses -IdentityMap $identityMap
             }
 
             #Create Users (batched; new Google IDs are matched back by primaryEmail from each batch response)
             $googleBatchRequests = @()
+            $identityMap = @{}
             foreach ($item in $GoogleUsersToCreate) {
                 try {
                     Write-Log -Message "Google: Creating User: $($item.UPN) Properties: $($item.Splat | ConvertTo-Json -Compress)"
                     $itemSplat = $item.splat
                     $googleBatchRequests += New-IDBridgeGoogleUser @itemSplat -AsBatchRequest -ErrorAction Stop
+                    $identityMap["$($item.UPN)"] = @{ PersonID = $item.PersonID; Target = $item.UPN }
                 }
                 catch {
                     Write-Log -Message ($_.Exception.Message) -Level Error
+                    Add-IDBridgeWriteResult -Directory Google -Action Create -PersonID "$($item.PersonID)" -Target $item.UPN -Success $false -ErrorMessage $_.Exception.Message
                 }
             }
             if ($googleBatchRequests.Count -gt 0) {
                 $newUserResponses = Invoke-GoogleBatchRequest -Requests $googleBatchRequests
+                Add-IDBridgeGoogleBatchResult -Action Create -Requests $googleBatchRequests -Responses $newUserResponses -IdentityMap $identityMap
 
                 #Add the Google IDs to the data objects
                 foreach ($newUserResponse in $newUserResponses | Where-Object { $_.StatusCode -lt 400 -and $_.Body.id }) {
@@ -554,37 +592,45 @@ function Invoke-IDBridge {
 
                 #Process Group Membership Add (batched; adds and removes stay in separate batches since batch execution order is not guaranteed)
                 $googleBatchRequests = @()
+                $identityMap = @{}
                 foreach ($item in $GoogleUserGroupsToUpdate.Add) {
                     foreach ($group in $item.Groups) {
                         try {
                             Write-Log -Message "Google: Adding Group: $group to $($item.PersonID)"
                             $googleBatchRequests += Update-GoogleGroupMembers -GroupEmail ($googleData.Groups | Where-Object {$_.name -eq $group}).email -PersonID $item.GoogleCurrentUserID -UpdateType "Add" -AsBatchRequest -ContentId "$($item.PersonID)|$group"
+                            $identityMap["$($item.PersonID)|$group"] = @{ PersonID = $item.PersonID; Target = $group }
                         }
                         catch {
                             Write-Log -Message ($_.Exception.Message) -Level Error
+                            Add-IDBridgeWriteResult -Directory Google -Action GroupAdd -PersonID $item.PersonID -Target $group -Success $false -ErrorMessage $_.Exception.Message
                         }
                     }
                 }
                 if ($googleBatchRequests.Count -gt 0) {
-                    Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+                    $batchResponses = Invoke-GoogleBatchRequest -Requests $googleBatchRequests
+                    Add-IDBridgeGoogleBatchResult -Action GroupAdd -Requests $googleBatchRequests -Responses $batchResponses -IdentityMap $identityMap
                 }
 
                 #Process Group Membership Remove (batched)
                 if ($IDConfig.Google.enableGroupProcessingRemove -eq $true) {
                     $googleBatchRequests = @()
+                    $identityMap = @{}
                     foreach ($item in $GoogleUserGroupsToUpdate.Remove) {
                         foreach ($group in $item.Groups) {
                             try {
                                 Write-Log -Message "Google: Removing Group: $group from $($item.PersonID)"
                                 $googleBatchRequests += Update-GoogleGroupMembers -GroupEmail $group -PersonID $item.GoogleCurrentUserID -UpdateType "Remove" -AsBatchRequest -ContentId "$($item.PersonID)|$group"
+                                $identityMap["$($item.PersonID)|$group"] = @{ PersonID = $item.PersonID; Target = $group }
                             }
                             catch {
                                 Write-Log -Message ($_.Exception.Message) -Level Error
+                                Add-IDBridgeWriteResult -Directory Google -Action GroupRemove -PersonID $item.PersonID -Target $group -Success $false -ErrorMessage $_.Exception.Message
                             }
                         }
                     }
                     if ($googleBatchRequests.Count -gt 0) {
-                        Invoke-GoogleBatchRequest -Requests $googleBatchRequests | Out-Null
+                        $batchResponses = Invoke-GoogleBatchRequest -Requests $googleBatchRequests
+                        Add-IDBridgeGoogleBatchResult -Action GroupRemove -Requests $googleBatchRequests -Responses $batchResponses -IdentityMap $identityMap
                     }
                 }
             }
@@ -652,29 +698,20 @@ function Invoke-IDBridge {
             # list is wrapped @(...).Where({ $null -ne $_ }) to filter the lone $null @() wraps.
             $runResult = $null
             try {
-                # Counts are APPLIED work, so ReadOnly runs report zeros (the ReadOnly flag in the
-                # report tells the story), matching the Run Summary counting above.
-                $runCounts = @{ Create = 0; Update = 0; Deactivate = 0; GroupAdd = 0; GroupRemove = 0 }
-                if ($IDConfig.Debug.readOnly -eq $false) {
-                    $runCounts.Create     = @($ADUsersToCreate).Where({ $null -ne $_ }).Count + @($GoogleUsersToCreate).Where({ $null -ne $_ }).Count
-                    $runCounts.Update     = @($ADUsersToUpdate.UpdateList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.RenameList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.MoveList).Where({ $null -ne $_ }).Count + @($GoogleUsersToUpdate).Where({ $null -ne $_ }).Count
-                    $runCounts.Deactivate = @($ADUsersToDeactivate).Where({ $null -ne $_ }).Count + @($GoogleUsersToDeactivate).Where({ $null -ne $_ }).Count
-
-                    # Group counts mirror the write gates above: a directory contributes only when its
-                    # group processing is live (not WhatIf), and removes additionally require the
-                    # enableGroupProcessingRemove flag - so WhatIf/remove-off runs report 0, like ReadOnly.
-                    if ($IDConfig.AD.enableGroupProcessing -eq $true -and $IDConfig.AD.enableGroupProcessingWhatIf -ne $true) {
-                        $runCounts.GroupAdd += @($ADUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
-                        if ($IDConfig.AD.enableGroupProcessingRemove -eq $true) {
-                            $runCounts.GroupRemove += @($ADUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
-                        }
-                    }
-                    if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingWhatIf -ne $true) {
-                        $runCounts.GroupAdd += @($GoogleUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
-                        if ($IDConfig.Google.enableGroupProcessingRemove -eq $true) {
-                            $runCounts.GroupRemove += @($GoogleUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
-                        }
-                    }
+                # Counts are ACTUAL applied outcomes, aggregated from the per-write results the
+                # write phases recorded via Add-IDBridgeWriteResult. The old gates (ReadOnly,
+                # group WhatIf, remove-off) are implicit now: nothing attempted = nothing
+                # recorded, so those runs still report zeros.
+                $appliedResults = if ($script:WriteResults) { @($script:WriteResults) } else { @() }
+                $appliedOk = @($appliedResults | Where-Object { $_.Success })
+                $runCounts = @{
+                    Create      = @($appliedOk | Where-Object { $_.Action -eq 'Create' }).Count
+                    # Update aggregates Update+Rename+Move, matching the historical definition
+                    Update      = @($appliedOk | Where-Object { $_.Action -in @('Update', 'Rename', 'Move') }).Count
+                    Deactivate  = @($appliedOk | Where-Object { $_.Action -eq 'Deactivate' }).Count
+                    GroupAdd    = @($appliedOk | Where-Object { $_.Action -eq 'GroupAdd' }).Count
+                    GroupRemove = @($appliedOk | Where-Object { $_.Action -eq 'GroupRemove' }).Count
+                    Failed      = @($appliedResults | Where-Object { -not $_.Success }).Count
                 }
 
                 # See docs/plugins.md for the published schema. Grow this additively only - PostRun
@@ -696,7 +733,9 @@ function Invoke-IDBridge {
                         Deactivate  = $runCounts.Deactivate
                         GroupAdd    = $runCounts.GroupAdd
                         GroupRemove = $runCounts.GroupRemove
+                        Failed      = $runCounts.Failed
                     }
+                    Applied          = $appliedResults
                     SourceData       = @($sourceData).Where({ $null -ne $_ })
                     ThresholdResults = @($thresholdResults).Where({ $null -ne $_ })
                     AD               = [PSCustomObject]@{
@@ -728,14 +767,15 @@ function Invoke-IDBridge {
             try {
                 if ($runResult) {
                     $telemetrySplat = @{
-                        Success          = $runResult.Success
-                        DurationSeconds  = $runResult.DurationSeconds
-                        ManagedCount     = $runResult.Counts.Managed
-                        CreateCount      = $runResult.Counts.Create
-                        UpdateCount      = $runResult.Counts.Update
-                        DeactivateCount  = $runResult.Counts.Deactivate
-                        GroupAddCount    = $runResult.Counts.GroupAdd
-                        GroupRemoveCount = $runResult.Counts.GroupRemove
+                        Success           = $runResult.Success
+                        DurationSeconds   = $runResult.DurationSeconds
+                        ManagedCount      = $runResult.Counts.Managed
+                        CreateCount       = $runResult.Counts.Create
+                        UpdateCount       = $runResult.Counts.Update
+                        DeactivateCount   = $runResult.Counts.Deactivate
+                        GroupAddCount     = $runResult.Counts.GroupAdd
+                        GroupRemoveCount  = $runResult.Counts.GroupRemove
+                        WriteFailureCount = $runResult.Counts.Failed
                     }
                     if ($runError) { $telemetrySplat.RunError = $runError }
 

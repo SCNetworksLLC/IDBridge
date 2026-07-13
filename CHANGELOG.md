@@ -5,6 +5,27 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.12.3] - 2026-07-12
+
+### Added
+- **Structured per-user write results (`Applied`).** Every attempted directory write
+  (create, update, rename, move, deactivate, group add/remove — AD and Google, including
+  batched Google calls, whose responses were previously discarded) now records a
+  structured outcome: `Directory/Action/PersonID/Target/Success/Error`. The RunResult
+  passed to PostRun plugins gains an `Applied` list plus `Counts.Failed`, and the counts
+  now reflect **actual outcomes** instead of intended work — a partially failed run
+  reports what really happened. A whole failed Google batch chunk is attributed to each
+  of its requests ("no batch response"). Telemetry gains `writeFailureCount` (a count
+  only — which users/groups failed never leaves the machine; see PRIVACY.md), and its
+  action counts are now actual successes. The shipped report template gains an `Applied`
+  section with one line per failed write; the webhook template gains `writeFailureCount`.
+  Not covered (log-only): Google license removals and OU creation.
+
+### Fixed
+- **`Disable-IDBridgeADUser`'s returned ErrorRecord no longer leaks to pipeline output.**
+  The deactivate loop now captures the return value (it doubles as the write result) —
+  previously a failed AD deactivate emitted the raw ErrorRecord to the caller's pipeline.
+
 ## [26.7.12.2] - 2026-07-12
 
 ### Added

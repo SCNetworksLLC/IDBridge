@@ -95,7 +95,8 @@ Invoke-IDBridge
  12. Export non-students → <ExportsRoot>\UserList-Staff.csv   (PersonTypeID ≠ "1")
         │
  finally:
- 13. Build RunResult (outcome, timing, mode flags, applied counts, change lists) — one
+ 13. Build RunResult (outcome, timing, mode flags, change lists, and the per-write Applied
+       results recorded during steps 6-11 — actual outcome counts derive from these) — one
        report feeding both telemetry and the PostRun plugins
  14. Send-IDBridgeTelemetry (unless Telemetry.Tier = 'Off') → one anonymous usage event
        (self-contained try/catch, 10s timeout, no retries — can never affect the run;

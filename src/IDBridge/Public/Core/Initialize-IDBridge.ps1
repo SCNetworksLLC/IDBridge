@@ -78,6 +78,10 @@ function Initialize-IDBridge {
     # Initialize the global $Log variable as a hashtable if it doesn't already exist. This allows us to store log information in memory for use elsewhere in the script (e.g. for Google Sheet logging) without having to read from the log file.
     $script:Logs = [System.Collections.Generic.List[PSCustomObject]]::new()
 
+    # Per-user write results for this run (populated by Add-IDBridgeWriteResult during the
+    # write phases) - reset here so results never leak across runs in one session.
+    $script:WriteResults = [System.Collections.Generic.List[PSCustomObject]]::new()
+
     if ((Test-Path $script:IDBridgeConfig.Paths.LogFile) -and (Get-Item $script:IDBridgeConfig.Paths.LogFile).Length -gt 5000000) {
         Rename-Item $script:IDBridgeConfig.Paths.LogFile ((Get-Item $script:IDBridgeConfig.Paths.LogFile).BaseName + "_" + $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) + ".log")
     }

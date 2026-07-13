@@ -50,6 +50,10 @@ directory contributes 0 while its group processing is off or in WhatIf).
 Group memberships removed across all enabled directories (0 in ReadOnly, and a
 directory contributes 0 while its group processing is off or in WhatIf).
 
+.PARAMETER WriteFailureCount
+Number of individual writes that failed this run (a count only - which users/groups
+failed never leaves the machine; see the RunResult Applied list locally).
+
 .PARAMETER RunError
 The ErrorRecord of a failed run. Only the exception class name and throwing function
 name are extracted from it, and only at the Enhanced tier.
@@ -77,6 +81,7 @@ function Send-IDBridgeTelemetry {
         [int]$DeactivateCount = 0,
         [int]$GroupAddCount = 0,
         [int]$GroupRemoveCount = 0,
+        [int]$WriteFailureCount = 0,
 
         [System.Management.Automation.ErrorRecord]$RunError
     )
@@ -125,6 +130,7 @@ function Send-IDBridgeTelemetry {
         deactivateCount  = $DeactivateCount
         groupAddCount    = $GroupAddCount
         groupRemoveCount = $GroupRemoveCount
+        writeFailureCount = $WriteFailureCount
         durationSeconds  = $DurationSeconds
     }
 
