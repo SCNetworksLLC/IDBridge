@@ -9,10 +9,12 @@ outcome, counts, and change lists arrive on the -RunResult parameter (see docs/p
 for the schema); config and the run's log lines come from the existing accessors
 Get-IDBridgeConfig and Get-IDBridgeLogs.
 
-The summary sticks to counts and log lines — no per-user records — so the file is safe to
-feed a dashboard. RunResult.SourceData and the change lists carry the full records if your
-report needs them (SecureStrings are already scrubbed to $null, but the records still
-contain names and IDs — think before shipping them off the box).
+The summary carries counts, the run's Warn/Error log lines, and the Applied write journal —
+one line per attempted write (PersonID + UPN/group + outcome), the full "what did the run
+do" record. No full user records, but the journal and log lines do contain IDs and
+addresses — think before shipping the file off the box. RunResult.SourceData and the change
+lists carry the complete records if your report needs more (SecureStrings are already
+scrubbed to $null).
 #>
 
 
@@ -47,6 +49,12 @@ function Invoke-PluginPostRunReport {
             Failed    = @($RunResult.Applied | Where-Object { -not $_.Success }).Count
             Failures  = @($RunResult.Applied | Where-Object { -not $_.Success } | ForEach-Object {
                 "$($_.Directory) $($_.Action) $($_.PersonID) ($($_.Target)): $($_.Error)"
+            })
+            #The full audit journal: one line per attempted write, in order. This is the
+            #"what exactly did the run do" record - on a big onboarding day it can run to
+            #thousands of lines; trim or filter here if your report only needs failures.
+            Writes    = @($RunResult.Applied | ForEach-Object {
+                "$($_.Timestamp) $($_.Directory) $($_.Action) $($_.PersonID) ($($_.Target)): $(if ($_.Success) { 'OK' } else { "FAILED - $($_.Error)" })"
             })
         }
         Proposed         = [ordered]@{          # computed change lists, sizes only

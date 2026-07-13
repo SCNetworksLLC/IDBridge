@@ -37,10 +37,10 @@ One anonymous event per run containing only:
 | `success` | `true` | Did the run complete without a fatal error |
 | `readOnly` / `testRun` | `false` | Run mode flags |
 | `directories` | `"AD+Google"` | Which directory types are enabled — never *which* directory/domain |
-| `managedCount` | `1250` | Number of source records processed |
-| `createCount` / `updateCount` / `deactivateCount` | `3` | Users **successfully** created/updated/deactivated this run (actual applied outcomes — always `0` in ReadOnly) |
-| `groupAddCount` / `groupRemoveCount` | `5` | Group memberships **successfully** added/removed this run (actual applied outcomes — `0` in ReadOnly or while a directory's group WhatIf is on; never group names) |
-| `writeFailureCount` | `0` | Number of individual writes that failed this run — a count only; *which* users or groups failed never leaves the machine |
+| `managedCount` | `1250` | Number of source records processed (people — the only per-person count) |
+| `createCount` / `updateCount` / `deactivateCount` | `3` | **Directory writes** that succeeded this run — one per directory, so a person provisioned to both AD and Google counts twice (actual applied outcomes — always `0` in ReadOnly) |
+| `groupAddCount` / `groupRemoveCount` | `5` | Group-membership writes that succeeded this run (actual applied outcomes — `0` in ReadOnly or while a directory's group WhatIf is on; never group names) |
+| `writeFailureCount` | `0` | Number of individual directory writes that failed this run — a count only; *which* users or groups failed never leaves the machine |
 | `durationSeconds` | `42` | |
 
 Basic events contain **no identifier of any kind** — not even a random one. Two runs from

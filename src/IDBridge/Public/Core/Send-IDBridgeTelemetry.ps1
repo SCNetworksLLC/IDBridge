@@ -34,13 +34,16 @@ Total run duration in seconds.
 Number of source records processed this run.
 
 .PARAMETER CreateCount
-Users created across all enabled directories (0 in ReadOnly).
+Successful create writes across all enabled directories — one per directory, not per
+person (0 in ReadOnly).
 
 .PARAMETER UpdateCount
-Users updated/renamed/moved across all enabled directories (0 in ReadOnly).
+Successful update/rename/move writes across all enabled directories — one per directory,
+not per person (0 in ReadOnly).
 
 .PARAMETER DeactivateCount
-Users deactivated across all enabled directories (0 in ReadOnly).
+Successful deactivate writes across all enabled directories — one per directory, so a
+person deactivated in both AD and Google counts twice (0 in ReadOnly).
 
 .PARAMETER GroupAddCount
 Group memberships added across all enabled directories (0 in ReadOnly, and a

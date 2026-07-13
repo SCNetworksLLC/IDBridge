@@ -5,6 +5,32 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.12.4] - 2026-07-12
+
+### Fixed
+- **AD deactivation group-strips are now recorded as `GroupRemove` write results.** The
+  group removals `Disable-IDBridgeADUser` performs on deactivation (when
+  `enableGroupProcessingTrash` is on) happened invisibly inside the function — a
+  deactivated user's run showed `GroupRemove = 0` even though groups were stripped. Each
+  removal is now its own write result (feeding `Applied`, `Counts.GroupRemove`, and
+  telemetry's `groupRemoveCount`, matching the Google trash-strip batch, which was
+  already counted). Behavior refinement: one failed group removal is logged and skipped
+  instead of aborting the remaining groups and marking the whole deactivation failed —
+  the account is already disabled and trashed at that point, and the disable/move steps
+  still return their error as before.
+
+### Changed
+- **Report template gains the full write journal.** `Invoke-PluginPostRunReport`'s
+  `Applied` section adds `Writes` — one line per attempted write (timestamp, directory,
+  action, PersonID, target, outcome), the complete "what did the run do" record, not just
+  the failure lines. New scaffolds only, as always — existing copies in `PluginsRoot` are
+  never overwritten, though they keep working unchanged.
+- **Docs: count semantics clarified — directory writes, not people.** PRIVACY.md, the
+  `Send-IDBridgeTelemetry` help, and the RunResult schema in docs/plugins.md now state
+  explicitly that the create/update/deactivate/failure counts are one per directory
+  write, so a person provisioned to both AD and Google counts twice (`managedCount` is
+  the per-person number). Wording only — no behavior change.
+
 ## [26.7.12.3] - 2026-07-12
 
 ### Added

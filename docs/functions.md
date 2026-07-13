@@ -319,7 +319,9 @@ Groups}`).
 
 ### `Disable-IDBridgeADUser` 🌐
 **Params:** `-User`, `-GroupRemovalProcessingStatus`. Disables account, stamps `Division`
-with timestamp, moves to trash OU, and (if flag) removes all current groups.
+with timestamp, moves to trash OU, and (if flag) removes all current groups — each removal
+recorded as its own `GroupRemove` write result; a failed group is logged and skipped.
+Disable/move failures return the ErrorRecord (the caller records the `Deactivate` result).
 
 ---
 

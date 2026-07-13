@@ -149,7 +149,7 @@ ones won't be renamed. Check `SchemaVersion` if you depend on shape.
 | `RunError` | The full `ErrorRecord` of a failed run (message + stack — nothing is stripped locally), or `$null`. |
 | `RunStart` / `RunEnd` / `DurationSeconds` | Run timing. |
 | `ReadOnly` / `TestRun` | Effective mode flags **after** switch overrides — interpret zero counts with these. |
-| `Counts` | `Managed/Create/Update/Deactivate/GroupAdd/GroupRemove/Failed` — **actual applied outcomes** aggregated from `Applied` (`Update` includes renames/moves; `Failed` = total failed writes). Zeros in ReadOnly or while a directory's group processing is off/WhatIf — nothing attempted, nothing recorded. |
+| `Counts` | `Managed/Create/Update/Deactivate/GroupAdd/GroupRemove/Failed` — **actual applied outcomes** aggregated from `Applied` (`Update` includes renames/moves; `Failed` = total failed writes). Counts are **directory writes, not people**: a person provisioned to both AD and Google counts once per directory (`Managed` is the per-person number). Zeros in ReadOnly or while a directory's group processing is off/WhatIf — nothing attempted, nothing recorded. |
 | `Applied` | One record per **attempted** write: `Timestamp/Directory/Action/PersonID/Target/Success/Error` (`Action` ∈ Create, Update, Rename, Move, Deactivate, GroupAdd, GroupRemove; `Error` `$null` on success). Empty in ReadOnly. |
 | `SourceData` | The full enriched source records (incl. matched `ADObject`/`GoogleObject` where found). |
 | `ThresholdResults` | Change-volume guard results (`Directory/Percent/Exceeded/Skipped` per enabled directory), empty if the guard is off. |
@@ -228,10 +228,12 @@ File: `C:\IDBridge\Plugins\Invoke-PluginSkywardSMSStudents.ps1`. Pulls students 
 ### `Invoke-PluginPostRunReport` — PostRun *(works as-is)*
 File: `C:\IDBridge\Plugins\Invoke-PluginPostRunReport.ps1`. Writes
 `RunSummary-<timestamp>.json` to `Paths.ExportsRoot` after every run: outcome, timing, mode
-flags, actual applied counts, an `Applied` section (succeeded/failed write tallies + one
-line per failed write), per-directory *proposed* change-list sizes, threshold results, and
-the run's `Warn`/`Error` log lines (via `Get-IDBridgeLogs`). Counts, failure lines, and log
-lines only — no full user records — so the file is safe to feed a dashboard. The only template with no
+flags, actual applied counts, an `Applied` section (succeeded/failed tallies, one line per
+failed write, and a `Writes` journal — one line per attempted write with PersonID, target,
+and outcome: the full "what did the run do" record), per-directory *proposed* change-list
+sizes, threshold results, and the run's `Warn`/`Error` log lines (via `Get-IDBridgeLogs`).
+No full user records, but the journal and log lines carry IDs and addresses — fine locally,
+think before shipping the file off the box. The only template with no
 placeholders: enable its descriptor and it runs.
 
 ### `Invoke-PluginPostRunWebhook` — PostRun *(disabled in config)*
