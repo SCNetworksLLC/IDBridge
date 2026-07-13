@@ -11,7 +11,8 @@ person IDs to existing accounts, and compute every change list (org units, deact
 updates/renames/moves, creates, and group membership) read-only. Before any writes it runs the
 change-volume safety guard (ChangeThreshold). It then executes the AD and Google changes only
 when the directory is enabled and Debug.readOnly is $false, exports the staff CSV, and (in the
-finally block) pushes the run log to a Google Sheet when configured. Per-user write errors are
+finally block) sends usage telemetry, runs the configured PostRun plugins with the RunResult
+object, and pushes the run log to a Google Sheet when configured. Per-user write errors are
 logged and skipped; startup/OU-creation failures and a tripped change threshold abort the run.
 
 .PARAMETER RootPath
@@ -645,54 +646,121 @@ function Invoke-IDBridge {
         # $IDConfig is only set once the config loads successfully; guard so a pre-config failure
         # doesn't throw out of the finally block.
         if ($IDConfig) {
-            #region Telemetry
-            # Usage telemetry (see PRIVACY.md) - fully self-contained: any failure here is swallowed
-            # and logged locally so it can never mask the run's real outcome or throw out of finally.
+            #region Build Run Result
+            # One end-of-run report, consumed by both telemetry and the PostRun plugins. Built
+            # defensively: on a failed run most change-list variables were never assigned, so every
+            # list is wrapped @(...).Where({ $null -ne $_ }) to filter the lone $null @() wraps.
+            $runResult = $null
             try {
-                # Counts are APPLIED work, so ReadOnly runs report zeros (the readOnly flag in the
-                # payload tells the story). .Where filters the lone $null that @() wraps when a list
-                # was never assigned (failed/partial runs), matching the Run Summary counting above.
-                $telemetryCounts = @{ Create = 0; Update = 0; Deactivate = 0; GroupAdd = 0; GroupRemove = 0 }
+                # Counts are APPLIED work, so ReadOnly runs report zeros (the ReadOnly flag in the
+                # report tells the story), matching the Run Summary counting above.
+                $runCounts = @{ Create = 0; Update = 0; Deactivate = 0; GroupAdd = 0; GroupRemove = 0 }
                 if ($IDConfig.Debug.readOnly -eq $false) {
-                    $telemetryCounts.Create     = @($ADUsersToCreate).Where({ $null -ne $_ }).Count + @($GoogleUsersToCreate).Where({ $null -ne $_ }).Count
-                    $telemetryCounts.Update     = @($ADUsersToUpdate.UpdateList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.RenameList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.MoveList).Where({ $null -ne $_ }).Count + @($GoogleUsersToUpdate).Where({ $null -ne $_ }).Count
-                    $telemetryCounts.Deactivate = @($ADUsersToDeactivate).Where({ $null -ne $_ }).Count + @($GoogleUsersToDeactivate).Where({ $null -ne $_ }).Count
+                    $runCounts.Create     = @($ADUsersToCreate).Where({ $null -ne $_ }).Count + @($GoogleUsersToCreate).Where({ $null -ne $_ }).Count
+                    $runCounts.Update     = @($ADUsersToUpdate.UpdateList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.RenameList).Where({ $null -ne $_ }).Count + @($ADUsersToUpdate.MoveList).Where({ $null -ne $_ }).Count + @($GoogleUsersToUpdate).Where({ $null -ne $_ }).Count
+                    $runCounts.Deactivate = @($ADUsersToDeactivate).Where({ $null -ne $_ }).Count + @($GoogleUsersToDeactivate).Where({ $null -ne $_ }).Count
 
                     # Group counts mirror the write gates above: a directory contributes only when its
                     # group processing is live (not WhatIf), and removes additionally require the
                     # enableGroupProcessingRemove flag - so WhatIf/remove-off runs report 0, like ReadOnly.
                     if ($IDConfig.AD.enableGroupProcessing -eq $true -and $IDConfig.AD.enableGroupProcessingWhatIf -ne $true) {
-                        $telemetryCounts.GroupAdd += @($ADUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
+                        $runCounts.GroupAdd += @($ADUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
                         if ($IDConfig.AD.enableGroupProcessingRemove -eq $true) {
-                            $telemetryCounts.GroupRemove += @($ADUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
+                            $runCounts.GroupRemove += @($ADUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
                         }
                     }
                     if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingWhatIf -ne $true) {
-                        $telemetryCounts.GroupAdd += @($GoogleUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
+                        $runCounts.GroupAdd += @($GoogleUserGroupsToUpdate.Add.Groups).Where({ $null -ne $_ }).Count
                         if ($IDConfig.Google.enableGroupProcessingRemove -eq $true) {
-                            $telemetryCounts.GroupRemove += @($GoogleUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
+                            $runCounts.GroupRemove += @($GoogleUserGroupsToUpdate.Remove.Groups).Where({ $null -ne $_ }).Count
                         }
                     }
                 }
 
-                $telemetrySplat = @{
+                # See docs/plugins.md for the published schema. Grow this additively only - PostRun
+                # plugins in the field depend on these property names.
+                $runResult = [PSCustomObject]@{
+                    SchemaVersion    = 1
+                    ModuleVersion    = "$($MyInvocation.MyCommand.Module.Version)"
                     Success          = (-not $runError)
+                    RunError         = $runError
+                    RunStart         = $runStart
+                    RunEnd           = (Get-Date)
                     DurationSeconds  = [int]((Get-Date) - $runStart).TotalSeconds
-                    ManagedCount     = @($sourceData).Where({ $null -ne $_ }).Count
-                    CreateCount      = $telemetryCounts.Create
-                    UpdateCount      = $telemetryCounts.Update
-                    DeactivateCount  = $telemetryCounts.Deactivate
-                    GroupAddCount    = $telemetryCounts.GroupAdd
-                    GroupRemoveCount = $telemetryCounts.GroupRemove
+                    ReadOnly         = ($IDConfig.Debug.readOnly -eq $true)
+                    TestRun          = ($IDConfig.Debug.testRun -eq $true)
+                    Counts           = [PSCustomObject]@{
+                        Managed     = @($sourceData).Where({ $null -ne $_ }).Count
+                        Create      = $runCounts.Create
+                        Update      = $runCounts.Update
+                        Deactivate  = $runCounts.Deactivate
+                        GroupAdd    = $runCounts.GroupAdd
+                        GroupRemove = $runCounts.GroupRemove
+                    }
+                    SourceData       = @($sourceData).Where({ $null -ne $_ })
+                    ThresholdResults = @($thresholdResults).Where({ $null -ne $_ })
+                    AD               = [PSCustomObject]@{
+                        Enabled           = ($IDConfig.AD.enabled -eq $true)
+                        UsersToCreate     = @($ADUsersToCreate).Where({ $null -ne $_ })
+                        UsersToUpdate     = $ADUsersToUpdate
+                        UsersToDeactivate = @($ADUsersToDeactivate).Where({ $null -ne $_ })
+                        GroupsToUpdate    = $ADUserGroupsToUpdate
+                        OrgUnitsToCreate  = @($ADOrgUnitsForProcessing).Where({ $null -ne $_ })
+                    }
+                    Google           = [PSCustomObject]@{
+                        Enabled           = ($IDConfig.Google.enabled -eq $true)
+                        UsersToCreate     = @($GoogleUsersToCreate).Where({ $null -ne $_ })
+                        UsersToUpdate     = @($GoogleUsersToUpdate).Where({ $null -ne $_ })
+                        UsersToDeactivate = @($GoogleUsersToDeactivate).Where({ $null -ne $_ })
+                        GroupsToUpdate    = $GoogleUserGroupsToUpdate
+                        OrgUnitsToCreate  = @($GoogleOrgUnitsForProcessing).Where({ $null -ne $_ })
+                    }
                 }
-                if ($runError) { $telemetrySplat.RunError = $runError }
+            }
+            catch {
+                Write-Log -Message "Run Result: Build failed ($($_.Exception.GetType().Name)) - telemetry and PostRun plugins skipped." -Level Warn
+            }
+            #endregion Build Run Result
 
-                Send-IDBridgeTelemetry @telemetrySplat
+            #region Telemetry
+            # Usage telemetry (see PRIVACY.md) - fully self-contained: any failure here is swallowed
+            # and logged locally so it can never mask the run's real outcome or throw out of finally.
+            try {
+                if ($runResult) {
+                    $telemetrySplat = @{
+                        Success          = $runResult.Success
+                        DurationSeconds  = $runResult.DurationSeconds
+                        ManagedCount     = $runResult.Counts.Managed
+                        CreateCount      = $runResult.Counts.Create
+                        UpdateCount      = $runResult.Counts.Update
+                        DeactivateCount  = $runResult.Counts.Deactivate
+                        GroupAddCount    = $runResult.Counts.GroupAdd
+                        GroupRemoveCount = $runResult.Counts.GroupRemove
+                    }
+                    if ($runError) { $telemetrySplat.RunError = $runError }
+
+                    Send-IDBridgeTelemetry @telemetrySplat
+                }
             }
             catch {
                 Write-Log -Message "Telemetry: Skipped ($($_.Exception.GetType().Name))." -Level Trace
             }
             #endregion Telemetry
+
+            #region PostRun Plugins
+            # SecureStrings (account keys, passphrase API secrets) are scrubbed from the report
+            # before any plugin sees it - the run is over, nothing downstream needs them. Isolated
+            # like telemetry: a PostRun failure can never mask the run's real outcome.
+            try {
+                if ($runResult) {
+                    Hide-IDBridgeSecureString -InputObject $runResult
+                    Invoke-PostRunPlugins -RunResult $runResult
+                }
+            }
+            catch {
+                Write-Log -Message "PostRun Plugins: Skipped ($($_.Exception.GetType().Name))." -Level Warn
+            }
+            #endregion PostRun Plugins
 
             Write-Log -Message "######## End of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
 

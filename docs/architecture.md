@@ -95,10 +95,15 @@ Invoke-IDBridge
  12. Export non-students → <ExportsRoot>\UserList-Staff.csv   (PersonTypeID ≠ "1")
         │
  finally:
- 13. Send-IDBridgeTelemetry (unless Telemetry.Tier = 'Off') → one anonymous usage event
+ 13. Build RunResult (outcome, timing, mode flags, applied counts, change lists) — one
+       report feeding both telemetry and the PostRun plugins
+ 14. Send-IDBridgeTelemetry (unless Telemetry.Tier = 'Off') → one anonymous usage event
        (self-contained try/catch, 10s timeout, no retries — can never affect the run;
        counts are APPLIED work so ReadOnly runs report zeros; see PRIVACY.md)
- 14. Push-LogsToSheet (if Logging.GoogleSheetLoggingEnabled) → writes $script:Logs to sheet
+ 15. Invoke-PostRunPlugins → runs Type = 'PostRun' plugins with the RunResult
+       (SecureStrings scrubbed first; per-plugin try/catch — can never affect the run;
+       fires on failed and ReadOnly runs too; see plugins.md)
+ 16. Push-LogsToSheet (if Logging.GoogleSheetLoggingEnabled) → writes $script:Logs to sheet
 ```
 
 ## Data-object lifecycle

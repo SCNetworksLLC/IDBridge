@@ -107,18 +107,23 @@ unrecognized `Tier` value fails safe to `Off`. `-DisableTelemetry` silences a si
 | `Endpoint` | string | Optional ingest URL override (default `https://pulse.scnlabs.net/api/ingest`), e.g. for an egress proxy. | `Send-IDBridgeTelemetry` |
 
 ### `Plugins`
-Array of plugin descriptors, executed in order by `Invoke-SourcePlugins`:
+Array of plugin descriptors. `Source`/`Override` entries are executed in order by
+`Invoke-SourcePlugins` at the start of the run; `PostRun` entries by `Invoke-PostRunPlugins`
+at the end of the run (in the `finally` block, after telemetry — they fire on failed and
+ReadOnly runs too):
 
 ```powershell
 @{ Enabled = $true;  Type = "Source";   Function = 'Invoke-PluginGSheetStaff' }
 @{ Enabled = $false; Type = "Source";   Function = 'Invoke-PluginSkywardSMSStudents' }
 @{ Enabled = $true;  Type = "Override";  Function = 'Invoke-PluginStaffOverride' }
+@{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunReport' }
+@{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunWebhook' }
 ```
 
 | Key | Effect |
 |-----|--------|
 | `Enabled`  | Skip the descriptor when `$false`. |
-| `Type`     | `Source` (contributes users) or `Override` (modifies users by `personID`). |
+| `Type`     | `Source` (contributes users), `Override` (modifies users by `personID`), or `PostRun` (consumes the run's results — reports, dashboards, your own telemetry). |
 | `Function` | Function name **and** expected file name `<Function>.ps1` under `PluginsRoot`. |
 
 See [plugins.md](plugins.md) for the contract and the shipped plugins.

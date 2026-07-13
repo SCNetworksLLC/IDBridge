@@ -163,11 +163,14 @@ function New-IDBridgeConfig {
 
     # ── Plugins ───────────────────────────────────────────────────────────────
     # Templates for these were copied to <RootPath>\Plugins — edit their placeholder
-    # values for your district, then set Enabled = $true.
+    # values for your district, then set Enabled = $true. (The PostRun report plugin
+    # has no placeholders — it works as-is once enabled.)
     Plugins = @(
         @{ Enabled = $false; Type = "Source"; Function = 'Invoke-PluginGSheetStaff' }
         @{ Enabled = $false; Type = "Source"; Function = 'Invoke-PluginSkywardSMSStudents' }
         @{ Enabled = $false; Type = "Override"; Function = 'Invoke-PluginStaffOverride' }
+        @{ Enabled = $false; Type = "PostRun"; Function = 'Invoke-PluginPostRunReport' }
+        @{ Enabled = $false; Type = "PostRun"; Function = 'Invoke-PluginPostRunWebhook' }
     )
 }
 '@

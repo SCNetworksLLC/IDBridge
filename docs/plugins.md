@@ -5,21 +5,25 @@ in `C:\IDBridge\Plugins\` (= `Paths.PluginsRoot`) and are registered in the `Plu
 of [`IDBridgeConfig.psd1`](configuration.md#plugins). Each plugin is a single `.ps1` file
 whose function name matches both the config `Function` value and the file name.
 
-Sanitized **templates** of the three shipped plugins are packaged with the module
+Sanitized **templates** of the shipped plugins are packaged with the module
 (`Templates\Plugins\`) and copied into `PluginsRoot` by `New-IDBridgeConfig` on first-run
-scaffold (existing files are never overwritten). Each template throws until its placeholder
-values (spreadsheet ID / API URLs, domain, OUs) are edited. The worked examples below
-describe the full deployment versions the templates were derived from.
+scaffold (existing files are never overwritten). Templates with placeholder values
+(spreadsheet ID / API URLs, domain, OUs) throw until they are edited; the PostRun report
+template works as-is. The worked examples below describe the full deployment versions the
+templates were derived from.
 
-There are two kinds:
+There are three kinds:
 - **Source** — produce the canonical list of people to manage (one record per person).
 - **Override** — modify already-loaded source records, matched by `personID`.
+- **PostRun** — consume the finished run's results (reports, dashboards, your own
+  telemetry). See [the PostRun contract](#the-postrun-contract-invoke-postrunplugins).
 
 ## The contract (`Invoke-SourcePlugins`)
 
 Source of truth: [`src\IDBridge\Public\Source\Invoke-SourcePlugins.ps1`](../src/IDBridge/Public/Source/Invoke-SourcePlugins.ps1).
 
-For each enabled `Plugins` entry, in config order:
+For each enabled `Plugins` entry, in config order (`PostRun` entries are skipped here —
+they run at end of run):
 1. Skip if `Enabled -ne $true`.
 2. Require `<PluginsRoot>\<Function>.ps1` to exist; **dot-source** it (load on failure ⇒
    warn + disable).
@@ -112,9 +116,62 @@ Applied by [`Merge-IDBridgeOverrideData`](functions.md#merge-idbridgeoverridedat
 Override merge skips `PersonID` itself and any null/blank value, so a sparse override row only
 touches the fields it sets.
 
+## The PostRun contract (`Invoke-PostRunPlugins`)
+
+Source of truth: [`src\IDBridge\Public\Core\Invoke-PostRunPlugins.ps1`](../src/IDBridge/Public/Core/Invoke-PostRunPlugins.ps1).
+
+PostRun plugins run from the `finally` block of `Invoke-IDBridge`, after telemetry and
+before the Google Sheet log push (so their `Write-Log` lines make it into the sheet). They
+fire on **every** run — failed and ReadOnly runs included; the RunResult carries
+`Success`/`ReadOnly` so the plugin decides what to do. Discovery/loading is identical to
+the source contract (file check, dot-source, `Get-Command`, warn + disable on failure),
+but each plugin:
+
+- is invoked as `& <Function> -RunResult <RunResult>` — so it declares
+  `param([pscustomobject]$RunResult)`,
+- is isolated in its own try/catch: a throw is logged as a `Warn` and the remaining
+  plugins still run — a PostRun plugin can never fail the run or mask its outcome,
+- returns nothing (any output is discarded),
+- pulls the **config** from `Get-IDBridgeConfig` (it already reflects the run's switch
+  overrides) and the run's **log lines** from `Get-IDBridgeLogs`, same as source plugins —
+  neither is duplicated on the RunResult.
+
+### RunResult schema (v1)
+
+One `[pscustomobject]`, grown **additively only** — new properties may appear, existing
+ones won't be renamed. Check `SchemaVersion` if you depend on shape.
+
+| Property | Notes |
+|----------|-------|
+| `SchemaVersion` | `1`. |
+| `ModuleVersion` | The IDBridge module version that produced the run. |
+| `Success` | `$false` when the run threw a fatal error. |
+| `RunError` | The full `ErrorRecord` of a failed run (message + stack — nothing is stripped locally), or `$null`. |
+| `RunStart` / `RunEnd` / `DurationSeconds` | Run timing. |
+| `ReadOnly` / `TestRun` | Effective mode flags **after** switch overrides — interpret zero counts with these. |
+| `Counts` | `Managed/Create/Update/Deactivate/GroupAdd/GroupRemove` — **applied** work, same semantics as telemetry (zeros in ReadOnly; a directory contributes 0 while its group processing is off or in WhatIf). |
+| `SourceData` | The full enriched source records (incl. matched `ADObject`/`GoogleObject` where found). |
+| `ThresholdResults` | Change-volume guard results (`Directory/Percent/Exceeded/Skipped` per enabled directory), empty if the guard is off. |
+| `AD` | `Enabled`, `UsersToCreate`, `UsersToUpdate` (keeps its `UpdateList/RenameList/MoveList` shape), `UsersToDeactivate`, `GroupsToUpdate` (keeps its `Add/Remove` shape), `OrgUnitsToCreate`. |
+| `Google` | Same shape: `Enabled/UsersToCreate/UsersToUpdate/UsersToDeactivate/GroupsToUpdate/OrgUnitsToCreate`. |
+
+On a failed run the lists that were never computed are empty arrays (`UsersToUpdate`/
+`GroupsToUpdate` may be `$null`) — guard accordingly.
+
+Two things to know about the data:
+
+- **SecureStrings are scrubbed.** Every SecureString anywhere in the graph (`ADKey`/
+  `GoogleKey`, passphrase-API `Nonce`/`AuthToken`, create-splat passwords) is replaced
+  with `$null` before any plugin sees the RunResult. Everything else — names, IDs, UPNs,
+  group names — is intact: it's your data on your server, but **think before shipping
+  records off the box**; a webhook payload built from counts can't leak a student record.
+- **The change lists are *computed* work, not confirmed writes.** Per-user write failures
+  during apply are logged, not collected — scan `Get-IDBridgeLogs` for `Warn`/`Error`
+  entries to report on what actually failed (the shipped report template does this).
+
 ---
 
-## Worked examples (the three shipped plugins)
+## Worked examples (the shipped plugins)
 
 ### `Invoke-PluginGSheetStaff` — Source *(enabled)*
 File: `C:\IDBridge\Plugins\Invoke-PluginGSheetStaff.ps1`. Pulls staff from a Google Sheet via
@@ -164,11 +221,28 @@ File: `C:\IDBridge\Plugins\Invoke-PluginSkywardSMSStudents.ps1`. Pulls students 
 - Groups = `Get-CustomStudentGroups -building -grade` (bundled: `Students`, optional
   `<code>_Students`, `Grade-<grade>`) **+** `ApplicationGroups`/`EmailGroups`.
 
+### `Invoke-PluginPostRunReport` — PostRun *(works as-is)*
+File: `C:\IDBridge\Plugins\Invoke-PluginPostRunReport.ps1`. Writes
+`RunSummary-<timestamp>.json` to `Paths.ExportsRoot` after every run: outcome, timing, mode
+flags, applied counts, per-directory *proposed* change-list sizes, threshold results, and
+the run's `Warn`/`Error` log lines (via `Get-IDBridgeLogs`). Counts and log lines only — no
+per-user records — so the file is safe to feed a dashboard. The only template with no
+placeholders: enable its descriptor and it runs.
+
+### `Invoke-PluginPostRunWebhook` — PostRun *(disabled in config)*
+File: `C:\IDBridge\Plugins\Invoke-PluginPostRunWebhook.ps1`. POSTs a compact JSON summary
+(success, error text, duration, mode flags, counts — no per-user data) to your own endpoint;
+throws until the placeholder URL is edited. Fire-and-forget: 10 s timeout, send failures log
+a `Warn` and never affect the run. The starting point for shipping your own telemetry or
+alerting ("tell me when the run breaks").
+
 ## Authoring a new plugin (checklist)
 
-1. Create `C:\IDBridge\Plugins\Invoke-PluginX.ps1` defining `function Invoke-PluginX { param() … }`.
+1. Create `C:\IDBridge\Plugins\Invoke-PluginX.ps1` defining `function Invoke-PluginX { param() … }`
+   (for PostRun: `param([pscustomobject]$RunResult)`).
 2. Pull config/secrets via `Get-IDBridgeConfig`; log via `Write-Log`.
 3. Return an array of `[PSCustomObject]` matching the schema above (Source) or override schema.
+   PostRun plugins return nothing — their value is their side effect (report/POST/export).
 4. Register it in `IDBridgeConfig.psd1` `Plugins` with `Enabled`, `Type`, and `Function`.
 5. Test with `Invoke-IDBridge -ReadOnly -TraceLogging` and inspect the log + change lists
    before enabling writes.

@@ -61,6 +61,15 @@ Posts one anonymous usage event per run to the IDBridge Pulse ingest endpoint fr
 (missing = `Basic`, unrecognized = `Off`); logs the exact payload at Trace; sends with a
 10 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.
 
+### `Invoke-PostRunPlugins` 🌐
+Discovers\runs the `Type = 'PostRun'` plugins from `$IDConfig.Plugins`, called from the
+`finally` block of `Invoke-IDBridge` after telemetry and before the log push — on every
+run, including failed and ReadOnly runs. Same load steps as `Invoke-SourcePlugins`
+(file check, dot-source, `Get-Command`, warn + disable on failure) but invokes each plugin
+as `& <Function> -RunResult <RunResult>` (SecureStrings already scrubbed to `$null`), and
+each invocation is isolated in its own try/catch (Warn, next plugin still runs). Never
+throws. **Params:** `-RunResult` (mandatory). **Returns:** nothing. See [plugins.md](plugins.md).
+
 ### `Get-IDBridgeSiteID`
 Returns the install's telemetry SiteID from `<ConfigRoot>\IDBridgeSiteID.json`, generating
 a random GUID (plain-text file, deliberately unencrypted/non-secret) on first use or when
@@ -177,7 +186,8 @@ via `nextLink`; includes everything the app registration can see in that vault).
 ## Source (`src\IDBridge\Public\Source\`)
 
 ### `Invoke-SourcePlugins` 🌐
-Discovers/runs plugins from `$IDConfig.Plugins`. For each enabled entry: verifies
+Discovers/runs plugins from `$IDConfig.Plugins` (skipping `Type = 'PostRun'` entries —
+those run via `Invoke-PostRunPlugins` at end of run). For each enabled entry: verifies
 `<PluginsRoot>\<Function>.ps1` exists, dot-sources it, confirms the function via
 `Get-Command`, invokes with no args. Source results are passed through
 `Test-IDBridgeSourceData` before collection; when `Debug.testRun` is set, each source

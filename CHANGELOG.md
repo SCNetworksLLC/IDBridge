@@ -5,6 +5,24 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.12.2] - 2026-07-12
+
+### Added
+- **PostRun plugins — an end-of-run extension point.** A third plugin `Type = "PostRun"`
+  (alongside `Source`/`Override`) for shipping your own telemetry, dashboards, or change
+  reports. `Invoke-PostRunPlugins` runs the configured PostRun plugins from the `finally`
+  block of `Invoke-IDBridge` — after usage telemetry, before the Google Sheet log push —
+  on **every** run, including failed and ReadOnly runs. Each plugin receives a single
+  `-RunResult` object (`SchemaVersion` 1): outcome + full `ErrorRecord`, timing, effective
+  mode flags, applied-work counts (same semantics as telemetry), threshold results, the
+  enriched source data, and the per-directory change lists. Every SecureString in the
+  graph (account keys, passphrase-API secrets) is scrubbed to `$null` before any plugin
+  sees it. Plugin failures are isolated: a throwing PostRun plugin logs a `Warn` and can
+  never fail the run or mask its outcome. Two new templates ship with the module:
+  `Invoke-PluginPostRunReport` (run-summary JSON to `Exports`, works as-is) and
+  `Invoke-PluginPostRunWebhook` (compact summary POST to your own endpoint). Documented
+  in [docs/plugins.md](docs/plugins.md).
+
 ## [26.7.12.1] - 2026-07-12
 
 ### Added

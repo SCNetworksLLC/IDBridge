@@ -3,7 +3,8 @@
 Discover and run the configured source and override plugins, returning their data.
 
 .DESCRIPTION
-Iterates the Plugins array from the configuration in order. For each enabled descriptor it
+Iterates the Plugins array from the configuration in order, skipping PostRun descriptors
+(those run at end of run via Invoke-PostRunPlugins). For each enabled descriptor it
 verifies <PluginsRoot>\<Function>.ps1 exists, dot-sources it, and confirms the function resolves
 — disabling the plugin with a Warn if the file fails to load or the function is missing. Each
 plugin is invoked with no arguments. Source plugin output is passed through
@@ -33,6 +34,9 @@ function Invoke-SourcePlugins {
     $sourceData = @()
     $overrideData = @()
     foreach ($plugin in $IDConfig.Plugins) {
+        #PostRun plugins are invoked by Invoke-PostRunPlugins at end of run, not here.
+        if ($plugin.Type -eq "PostRun") { Continue }
+
         if ($plugin.Enabled -ne $true) {
             Write-Log -Message "Plugin: $($plugin.Function) is disabled in config. Skipping plugin." -Level Trace
             Continue
