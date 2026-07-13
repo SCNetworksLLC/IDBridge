@@ -105,7 +105,7 @@ function Get-ADUsersToCreate {
         }
         
 
-        Write-Log -Message ("AD: No user found for $($item.PersonID). Adding user to create list.")
+        Write-Log -Message ("AD: Proposed: Create User: $($item.PersonID) (no existing user found).")
         Write-Log -Message ($NewUserParams | ConvertTo-Json -Compress)
 
         $itemList += [PSCustomObject]@{

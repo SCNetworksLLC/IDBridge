@@ -35,15 +35,15 @@ function Get-GoogleUsersToDeactivate {
     $itemList = @()
 
     foreach ($item in $UserList | Where-Object {(($_.IDBActive -eq $false) -or ($_.ProvisionGoogle -eq $false)) -and $_.GoogleCurrentUserSuspendedStatus -eq $false}) {
-        Write-Log -Message "Google: Adding User to Process List: Deactivate: $($item.PersonID)"
+        Write-Log -Message "Google: Proposed: Deactivate User: $($item.PersonID)"
 
         if ($item.GoogleCurrentLicenses) {
             $skuNames = ($item.GoogleCurrentLicenses | ForEach-Object { if ($_.skuName) { $_.skuName } else { $_.skuId } }) -join ', '
-            Write-Log -Message "Google: Deactivation will remove licenses from $($item.PersonID): $skuNames"
+            Write-Log -Message "Google: Proposed: Deactivation will remove licenses from $($item.PersonID): $skuNames"
         }
 
         if ($item.personID -notin $item.GoogleObject.externalIds.value) {
-            Write-Log -Message "Google: Deactivation will also set EmployeeID $($item.PersonID) on the Google account (matched by name, externalId not set yet)"
+            Write-Log -Message "Google: Proposed: Deactivation will also set EmployeeID $($item.PersonID) on the Google account (matched by name, externalId not set yet)"
         }
 
         $itemList += $item

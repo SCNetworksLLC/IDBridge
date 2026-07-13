@@ -38,7 +38,7 @@ function Disable-IDBridgeADUser {
 
     #Disable the account
     try {
-        Write-Log -Message ("AD: Disabling account for " + $User.PersonID)
+        Write-Log -Message ("AD: Applying: Disabling account for " + $User.PersonID)
         Set-ADUser -Identity $User.ADCurrentUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm) -Enabled $false
     }
     catch {
@@ -47,7 +47,7 @@ function Disable-IDBridgeADUser {
 
     #Move the User to the Trash OU
     try {
-        Write-Log -Message ("AD: Moving user to trash: " + $User.PersonID)
+        Write-Log -Message ("AD: Applying: Moving user to trash: " + $User.PersonID)
         Move-ADObject -Identity $User.ADCurrentUserID -TargetPath $User.ADOrganizationalUnitTrash
     }
     catch {
@@ -60,7 +60,7 @@ function Disable-IDBridgeADUser {
         Write-Log -Message ($User.ADCurrentGroups -join ",")
         
         if ($GroupRemovalProcessingStatus -eq $true) {
-            Write-Log -Message  ("AD: Removing groups for " + $User.PersonID)
+            Write-Log -Message  ("AD: Applying: Removing groups for " + $User.PersonID)
             #Per group so each removal gets its own write result and one bad group doesn't
             #abort the rest (the account is already disabled and trashed at this point).
             foreach ($group in $User.ADCurrentGroups) {

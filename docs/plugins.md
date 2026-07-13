@@ -233,8 +233,7 @@ failed write, and a `Writes` journal — one line per attempted write with Perso
 and outcome: the full "what did the run do" record), per-directory *proposed* change-list
 sizes, threshold results, and the run's `Warn`/`Error` log lines (via `Get-IDBridgeLogs`).
 No full user records, but the journal and log lines carry IDs and addresses — fine locally,
-think before shipping the file off the box. The only template with no
-placeholders: enable its descriptor and it runs.
+think before shipping the file off the box. No placeholders: enable its descriptor and it runs.
 
 ### `Invoke-PluginPostRunWebhook` — PostRun *(disabled in config)*
 File: `C:\IDBridge\Plugins\Invoke-PluginPostRunWebhook.ps1`. POSTs a compact JSON summary
@@ -242,6 +241,18 @@ File: `C:\IDBridge\Plugins\Invoke-PluginPostRunWebhook.ps1`. POSTs a compact JSO
 throws until the placeholder URL is edited. Fire-and-forget: 10 s timeout, send failures log
 a `Warn` and never affect the run. The starting point for shipping your own telemetry or
 alerting ("tell me when the run breaks").
+
+### `Invoke-PluginPostRunExport` — PostRun *(works as-is)*
+File: `C:\IDBridge\Plugins\Invoke-PluginPostRunExport.ps1`. Writes the user list CSVs
+defined in its `$exportFiles` map (file name → the `PersonTypeID`s it carries; one file
+can combine multiple IDs) to `Paths.ExportsRoot`, for feeding downstream systems. Defaults
+to `UserList-Staff.csv` (`'2','3'`) and `UserList-Students.csv` (`'1'`); edit
+`$exportFiles` to change the files and `$exportColumns` to change what each row carries.
+A file whose IDs match no users logs a `Warn` and is left untouched. Skipped on failed
+runs (a partial dataset must not overwrite the last good export) and on `TestRun` (same
+reason); files are overwritten on every successful full run. No placeholders: enable its
+descriptor and it runs. Replaces the `UserList-Staff.csv` export that older module
+versions wrote from `Invoke-IDBridge` itself.
 
 ## Authoring a new plugin (checklist)
 

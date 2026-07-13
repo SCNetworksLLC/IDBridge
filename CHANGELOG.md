@@ -5,6 +5,44 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.13.0] - 2026-07-13
+
+### Added
+- **Update check (notify-only).** `Invoke-IDBridge` now checks the PowerShell Gallery for
+  a newer stable IDBridge release at the start of every run and logs a warning ("run
+  `Update-Module IDBridge`") when one exists. Nothing is ever auto-installed, and the
+  check is fully self-contained — offline or gallery-blocked environments log a Trace
+  skip and the run proceeds unaffected (10 s timeout).
+- **User list CSV export plugin.** New PostRun template `Invoke-PluginPostRunExport`
+  writes the user list CSVs defined in its `$exportFiles` map (file name → the
+  `PersonTypeID`s it carries; one file can combine multiple IDs) to `Exports`, for
+  feeding downstream systems. Defaults to `UserList-Staff.csv` (`'2','3'`) and
+  `UserList-Students.csv` (`'1'`); the file map and column list are editable in the
+  template. Exports are skipped on failed runs and on TestRun so a partial dataset never
+  overwrites the last good export. No placeholders — works as-is once enabled. **Replaces the hardcoded
+  `UserList-Staff.csv` staff export that `Invoke-IDBridge` wrote directly** — existing
+  installs that rely on that file should add the plugin descriptor
+  (`@{ Enabled = $true; Type = "PostRun"; Function = 'Invoke-PluginPostRunExport' }`) and
+  copy the template into `PluginsRoot`.
+
+### Changed
+- **Log phases are now labeled.** The run log gains phase banners (`Phase: Gather Source
+  & Directory Data`, `Phase: Plan Changes`, `Phase: Apply Changes` — the latter noting
+  when ReadOnly skipped it), and the per-user lines are prefixed by phase: change-list
+  computation logs `AD:/Google: Proposed: ...` while the write phase logs
+  `AD:/Google: Applying: ...`, so a line is self-identifying even in isolation.
+  Log-wording change only — no behavior change.
+- **Source sheet row count now reflects real users.** `Get-SourceDataGSheet` counts only
+  populated rows (PersonID present) instead of every row in the sheet range, so blank
+  future-use rows no longer inflate the "Successfully retrieved N Users" log line — and,
+  more importantly, no longer pad the `userCount` safety floor. The floor now guards the
+  populated-row count; a site whose `userCount` was calibrated against the inflated
+  number could newly trip it (the log shows both counts).
+- **Default config template is now a shipped file.** `New-IDBridgeConfig` copies
+  `Templates\Config\IDBridgeConfig.psd1` instead of writing an embedded here-string —
+  same generated config, plus the new export plugin descriptor. Refactor only; existing
+  configs are untouched (and still never overwritten).
+
 ## [26.7.12.4] - 2026-07-12
 
 ### Fixed

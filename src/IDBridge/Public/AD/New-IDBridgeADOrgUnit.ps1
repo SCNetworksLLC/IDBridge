@@ -26,7 +26,7 @@ function New-IDBridgeADOrgUnit {
     )
 
     try {
-        Write-Log -Message "AD: Creating Org Unit $OrgUnit"
+        Write-Log -Message "AD: Applying: Creating Org Unit $OrgUnit"
         New-ADOrganizationalUnit -Name $OrgUnit.split(",",2)[0].replace("OU=","") -Path $OrgUnit.split(",",2)[1] -ErrorAction Stop
     }
     catch {

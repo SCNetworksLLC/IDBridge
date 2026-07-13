@@ -62,7 +62,7 @@ function Get-ADOrgUnitsForProcessing {
         Sort-Object { ($_ -split ',OU=').Count }
 
     foreach ($item in $OrgUnitsForProcessing) {
-        Write-Log -Message "AD: Adding Org Unit to Process List: Create: $($item)"
+        Write-Log -Message "AD: Proposed: Create Org Unit: $($item)"
     }
 
     return $OrgUnitsForProcessing

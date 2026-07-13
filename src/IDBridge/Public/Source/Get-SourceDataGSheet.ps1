@@ -4,7 +4,8 @@ Read and validate source rows from a Google Sheet.
 
 .DESCRIPTION
 Retrieves the given sheet range via Get-GoogleSheetData, verifies the required columns are
-present, and enforces a safety floor on the row count — aborting if the sheet returns fewer rows
+present, and enforces a safety floor on the populated row count (rows with a PersonID; blank
+future-use rows in the range are excluded) — aborting if the sheet returns fewer populated rows
 than userCount * userCountSafetyPercentage% (protection against a truncated or empty sheet).
 Returns only rows flagged Process = 'TRUE' that have every required column populated
 (TerminationDate excepted); rows missing data or not flagged to process are logged and skipped.
@@ -29,7 +30,7 @@ Get-SourceDataGSheet -sheetID '<spreadsheet id>' -sheetRange 'Staff' -userCount 
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-06-26
+   Modified: 2026-07-13
 #>
 function Get-SourceDataGSheet {
     [CmdletBinding()]
@@ -81,12 +82,15 @@ function Get-SourceDataGSheet {
 
 
     #Check data fetched count for safety
+    #Blank rows in the sheet range come back as objects with empty properties - count only
+    #populated rows (PersonID present) so padding rows can't mask a truncated sheet.
+    $populatedCount = @($data | Where-Object { $_.PersonID -ne "" }).Count
     $safetyFloor = [int]$userCount * ([int]$userCountSafetyPercentage / 100)
-    if ($data.count -gt $safetyFloor) {
-        Write-Log -Message "Source Data: Successfully retrieved $($data.count) Users"
+    if ($populatedCount -gt $safetyFloor) {
+        Write-Log -Message "Source Data: Successfully retrieved $populatedCount Users ($($data.count) rows in range)"
     } else {
-        Write-Log -Message "Source Data: $($data.count) rows retrieved but does not meet the safety floor of $safetyFloor ($userCountSafetyPercentage% of $userCount)" -Level Error
-        Throw "Source Data: $($data.count) rows retrieved but does not meet the safety floor of $safetyFloor ($userCountSafetyPercentage% of $userCount)"
+        Write-Log -Message "Source Data: $populatedCount populated rows retrieved ($($data.count) rows in range) but does not meet the safety floor of $safetyFloor ($userCountSafetyPercentage% of $userCount)" -Level Error
+        Throw "Source Data: $populatedCount populated rows retrieved ($($data.count) rows in range) but does not meet the safety floor of $safetyFloor ($userCountSafetyPercentage% of $userCount)"
     }
 
 

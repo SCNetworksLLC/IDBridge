@@ -32,7 +32,7 @@ function Get-ADUsersToDeactivate {
     foreach ($item in $UserList | Where-Object {(($_.IDBActive -eq $false) -or ($_.ProvisionAD -eq $false)) -and $_.ADCurrentUserEnabledStatus -eq $true}) {
         $itemList += $item
 
-        Write-Log -Message ("AD: Marking user: $($item.PersonID) for deactivation.")
+        Write-Log -Message ("AD: Proposed: Deactivate User: $($item.PersonID)")
 
         if ($item.ADCurrentGroups) {
             Write-Log -Message ("AD: Current groups for " + $item.PersonID)

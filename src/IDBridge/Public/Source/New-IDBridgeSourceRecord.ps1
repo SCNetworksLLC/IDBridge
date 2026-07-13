@@ -16,7 +16,7 @@ Designed to be splatted from a plugin's existing field hashtable:
 Unique person identifier (the universal join key). Required.
 
 .PARAMETER PersonTypeID
-Person tier: '1' = student, '2'/'3' = staff. Drives the staff CSV export filter.
+Person tier: '1' = student, '2'/'3' = staff.
 
 .PARAMETER IDBActive
 Whether the person is currently active (drives create/update vs deactivate). Must be a boolean.

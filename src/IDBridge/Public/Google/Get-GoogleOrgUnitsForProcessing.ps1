@@ -55,7 +55,7 @@ function Get-GoogleOrgUnitsForProcessing {
         Sort-Object { ($_ -split '/').Count }
 
     foreach ($item in $OrgUnitsForProcessing) {
-        Write-Log -Message "Google: Adding Org Unit to Process List: Create: $($item)"
+        Write-Log -Message "Google: Proposed: Create Org Unit: $($item)"
     }
 
     return $OrgUnitsForProcessing | Sort-Object -Unique

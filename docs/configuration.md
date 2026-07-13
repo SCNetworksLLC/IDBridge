@@ -118,6 +118,7 @@ ReadOnly runs too):
 @{ Enabled = $true;  Type = "Override";  Function = 'Invoke-PluginStaffOverride' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunReport' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunWebhook' }
+@{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunExport' }
 ```
 
 | Key | Effect |
@@ -203,7 +204,7 @@ Derived from `-RootPath` (default `C:\IDBridge`); missing directories are create
 | `Root`            | `<RootPath>`                  | Base directory |
 | `ConfigRoot`      | `<Root>\Config`               | Holds `IDBridgeConfig.psd1` |
 | `LogsRoot`        | `<Root>\Logs`                 | `IDBridge.log` (rotated at 5 MB) |
-| `ExportsRoot`     | `<Root>\Exports`              | `UserList-Staff.csv` and other exports |
+| `ExportsRoot`     | `<Root>\Exports`              | Run reports and `UserList-<PersonType>.csv` exports |
 | `PluginsRoot`     | `<Root>\Plugins`              | Plugin `.ps1` files |
 | `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward `LastSeen` CSV) |
 | `VaultRoot`       | `<Root>\Vault`                | Secret vault (`*.secret.json` envelope files) |

@@ -82,7 +82,7 @@ function Get-GoogleUsersToCreate {
             Continue
         }
 
-        Write-Log -Message ("Google: No user found for $($item.PersonID). Adding user to create list.")
+        Write-Log -Message ("Google: Proposed: Create User: $($item.PersonID) (no existing user found).")
         Write-Log -Message ($itemCreateSplat | ConvertTo-Json -Compress)
 
         $itemList += [PSCustomObject]@{

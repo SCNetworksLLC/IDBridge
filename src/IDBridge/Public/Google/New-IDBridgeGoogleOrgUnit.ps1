@@ -51,7 +51,7 @@ function New-IDBridgeGoogleOrgUnit() {
         $lastOU = $parts
     }
 
-    Write-Log -Message "Creating Google Org Unit $OrgUnit"
+    Write-Log -Message "Google: Applying: Creating Org Unit $OrgUnit"
 
     # API URL for creating a new organizational unit (real customer ID from config —
     # my_customer doesn't resolve for the service account's own token)
