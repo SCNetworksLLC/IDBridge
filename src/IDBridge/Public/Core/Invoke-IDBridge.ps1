@@ -194,13 +194,13 @@ function Invoke-IDBridge {
             #AD Checks
             if ($IDConfig.AD.enabled -eq $true -and ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true)) {
                 Write-Log -Message "AD: Checking for Groups Proposed for Processing that do not exist in the Target Data." -Level Trace
-                Show-GroupsNotProcessed -ProposedGroups $sourceData.GroupsProposed -TargetGroups $adData.Groups
+                Show-GroupsNotProcessed -ProposedGroups $sourceData.GroupsProposed -TargetGroups $adData.Groups -Directory 'AD'
             }
 
             #Google Checks
             if ($IDConfig.Google.enabled -eq $true -and ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true)) {
                 Write-Log -Message "Google: Checking for Groups Proposed for Processing that do not exist in the Target Data." -Level Trace
-                Show-GroupsNotProcessed -ProposedGroups $sourceData.GroupsProposed -TargetGroups $googleData.Groups.name
+                Show-GroupsNotProcessed -ProposedGroups $sourceData.GroupsProposed -TargetGroups $googleData.Groups.name -Directory 'Google'
             }
         }
         #endregion Groups Not Processed

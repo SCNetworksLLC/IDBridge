@@ -6,11 +6,18 @@ of [`IDBridgeConfig.psd1`](configuration.md#plugins). Each plugin is a single `.
 whose function name matches both the config `Function` value and the file name.
 
 Sanitized **templates** of the shipped plugins are packaged with the module
-(`Templates\Plugins\`) and copied into `PluginsRoot` by `New-IDBridgeConfig` on first-run
-scaffold (existing files are never overwritten). Templates with placeholder values
-(spreadsheet ID / API URLs, domain, OUs) throw until they are edited; the PostRun report
-template works as-is. The worked examples below describe the full deployment versions the
-templates were derived from.
+(`Templates\Plugins\`) and copied into `PluginsRoot` by `Install-IDBridge` (existing
+files are never overwritten; re-run it after a module update to pick up newly shipped
+templates). Templates with placeholder values (spreadsheet ID / API URLs, domain, OUs)
+throw until they are edited; the PostRun report and export templates work as-is. The
+worked examples below describe the full deployment versions the templates were derived
+from.
+
+Every template starts with a `# TemplateVersion: <n>` marker — **leave that line in your
+copy**. When a shipped template changes, its version is bumped, and `Install-IDBridge`
+compares the marker in your installed copy against the shipped one and prints a
+"newer template available" notice on re-run, pointing at the shipped file to review.
+Your edited copy is never modified; port changes by hand.
 
 There are three kinds:
 - **Source** — produce the canonical list of people to manage (one record per person).

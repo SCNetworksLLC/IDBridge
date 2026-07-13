@@ -113,7 +113,7 @@ function Get-SourceDataGSheet {
             }
             if ($dataCheckFailed) {
                 #$skippedData += $item
-                Write-Log -Message ("Skipping Person Due to Missing Data in Required Columns: " + $item.PersonID)
+                Write-Log -Message ("Source Data: Skipping Person Due to Missing Data in Required Columns: " + $item.PersonID)
                 Remove-Variable dataCheckFailed
             } else {
                 $filteredData += $item
@@ -123,7 +123,7 @@ function Get-SourceDataGSheet {
             if ($item.PersonID -ne "") {
                 #Remove Users where the process field is false
                 #$skippedData += $item
-                Write-Log -Message ("Skipping Person Due to process field set to false: " + $item.PersonID)
+                Write-Log -Message ("Source Data: Skipping Person Due to process field set to false: " + $item.PersonID)
             }
         }
     }

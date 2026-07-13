@@ -1,6 +1,7 @@
 # Spreadsheet Data Staff Override Plugin — IDBridge plugin template
+# TemplateVersion: 1
 <#
-Shipped with the IDBridge module and copied to <RootPath>\Plugins by New-IDBridgeConfig.
+Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 Set the spreadsheet ID (normally the same spreadsheet as the staff source plugin, 'Override'
 tab) before enabling the plugin in IDBridgeConfig.psd1 — it throws until the ID is set.
 #>

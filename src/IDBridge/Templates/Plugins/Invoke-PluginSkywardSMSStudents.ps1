@@ -1,6 +1,7 @@
 #Skyward SMS Student Plugin — IDBridge plugin template
+# TemplateVersion: 1
 <#
-Shipped with the IDBridge module and copied to <RootPath>\Plugins by New-IDBridgeConfig.
+Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 A minimal starting point for pulling students from the Skyward SMS OneRoster API. Edit every
 placeholder value (API URLs, domain, OUs, building map, grade settings) for your district
 before enabling the plugin in IDBridgeConfig.psd1 — it throws until the API URL is set.
@@ -188,7 +189,7 @@ function Invoke-PluginSkywardSMSStudents {
         #Check if Grade is in configuration and enabled
         if (-not $GradeSettings.$($Grade)) {
             $isActive = $false
-            Write-Log -Message ("Student: Grade " + $Grade + " not found in configuration file for PersonID: " + $item.DisplayID + ". Disabling user from processing.") -Level Warn
+            Write-Log -Message ("Student: Grade " + $Grade + " not found in configuration file for PersonID: " + $item.DisplayID + ". Disabling user from processing.") -Level Trace
             Continue
         }
 

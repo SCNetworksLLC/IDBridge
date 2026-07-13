@@ -1,6 +1,7 @@
 #Spreadsheet Data Staff — IDBridge plugin template
+# TemplateVersion: 1
 <#
-Shipped with the IDBridge module and copied to <RootPath>\Plugins by New-IDBridgeConfig.
+Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 Every placeholder value below must be edited for your district before enabling the plugin
 in IDBridgeConfig.psd1 — the plugin throws until the spreadsheet ID is set.
 

@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.13.0'
+    ModuleVersion     = '26.7.13.1'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -8,66 +8,19 @@
     Description       = 'IdentityBridge — automated account provisioning for Google Workspace and Active Directory from school SIS/GSheet data.'
     PowerShellVersion = '7.5'
 
-    # Explicitly list public functions so the module surface is intentional.
-    # Internal helpers (private functions called only within other functions) are NOT listed here.
+    # Explicitly list public functions so the module surface is intentional: only what a
+    # district admin or a plugin author calls directly. The sync pipeline internals
+    # (change-list planners, target-data readers, directory writers) live in Private\ and
+    # are NOT exported - they are free to change between releases.
     FunctionsToExport = @(
-        # Source data
-        'Get-SourceDataGSheet'
-        'Get-SourceDataSkywardSMS'
-        'Get-SourceDataInfiniteCampus'
-        'New-IDBridgeSourceRecord'
-        'Test-IDBridgeSourceData'
-        'Test-IDBridgeChangeThreshold'
-        'Remove-IDBridgeDuplicateID'
-        'Show-GroupsNotProcessed'
-
-        # Target data
-        'Get-TargetDataGoogle'
-        'Add-TargetDataGoogle'
-        'Get-TargetDataAD'
-        'Add-TargetDataAD'
-        'Export-IDBridgeDirectoryToSheet'  # Onboarding tool: seeds the staff source sheet from current AD + Google state (new tab, Process=FALSE).
-
-        # AD processing
-        'Get-ADOrgUnitsForProcessing'
-        'Get-ADUsersToSetEmployeeID'
-        'Get-ADUsersToDeactivate'
-        'Get-ADUsersToUpdate'
-        'Get-ADUsersToCreate'
-        'Get-ADUserGroupsToUpdate'
-        'New-IDBridgeADOrgUnit'
-        'Disable-IDBridgeADUser'
-
-        # Google processing
-        'Get-GoogleData'
-        'Get-GoogleOrgUnitsForProcessing'
-        'Get-GoogleUsersToSetEmployeeID'
-        'Get-GoogleUsersToDeactivate'
-        'Get-GoogleUsersToUpdate'
-        'Get-GoogleUsersToCreate'
-        'Get-GoogleUserGroupsToUpdate'
-        'Get-GoogleUsersOrphaned'
-        'New-IDBridgeGoogleOrgUnit'
-        'New-IDBridgeGoogleUser'
-        'Update-IDBridgeGoogleUser'
-        'Update-GoogleGroupMembers'
-        'Remove-IDBridgeGoogleUserLicense'  # Deletes configured license SKUs from a user on the deactivate (trash) step.
-        'Invoke-GoogleBatchRequest'  # Sends multiple Directory API calls in one multipart/mixed batch HTTP request.
-
-        # Google Sheets helpers
-        'Get-GoogleSheetData'
-        'Get-SheetIdByName'
-        'Get-ColumnLetter'
-        'Convert-CellToIndex'
-        'Set-GSheetData'
-        'Set-CheckboxesToFalse'
-        'Push-LogsToSheet'
-
-        # Auth & Config
+        # Run & setup
         'Invoke-IDBridge'
         'Initialize-IDBridge'
-        'New-IDBridgeConfig'  # First-run scaffold: creates the folder tree + a default all-features-off config. Never overwrites an existing config.
+        'Install-IDBridge'  # First-run scaffold: creates the folder tree + a default all-features-off config. Never overwrites an existing config.
         'Get-IDBridgeConfig'  # This is the public accessor for the config object after initialization. It will throw an error if called before Initialize-IDBridge.
+        'Export-IDBridgeDirectoryToSheet'  # Onboarding tool: seeds the staff source sheet from current AD + Google state (new tab, Process=FALSE).
+
+        # Secrets
         'Get-IDBridgeSecret'  # Reads a named secret from the IDBridge vault (Cms/DpapiNG envelope files, or Azure Key Vault).
         'Set-IDBridgeSecret'  # Adds/changes a named secret in the IDBridge vault using the Secrets.Provider from config.
         'Get-IDBridgeSecretInfo'  # Lists vault secret names and metadata (never values).
@@ -75,31 +28,40 @@
         'New-IDBridgeSecretCertificate'  # Creates the Document Encryption certificate used by the Cms provider.
         'Grant-IDBridgeCertificatePrivateKeyAccess'  # Grants an account read on a machine-store certificate's private key (e.g. the gMSA, after the cert exists).
 
-        #Auth
+        # Google auth
         'Connect-IDBridgeGoogle'   # Vault key -> JWT (as the SA itself, no impersonation) -> bearer headers; standalone auth verification after bootstrap/role changes.
-        'Get-GoogleApiAccessToken'
         'Get-GoogleHeaders'
         'Get-IDBridgeGoogleServiceAccountEmail'  # SA email (client_email) from connect-time state or the vault key; the address to share sheets with.
         'Get-IDBridgeGoogleProjectId'  # GCP project ID (project_id) from connect-time state or the vault key; locates the install's Cloud project.
         'Initialize-IDBridgeGoogleServiceAccount'  # One-command bootstrap: project, APIs, service account, key into vault, admin role created + assigned.
 
-        # Logging & lifecycle
-        'Write-Log'
-        'Get-IDBridgeLogs' # This is the public accessor for the logs after initialization. It will throw an error if called before Initialize-IDBridge.
+        # Plugin toolkit: source data
+        'Get-SourceDataGSheet'
+        'Get-SourceDataSkywardSMS'
+        'Get-SourceDataInfiniteCampus'
+        'New-IDBridgeSourceRecord'
+        'Test-IDBridgeSourceData'
 
-        # Telemetry (see PRIVACY.md)
-        'Send-IDBridgeTelemetry'  # Posts anonymous aggregate run stats to the IDBridge Pulse ingest endpoint (fire-and-forget, from the finally block).
-        'Get-IDBridgeSiteID'      # Returns (creating on first use) the install's random telemetry SiteID; used to claim the install in the Pulse dashboard.
+        # Plugin toolkit: Google Sheets helpers
+        'Get-GoogleSheetData'
+        'Get-SheetIdByName'
+        'Get-ColumnLetter'
+        'Convert-CellToIndex'
+        'Set-GSheetData'
+        'Set-CheckboxesToFalse'
 
-        # Helpers
+        # Plugin toolkit: helpers
         'Get-StudentGrade'
         'New-Passphrase'
         'Format-IDBridgeName'
 
-        # Plugins
-        'Invoke-SourcePlugins'
-        'Invoke-PostRunPlugins'
-        'Merge-IDBridgeOverrideData'
+        # Logging
+        'Write-Log'
+        'Get-IDBridgeLogs' # This is the public accessor for the logs after initialization. It will throw an error if called before Initialize-IDBridge.
+
+        # Diagnostics
+        'Get-GoogleUsersOrphaned'  # Standalone check: target users under the managed OU absent from source data.
+        'Get-IDBridgeSiteID'       # Returns (creating on first use) the install's random telemetry SiteID; used to claim the install in the Pulse dashboard.
     )
 
     AliasesToExport   = @()

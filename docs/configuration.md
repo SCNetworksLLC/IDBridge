@@ -7,7 +7,7 @@ C:\IDBridge\Config\IDBridgeConfig.psd1
 ```
 
 It is loaded by `Initialize-IDBridge` into `$script:IDBridgeConfig` and read everywhere via
-`Get-IDBridgeConfig`. On a fresh install, `New-IDBridgeConfig` scaffolds the folder tree and
+`Get-IDBridgeConfig`. On a fresh install, `Install-IDBridge` scaffolds the folder tree and
 writes a default all-features-off config with placeholder values (it never overwrites an
 existing config). The file holds **site-specific values** (customer ID, sheet IDs, admin
 email, OU paths) but **no raw secrets** — secrets are read at runtime from the encrypted

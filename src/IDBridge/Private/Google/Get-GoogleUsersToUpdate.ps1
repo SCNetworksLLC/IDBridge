@@ -103,8 +103,7 @@ function Get-GoogleUsersToUpdate {
         if ($itemUpdateSplat.Count -gt 0) {
             $itemUpdateSplat["GoogleUserID"] = $item.GoogleCurrentUserID
 
-            Write-Log -Message ("Google: Proposed: Update User: " + $item.UPN + " - " + $item.personID)
-            Write-Log -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
+            Write-Log -Message ("Google: Proposed: Update User: " + $item.UPN + " - " + $item.personID + " Properties: " + ($itemUpdateSplat | ConvertTo-Json -Compress))
 
             $itemUpdateList += [PSCustomObject]@{
                 UPN = $item.UPN

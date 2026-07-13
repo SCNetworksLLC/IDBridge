@@ -56,9 +56,8 @@ function Disable-IDBridgeADUser {
 
     #Get all the groups and write that to the log
     if (-not [string]::IsNullOrEmpty($User.ADCurrentGroups)) {
-        Write-Log -Message ("AD: Current groups for " + $User.PersonID)
-        Write-Log -Message ($User.ADCurrentGroups -join ",")
-        
+        Write-Log -Message ("AD: Current groups for " + $User.PersonID + ": " + ($User.ADCurrentGroups -join ", "))
+
         if ($GroupRemovalProcessingStatus -eq $true) {
             Write-Log -Message  ("AD: Applying: Removing groups for " + $User.PersonID)
             #Per group so each removal gets its own write result and one bad group doesn't

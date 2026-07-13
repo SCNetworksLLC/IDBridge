@@ -1,6 +1,7 @@
 # User List CSV Export Plugin — IDBridge PostRun plugin template
+# TemplateVersion: 1
 <#
-Shipped with the IDBridge module and copied to <RootPath>\Plugins by New-IDBridgeConfig.
+Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 Works out of the box — just set Enabled = $true on its descriptor in IDBridgeConfig.psd1.
 
 Writes the user list CSVs defined in $exportFiles below to <RootPath>\Exports, for feeding

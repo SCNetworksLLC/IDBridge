@@ -20,16 +20,20 @@ Module version comes from `IDBridge.psd1` (`ModuleVersion`).
 src\IDBridge\          # The publishable module package (publish from here)
   IDBridge.psm1        # Loader: dot-sources every Private\**\*.ps1 and Public\**\*.ps1; breaks on import error
   IDBridge.psd1        # Manifest: explicit FunctionsToExport (public surface)
-  Public\
+  Public\              # Exported surface: what an admin or plugin author calls directly
     Core\              # Orchestrator, init, config, logging, helpers
     Secrets\           # Secret vault (Get/Set/Remove-IDBridgeSecret, cert creation)
-    Source\            # SIS/GSheet ingestion + plugin runner + override merge
+    Source\            # Source-data toolkit (SIS/GSheet readers, record factory, validation)
+    Google\            # Google auth/bootstrap + diagnostics
+    Google\Sheets\     # Sheets API helpers (read/write/format)
+  Private\             # Internal — loaded but never exported (test via & (Get-Module IDBridge) { ... })
+    Core\              # PostRun plugin runner, dedupe/threshold/telemetry
+    Source\            # Source plugin runner + override merge
     Target\            # Read current AD/Google state; attach it to source records
     AD\                # Active Directory create/update/deactivate/OU/group logic
-    Google\            # Google Workspace create/update/deactivate/OU/group logic
-    Google\Sheets\     # Sheets API helpers (read/write/format)
-  Private\             # Internal helpers (secrets providers, Google scopes) — loaded but never exported
-  Templates\Plugins\   # sanitized plugin templates — copied to <Root>\Plugins by New-IDBridgeConfig (never dot-sourced by the loader)
+    Google\            # Google Workspace create/update/deactivate/OU/group logic + API plumbing
+    (root)             # Secrets providers, Google scopes, write-result buffer
+  Templates\           # Sanitized config + plugin templates — copied to <Root> by Install-IDBridge (never dot-sourced by the loader)
 docs\                  # Reference docs (repo only — NOT in the package)
 images\                # Logos (non-code, repo only)
 CLAUDE.md  README.md  LICENSE  CHANGELOG.md  CONTRIBUTING.md   # repo root (not packaged)

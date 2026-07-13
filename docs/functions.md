@@ -1,14 +1,21 @@
 # IDBridge Function Reference
 
-Every **exported** function (per `IDBridge.psd1` → `FunctionsToExport`), grouped by layer.
-One entry each: purpose, key params, return shape, notable deps/external calls. For the
-overall flow see [architecture.md](architecture.md).
+Every module function, grouped by layer. One entry each: purpose, key params, return
+shape, notable deps/external calls. For the overall flow see
+[architecture.md](architecture.md).
 
-Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (no writes).
+Functions marked 🔒 are **internal** (module `Private\`, not in `FunctionsToExport`):
+the sync pipeline's planners, target-data readers, and directory writers, called only by
+`Invoke-IDBridge` and free to change between releases. Everything unmarked is the
+supported public surface — what an admin or plugin author calls directly. (To reach an
+internal function for testing: `& (Get-Module IDBridge) { <function> ... }`.)
+
+Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (no writes) ·
+🔒 = internal, not exported.
 
 ---
 
-## Core (`src\IDBridge\Public\Core\`)
+## Core
 
 ### `Invoke-IDBridge` 🌐
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
@@ -25,16 +32,20 @@ module, applies feature cascade. No Google auth — that happens in `Invoke-IDBr
 fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`.
 **Returns:** nothing; sets `$script:IDBridgeConfig`, `$script:Logs`.
 
-### `New-IDBridgeConfig` 🌐(filesystem)
-First-run scaffold. Creates the runtime folder tree (`Config/Logs/Exports/Plugins/Data/
-Vault`) under `-RootPath` (def `C:\IDBridge`), writes a default `IDBridgeConfig.psd1`
-with every feature disabled and placeholder site values (safety brakes on: `ReadOnly`,
-group `WhatIf`, `ChangeThreshold`), and copies the shipped plugin templates (module
-`Templates\Plugins\`) into `<RootPath>\Plugins`. **Throws if the config file already
-exists — never overwrites, no `-Force`; existing plugin files are likewise left alone.**
-Needs no initialized state (`Write-Host` only, no `Write-Log`); run it before
-`Initialize-IDBridge` on a fresh install. **Params:** `-RootPath`.
-**Returns:** nothing; prints the created config path.
+### `Install-IDBridge` 🌐(filesystem)
+Install scaffold. Creates the runtime folder tree (`Config/Logs/Exports/Plugins/Data/
+Vault`) under `-RootPath` (def `C:\IDBridge`), copies the shipped config template
+(default `IDBridgeConfig.psd1` — every feature disabled, placeholder site values, safety
+brakes on: `ReadOnly`, group `WhatIf`, `ChangeThreshold`), and copies the shipped plugin
+templates (module `Templates\Plugins\`) into `<RootPath>\Plugins`. **Never overwrites
+anything (no `-Force`)** — existing config and plugin files are skipped with a notice, so
+re-running it on an existing install is safe and is how you pick up NEW plugin templates
+after a module update. Templates carry a `# TemplateVersion: <n>` marker; when a skipped
+file's shipped template is newer than the installed copy, the skip notice adds a
+"newer template available" pointer (compare and port changes by hand — site edits are
+never touched). Needs no initialized state (`Write-Host` only, no `Write-Log`);
+run it before `Initialize-IDBridge` on a fresh install. **Params:** `-RootPath`.
+**Returns:** nothing; prints what it created.
 
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.
@@ -52,7 +63,7 @@ uninitialized.
 Accessor for `$script:GoogleHeaders` (the bearer auth headers). Throws if Google auth
 wasn't set up.
 
-### `Send-IDBridgeTelemetry` 🌐
+### `Send-IDBridgeTelemetry` 🔒 🌐
 Posts one anonymous usage event per run to the IDBridge Pulse ingest endpoint from the
 `finally` block of `Invoke-IDBridge` (see [PRIVACY.md](../PRIVACY.md)). **Params:**
 `-Success` (mandatory bool), `-DurationSeconds -ManagedCount -CreateCount -UpdateCount
@@ -63,7 +74,7 @@ the run's per-write results), `-RunError` (ErrorRecord — Enhanced tier extract
 (missing = `Basic`, unrecognized = `Off`); logs the exact payload at Trace; sends with a
 10 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.
 
-### `Invoke-PostRunPlugins` 🌐
+### `Invoke-PostRunPlugins` 🔒 🌐
 Discovers\runs the `Type = 'PostRun'` plugins from `$IDConfig.Plugins`, called from the
 `finally` block of `Invoke-IDBridge` after telemetry and before the log push — on every
 run, including failed and ReadOnly runs. Same load steps as `Invoke-SourcePlugins`
@@ -96,16 +107,16 @@ through. Can't infer intentional internal caps (`McDonald`→`Mcdonald`). The Sk
 it on `NameFirst`/`NameLast`; paired with the update functions' case-sensitive name compare, the
 casing fix reaches existing accounts too.
 
-### `Remove-IDBridgeDuplicateID` 🧮
+### `Remove-IDBridgeDuplicateID` 🔒 🧮
 **Params:** `-SourceData` (nullable/empty allowed). Two passes: drop records flagged
 `ADDuplicateIDStatus`/`GoogleDuplicateIDStatus`, then drop *all* records sharing a
 duplicate `personID`. **Returns:** array (guaranteed).
 
-### `Show-GroupsNotProcessed` 🧮
+### `Show-GroupsNotProcessed` 🔒 🧮
 **Params:** `-ProposedGroups`, `-TargetGroups`. Trace-logs each proposed group missing
 from the target. No return.
 
-### `Test-IDBridgeChangeThreshold` 🧮
+### `Test-IDBridgeChangeThreshold` 🔒 🧮
 **Params:** `-Directory` (`AD`/`Google`, log context), `-ChangeCount`, `-PopulationCount`,
 `-ThresholdPercent` (0–100). Computes `ChangeCount / PopulationCount` as a percentage and flags
 whether it exceeds `ThresholdPercent`; a `PopulationCount` of 0 is **skipped** (logged Warn, not
@@ -138,7 +149,7 @@ Requires `Initialize-IDBridge` + `Connect-IDBridgeGoogle` first. **Returns:**
 
 ---
 
-## Secrets (`src\IDBridge\Public\Secrets\`)
+## Secrets
 
 ### `Get-IDBridgeSecret` 🌐(AzKeyVault)
 **Params:** `-Name` (mandatory), `-AsPlainText`. Reads a secret's envelope file
@@ -185,9 +196,9 @@ via `nextLink`; includes everything the app registration can see in that vault).
 
 ---
 
-## Source (`src\IDBridge\Public\Source\`)
+## Source
 
-### `Invoke-SourcePlugins` 🌐
+### `Invoke-SourcePlugins` 🔒 🌐
 Discovers/runs plugins from `$IDConfig.Plugins` (skipping `Type = 'PostRun'` entries —
 those run via `Invoke-PostRunPlugins` at end of run). For each enabled entry: verifies
 `<PluginsRoot>\<Function>.ps1` exists, dot-sources it, confirms the function via
@@ -230,23 +241,23 @@ safety floor, returns rows where `Process='TRUE'`. **Returns:** array of row obj
 OneRoster `/schools` + `/students` (paginated). Normalizes to `SourcedId/LocalID/
 InternalID/NameFirst/NameLast/Email/Role/SchoolName/Grade/Status/...`. **Returns:** records.
 
-### `Merge-IDBridgeOverrideData` 🧮
+### `Merge-IDBridgeOverrideData` 🔒 🧮
 **Params:** `-SourceData`, `-OverrideData`. Applies override rows by `personID`: non-empty
 scalar values overwrite; `AddGroup`/`RemoveGroup` mutate `GroupsProposed`; `PersonID` and
 null/blank values skipped. **Returns:** mutated source array.
 
 ---
 
-## Target (`src\IDBridge\Public\Target\`)
+## Target 🔒
 
-### `Get-TargetDataAD` 🌐
+### `Get-TargetDataAD` 🔒 🌐
 No params. Pulls all AD users (rich property set incl. `EmployeeID`, `MemberOf`,
 `extensionAttribute1-5`), groups (minus `AD.groupsExcluded` name patterns — excluded groups
 are invisible to all group processing), OUs; resolves `MemberOf`→names into `CurrentGroups`;
 detects duplicate `EmployeeID`s; builds `LookupByID` keyed by EmployeeID. **Returns:**
 `@{ Users; Groups; OrgUnits; DuplicateUsers; LookupByID }`.
 
-### `Get-TargetDataGoogle` 🌐
+### `Get-TargetDataGoogle` 🔒 🌐
 No params. Pulls all Google users (via `Get-GoogleData`), groups (minus
 `Google.groupsExcluded` email patterns, default `classroom_teachers@*` — excluded groups
 are invisible to all group processing), and OUs; fetches group members **in parallel** (throttle 10) into
@@ -255,12 +266,12 @@ are invisible to all group processing), and OUs; fetches group members **in para
 `externalIds`; builds `LookupByID` keyed by externalID.
 **Returns:** `@{ Users; Groups; OrgUnits; DuplicateUsers; LookupByID }`.
 
-### `Add-TargetDataAD` 🧮
+### `Add-TargetDataAD` 🔒 🧮
 **Params:** `-SourceData`, `-ADData`. For each source record, if `LookupByID[personID]`
 hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 `ADCurrentGroups`; flags `ADDuplicateIDStatus` when applicable. **Returns:** enriched array.
 
-### `Add-TargetDataGoogle` 🧮
+### `Add-TargetDataGoogle` 🔒 🧮
 **Params:** `-SourceData`, `-GoogleData`. As above for Google: `GoogleObject`,
 `GoogleCurrentUserID`, `GoogleCurrentUserSuspendedStatus` (true when suspended **or** archived;
 `$null` when there is no Google account), `GoogleCurrentGroups`,
@@ -268,7 +279,7 @@ hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 
 ---
 
-## Active Directory (`src\IDBridge\Public\AD\`)
+## Active Directory 🔒
 
 > Identity key: **`EmployeeID` = `personID`**. CN convention: `FirstName LastName personID`.
 > Per-user targeting: **`ProvisionAD`** (with `IDBActive`) gates these — create/update/groups
@@ -276,7 +287,7 @@ hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 > ProvisionAD=false`. So a Google-only user (`ProvisionAD=false`) is never created in AD, and an
 > existing AD account is deactivated. Setting `IDBActive=false` alone deactivates everywhere.
 
-### `Get-ADUsersToSetEmployeeID` 🧮🌐
+### `Get-ADUsersToSetEmployeeID` 🔒 🧮🌐
 **Params:** `-UserList`, `-CurrentADUsers`. For **any unlinked** source user (active or not),
 matches an existing AD user by SamAccountName **and** name — so deprovisioned users get linked
 and can then be deactivated. Unlinked users with no AD account at all are logged at Trace only
@@ -284,16 +295,16 @@ and can then be deactivated. Unlinked users with no AD account at all are logged
 `Get-GoogleUsersToSetEmployeeID`). **Returns:** hashtable
 `personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`.
 
-### `Get-ADOrgUnitsForProcessing` 🧮
+### `Get-ADOrgUnitsForProcessing` 🔒 🧮
 **Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU DNs (+trash),
 expands ancestors, removes existing, sorts parents-first. **Returns:** ordered OU DN array.
 
-### `Get-ADUsersToCreate` 🧮🌐
+### `Get-ADUsersToCreate` 🔒 🧮🌐
 **Params:** `-UserList`, `-CurrentADUsers`, `-Nonce`. **Predicate:** `IDBActive=true` AND
 `ProvisionAD=true` AND no `ADCurrentUserID` AND UPN absent from AD. Builds a `New-ADUser` splat
 (password from `ADKey` or `ADPassphraseAPI`→`New-Passphrase`). **Returns:** `@{ PersonID; Splat }[]`.
 
-### `Get-ADUsersToUpdate` 🧮
+### `Get-ADUsersToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-LookupByID`, `-CurrentADUsers`. **Predicate:** `IDBActive=true` AND
 `ProvisionAD=true` AND has `ADCurrentUserID` + any delta (name, username/UPN, EmployeeID,
 office/title/company/dept, description/phone/email, enabled state, employeeType/ext-attr,
@@ -304,20 +315,20 @@ the `CurrentADUsers` snapshot is logged as an error and the user is skipped that
 applied. **Returns:** `@{ UpdateList; RenameList; MoveList }` (items carry `CN` +
 `PersonID` for write-result attribution).
 
-### `Get-ADUsersToDeactivate` 🧮
+### `Get-ADUsersToDeactivate` 🔒 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionAD=false)` AND
 `ADCurrentUserEnabledStatus=true`. **Returns:** user objects to disable.
 
-### `Get-ADUserGroupsToUpdate` 🧮
+### `Get-ADUserGroupsToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-CurrentADGroups`. Diffs `GroupsProposed` vs `ADCurrentGroups`
 (adds must exist in AD). **Returns:** `@{ Add; Remove }` (each `@{PersonID; ADCurrentUserID;
 Groups}`).
 
-### `New-IDBridgeADOrgUnit` 🌐
+### `New-IDBridgeADOrgUnit` 🔒 🌐
 **Params:** `-OrgUnit` (DN). Parses DN → `New-ADOrganizationalUnit`. Throws on failure —
 `Invoke-IDBridge` treats a failed OU creation as fatal and aborts the run.
 
-### `Disable-IDBridgeADUser` 🌐
+### `Disable-IDBridgeADUser` 🔒 🌐
 **Params:** `-User`, `-GroupRemovalProcessingStatus`. Disables account, stamps `Division`
 with timestamp, moves to trash OU, and (if flag) removes all current groups — each removal
 recorded as its own `GroupRemove` write result; a failed group is logged and skipped.
@@ -325,7 +336,7 @@ Disable/move failures return the ErrorRecord (the caller records the `Deactivate
 
 ---
 
-## Google Workspace (`src\IDBridge\Public\Google\`)
+## Google Workspace
 
 > Identity key: **`externalIds` (type `organization`).value = `personID`**.
 > All write functions get auth via `Get-GoogleHeaders` and hit the Admin SDK Directory API
@@ -334,35 +345,35 @@ Disable/move failures return the ErrorRecord (the caller records the `Deactivate
 > `IDBActive=true AND ProvisionGoogle=true`; deactivate fires on `IDBActive=false OR
 > ProvisionGoogle=false`.
 
-### `Get-GoogleData` 🌐
+### `Get-GoogleData` 🔒 🌐
 **Params:** `-GoogleHeaders`, `-APIUri`. Generic paginated GET (follows `nextPageToken`),
 consolidates the primary collection. **Returns:** combined array.
 
-### `Get-GoogleApiAccessToken` 🌐
+### `Get-GoogleApiAccessToken` 🔒 🌐
 **Params:** `-ServiceAccountKeyPath` or `-ServiceAccountKeyJson`, `-Scope`. Builds +
 RS256-signs a JWT issued to the service account itself (no `sub` claim / impersonation),
 exchanges it at `https://oauth2.googleapis.com/token`. **Returns:**
 `@{ Authorization='Bearer …'; Accept='application/json' }`.
 
-### `Get-GoogleUsersToSetEmployeeID` 🧮
+### `Get-GoogleUsersToSetEmployeeID` 🔒 🧮
 **Params:** `-UserList`, `-GoogleUsers`. Matches **any unlinked** source user (active or not)
 to existing Google users by primaryEmail+name. Unlinked users with no Google account at all are
 logged at Trace only (inactive ones with an explicit "nothing to reconcile" message — inactive
 source rows with no account are expected and recur until the row leaves the source feed).
 **Returns:** hashtable `personID → @{ ID; Groups; SuspendedStatus; User }`.
 
-### `Get-GoogleOrgUnitsForProcessing` 🧮
+### `Get-GoogleOrgUnitsForProcessing` 🔒 🧮
 **Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU paths
 (+trash), expands ancestors (`/A/B/C`→`/A`,`/A/B`,`/A/B/C`), removes existing, sorts
 shallow-first. **Returns:** ordered OU path array.
 
-### `Get-GoogleUsersToCreate` 🧮🌐
+### `Get-GoogleUsersToCreate` 🔒 🧮🌐
 **Params:** `-UserList`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
 `ProvisionGoogle=true` AND no `GoogleCurrentUserID` AND UPN absent from Google. Builds create
 splat (password from `GooglePassphraseAPI`→`New-Passphrase` or `GoogleKey`; skips if neither;
 honors `GoogleChangePasswordAtLogon`). **Returns:** `@{ UPN; PersonID; Splat }[]`.
 
-### `Get-GoogleUsersToUpdate` 🧮
+### `Get-GoogleUsersToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-LookupByID`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
 `ProvisionGoogle=true` AND linked + delta in primaryEmail (with alias-conflict handling →
 `RemoveAlias`), externalId, name, dept/title, suspended/archived state (archived rehires are
@@ -381,7 +392,7 @@ unarchived; `ForceDisable` suspends — the temporary block, never an archive), 
 > rename freeing an address a later hire should get). The alias holder can be the renamed
 > user themselves (renaming back to an address Google kept as their own alias) — that works.
 
-### `Get-GoogleUsersToDeactivate` 🧮
+### `Get-GoogleUsersToDeactivate` 🔒 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionGoogle=false)` AND
 `GoogleCurrentUserSuspendedStatus=false` (that property is true when the account is suspended
 **or** archived, so pre-archive suspends are grandfathered). The deactivate step **archives**
@@ -391,7 +402,7 @@ will set the personID externalId: accounts matched by UPN+name have no externalI
 update list only covers active users, so the deactivate write persists the link (otherwise the
 account would be re-matched every run). **Returns:** user objects.
 
-### `Get-GoogleUserGroupsToUpdate` 🧮
+### `Get-GoogleUserGroupsToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-GoogleGroups` (nullable). Diffs proposed vs current groups
 (adds must exist in Google; membership compared by each group's real email from
 `GoogleGroups` — a group's email does not always match its name). **Returns:** `@{ Add; Remove }`.
@@ -401,14 +412,14 @@ account would be re-matched every run). **Returns:** user objects.
 source. **Returns:** `@{ GoogleCurrentUserID; GoogleOrganizationalUnitTrash; Groups }[]`.
 *(Not currently called by `Invoke-IDBridge`; available for orphan cleanup.)*
 
-### `New-IDBridgeGoogleUser` 🌐
+### `New-IDBridgeGoogleUser` 🔒 🌐
 **Params:** `-PrimaryEmail`, `-PersonID`, `-FirstName`, `-LastName`, `-Building`,
 `-JobTitle`, `-OrgUnitPath`, `-Password` (SecureString), `-ChangeAtNextLogin`,
 `-AsBatchRequest`. POST `/users/`. **Returns:** API user object (has `.ID`), or with
 `-AsBatchRequest` the request descriptor for `Invoke-GoogleBatchRequest` (ContentId =
 primaryEmail, so the new ID can be matched back from the batch response).
 
-### `Update-IDBridgeGoogleUser` 🌐
+### `Update-IDBridgeGoogleUser` 🔒 🌐
 **Params:** `-GoogleUserID` + any of `-PrimaryEmail -Suspended -Archived -PersonID -FirstName
 -LastName -Building -JobTitle -OrgUnitPath -Password -ChangeAtNextLogin -RemoveAlias
 -AsBatchRequest`. PUT `/users/{id}` with only changed fields; `RemoveAlias` does a lookup +
@@ -417,7 +428,7 @@ DELETE on the alias (always immediately, even with `-AsBatchRequest`). With
 calling the API. Used for updates, moves, renames, and archive-to-trash deactivations
 (`-Suspended` remains for the temporary `ForceDisable` block).
 
-### `Invoke-GoogleBatchRequest` 🌐
+### `Invoke-GoogleBatchRequest` 🔒 🌐
 **Params:** `-Requests` (`@{ Method; Path; Body; ContentId }[]`), `-BatchUri` (def the
 Directory API batch endpoint). Sends the requests as `multipart/mixed` batch POSTs, 50 per
 round trip, and parses the multipart response manually. Per-item failures are logged and
@@ -426,13 +437,13 @@ must not mix order-dependent calls (`Invoke-IDBridge` sends deactivates, updates
 creates as three sequential batches). Batching cuts round trips, not quota. **Returns:**
 `@{ ContentId; StatusCode; Body }[]`.
 
-### `New-IDBridgeGoogleOrgUnit` 🌐
+### `New-IDBridgeGoogleOrgUnit` 🔒 🌐
 **Params:** `-OrgUnit` (path). POST
 `/customer/<Google.customerID>/orgunits` with name + parentOrgUnitPath (the real customer
 ID from config — `my_customer` doesn't resolve for the service account's own token).
 Logs then throws on failure — `Invoke-IDBridge` treats a failed OU creation as fatal.
 
-### `Update-GoogleGroupMembers` 🌐
+### `Update-GoogleGroupMembers` 🔒 🌐
 **Params:** `-GroupEmail`, `-PersonID`, `-UpdateType {Add|Remove}`, `-AsBatchRequest`,
 `-ContentId` (def `<PersonID>|<GroupEmail>`). Add → POST `/groups/{email}/members` (role
 MEMBER); Remove → DELETE `/groups/{email}/members/{id}`. With `-AsBatchRequest` returns a
@@ -477,7 +488,7 @@ token lacks it). Prints the share-the-sheets checklist. **Returns:**
 `@{ ProjectId; ServiceAccountEmail; ClientId; RoleId }`. See
 [google-bootstrap.md](google-bootstrap.md).
 
-### `Remove-IDBridgeGoogleUserLicense` 🌐
+### `Remove-IDBridgeGoogleUserLicense` 🔒 🌐
 **Params:** `-UserEmail` (the Licensing API user key), `-Assignments` (the user's license
 assignments from the target snapshot, `GoogleCurrentLicenses`; empty = no-op). One DELETE
 per assignment, logging every removal by SKU name; per-assignment errors are logged and
@@ -486,13 +497,13 @@ default; `enableLicenseRemoval = $false` disables) — never on `ForceDisable` u
 License discovery happens in `Get-TargetDataGoogle`, so ReadOnly runs show what would be
 removed.
 
-### `Push-LogsToSheet` 🌐
+### `Push-LogsToSheet` 🔒 🌐
 **Params:** `-spreadsheetId`, `-sheetName`. Pulls `Get-IDBridgeLogs`, creates the sheet/
 header if missing, inserts rows, writes newest-first via `Set-GSheetData`.
 
 ---
 
-## Google Sheets helpers (`src\IDBridge\Public\Google\Sheets\`)
+## Google Sheets helpers
 
 ### `Get-GoogleSheetData` 🌐
 **Params:** `-GoogleSheetID`, `-GoogleSheetRange`. GET Sheets v4 `values` (`majorDimension=

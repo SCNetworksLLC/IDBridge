@@ -1,6 +1,7 @@
 # Run Summary Webhook Plugin — IDBridge PostRun plugin template
+# TemplateVersion: 1
 <#
-Shipped with the IDBridge module and copied to <RootPath>\Plugins by New-IDBridgeConfig.
+Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 Set the webhook URL before enabling the plugin in IDBridgeConfig.psd1 — it throws until
 the URL is set.
 

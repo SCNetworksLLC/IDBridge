@@ -35,8 +35,7 @@ function Get-ADUsersToDeactivate {
         Write-Log -Message ("AD: Proposed: Deactivate User: $($item.PersonID)")
 
         if ($item.ADCurrentGroups) {
-            Write-Log -Message ("AD: Current groups for " + $item.PersonID)
-            Write-Log -Message ($item.ADCurrentGroups -join ",")
+            Write-Log -Message ("AD: Current groups for " + $item.PersonID + ": " + ($item.ADCurrentGroups -join ", "))
         }
     }
 

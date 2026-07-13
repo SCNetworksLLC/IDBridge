@@ -5,6 +5,57 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.13.1] - 2026-07-13
+
+### Added
+- **Template versioning.** Every shipped plugin template and the config template now
+  start with a `# TemplateVersion: <n>` marker (all start at v1), bumped when the
+  template meaningfully changes. On re-run, `Install-IDBridge` compares the marker in
+  each installed copy against the shipped template and prints a "newer template
+  available" notice pointing at the shipped file — so a district can see that a template
+  has improved since they scaffolded, without IDBridge ever touching their edited copy.
+  A copy without the marker (all pre-existing installs) reads as unversioned and gets
+  the notice too. Leave the marker line in place when customizing a template.
+
+### Changed
+- **BREAKING: `New-IDBridgeConfig` renamed to `Install-IDBridge`** (no alias). The old
+  name described a fraction of what it does — the function scaffolds the whole install
+  (folder tree, config, plugin templates), and setup now reads as a natural pair:
+  `Install-Module IDBridge`, then `Install-IDBridge`. Docs and template headers updated.
+- **`Install-IDBridge` is now safe to re-run on an existing install.** It no longer
+  throws when the config file exists — it skips the config (and any existing plugin
+  file) with a notice and still creates whatever is missing. Re-running it after a
+  module update is now the supported way to pick up newly shipped plugin templates
+  (e.g. `Invoke-PluginPostRunExport` from 26.7.13.0, which previously had to be copied
+  by hand). Nothing existing is ever overwritten, same as before.
+- **BREAKING: public API narrowed to the supported surface (70 → 34 exports).** The sync
+  pipeline's internals — change-list planners (`Get-AD*/Get-Google*ToCreate/ToUpdate/
+  ToDeactivate/ToSetEmployeeID`, group planners), target-data readers (`Get/Add-TargetData*`),
+  directory writers (`New/Update-IDBridgeGoogleUser`, `Update-GoogleGroupMembers`,
+  `Disable-IDBridgeADUser`, `New-IDBridge*OrgUnit`, `Invoke-GoogleBatchRequest`,
+  `Remove-IDBridgeGoogleUserLicense`), plugin runners (`Invoke-SourcePlugins`,
+  `Invoke-PostRunPlugins`, `Merge-IDBridgeOverrideData`), and run machinery
+  (`Test-IDBridgeChangeThreshold`, `Remove-IDBridgeDuplicateID`, `Show-GroupsNotProcessed`,
+  `Send-IDBridgeTelemetry`, `Push-LogsToSheet`, `Get-GoogleData`,
+  `Get-GoogleApiAccessToken`) — moved to `Private\` and are no longer exported. They are
+  called only by `Invoke-IDBridge`; nothing a plugin or admin session calls was removed
+  (verified against the shipped templates and live plugins). Still exported: run/setup
+  commands, the secrets vault, Google auth/bootstrap, the plugin toolkit (source readers,
+  record factory, Sheets helpers, `Write-Log`/`Get-IDBridgeConfig`/`Get-IDBridgeSecret`),
+  and diagnostics (`Get-GoogleUsersOrphaned`, `Get-IDBridgeSiteID`). If a custom script
+  called an internal function, reach it with `& (Get-Module IDBridge) { <function> ... }`
+  — or open an issue and it can be promoted back. docs/functions.md now marks internal
+  functions with 🔒.
+- **Every log line is now self-contained.** Follow-up consistency pass on the run log:
+  the proposed create/update lines carry their properties JSON inline (matching the
+  `Applying:` format) instead of logging a bare unprefixed JSON line after, and the
+  "Current groups for" lines carry the group list inline — so a line filtered or sorted
+  out of context (e.g. in the Google Sheet log) still identifies itself.
+  `Show-GroupsNotProcessed` logs one line listing all missing groups instead of one line
+  per group, and gains a mandatory `-Directory` parameter so the line says AD or Google.
+  The access-token and source-row-skip messages gain their `Google:`/`Source Data:`
+  prefixes. Log-wording change only — no behavior change.
+
 ## [26.7.13.0] - 2026-07-13
 
 ### Added

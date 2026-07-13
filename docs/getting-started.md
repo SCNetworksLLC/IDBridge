@@ -25,10 +25,10 @@ touching either directory. Step 9 turns writes on deliberately.
 Install-Module IDBridge -Scope CurrentUser   # Update-Module IDBridge to upgrade later
 Import-Module IDBridge
 
-New-IDBridgeConfig                           # -RootPath 'D:\IDBridge' to relocate everything
+Install-IDBridge                           # -RootPath 'D:\IDBridge' to relocate everything
 ```
 
-`New-IDBridgeConfig` creates the runtime tree under `C:\IDBridge`
+`Install-IDBridge` creates the runtime tree under `C:\IDBridge`
 (`Config/Logs/Exports/Plugins/Data/Vault`), writes a default
 `Config\IDBridgeConfig.psd1` — every feature disabled, all safety brakes on (`ReadOnly`,
 group `WhatIf`, `ChangeThreshold`), placeholder site values — and copies the three shipped

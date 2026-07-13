@@ -153,8 +153,7 @@ function Get-ADUsersToUpdate {
             $itemUpdateSplat["Identity"] = $item.ADCurrentUserID
             $itemUpdateSplat["Division"] = (Get-Date -format yyyy-MM-dd-HH:mm)
 
-            Write-Log -Message ("AD: Proposed: Update User: " + $item.UPN + " - " + $item.personID)
-            Write-Log -Message ($itemUpdateSplat | ConvertTo-Json -Compress)
+            Write-Log -Message ("AD: Proposed: Update User: " + $item.UPN + " - " + $item.personID + " Properties: " + ($itemUpdateSplat | ConvertTo-Json -Compress))
 
             $itemUpdateList += [PSCustomObject]@{
                 CN = $ADUser.CN

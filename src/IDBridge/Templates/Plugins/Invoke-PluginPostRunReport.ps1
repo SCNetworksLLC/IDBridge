@@ -1,6 +1,7 @@
 # Local JSON Run Report Plugin — IDBridge PostRun plugin template
+# TemplateVersion: 1
 <#
-Shipped with the IDBridge module and copied to <RootPath>\Plugins by New-IDBridgeConfig.
+Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 Works out of the box — just set Enabled = $true on its descriptor in IDBridgeConfig.psd1.
 
 Writes a run-summary JSON (RunSummary-<timestamp>.json) to <RootPath>\Exports after every

@@ -114,11 +114,11 @@ function Get-GoogleApiAccessToken {
             'Accept' = 'application/json'
         }
         
-        Write-Log -Message "Successfully retrieved Google Access Token" -Level Trace
+        Write-Log -Message "Google: Successfully retrieved Access Token" -Level Trace
 
         return $headers
     } catch {
-        Write-Log -Message "Failed to Retrieve Google Access Token" -Level Error
+        Write-Log -Message "Google: Failed to Retrieve Access Token" -Level Error
         Throw $_
     }
 }
