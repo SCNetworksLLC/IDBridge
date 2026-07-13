@@ -1,0 +1,40 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest and tag
+        shell: pwsh
+        run: |
+          $manifest = Test-ModuleManifest -Path ./src/IDBridge/IDBridge.psd1
+          $tagVersion = '${{ github.ref_name }}'.TrimStart('v')
+          if ("$($manifest.Version)" -ne $tagVersion) {
+              throw "Tag v$tagVersion does not match ModuleVersion $($manifest.Version) in IDBridge.psd1"
+          }
+
+      - name: Publish to PowerShell Gallery
+        shell: pwsh
+        run: Publish-PSResource -Path ./src/IDBridge -ApiKey '${{ secrets.PSGALLERY_API_KEY }}' -Repository PSGallery
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $changelog = Get-Content ./CHANGELOG.md -Raw
+          $match = [regex]::Match($changelog, "(?s)## \[$([regex]::Escape($version))\][^\n]*\n(.*?)(?=\n## \[|\z)")
+          $notes = if ($match.Success) { $match.Groups[1].Value.Trim() } else { 'See CHANGELOG.md for details.' }
+          Set-Content -Path release-notes.md -Value $notes
+          gh release create '${{ github.ref_name }}' --title "v$version" --notes-file release-notes.md

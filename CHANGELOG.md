@@ -5,6 +5,28 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.13.2] - 2026-07-13
+
+### Added
+- **Automated releases.** New `Publish` GitHub Actions workflow: pushing a `v*` tag now
+  validates the manifest (and that the tag matches `ModuleVersion`), publishes the module
+  to the PowerShell Gallery, and creates a GitHub Release using that version's changelog
+  section as the notes. Requires a `PSGALLERY_API_KEY` repository secret; CONTRIBUTING.md's
+  publishing section updated to match, keeping the manual steps as a fallback.
+
+### Changed
+- **Docs: staleness pass across the repo docs and READMEs.** getting-started.md and the
+  repo CLAUDE.md said three plugin templates ship (six do — the PostRun report, webhook,
+  and export templates were missing); plugins.md's source-of-truth links still pointed at
+  the old `Public\` paths for `Invoke-SourcePlugins`/`Invoke-PostRunPlugins` (moved to
+  `Private\` in 26.7.13.1); the README quick start skipped the `Install-IDBridge`
+  scaffold step and its layout section predated `Private\`/`Templates\`; functions.md's
+  `Invoke-IDBridge` entry still claimed the inline CSV export (moved to the PostRun
+  export plugin in 26.7.13.0); architecture.md and functions.md now mention the run-start
+  update check; CONTRIBUTING.md now covers the Public/Private split and the
+  `# TemplateVersion` bump rule; PRIVACY.md gains a "Not telemetry: the update check"
+  section disclosing the PowerShell Gallery version query. Docs only — no behavior change.
+
 ## [26.7.13.1] - 2026-07-13
 
 ### Added

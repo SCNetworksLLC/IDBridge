@@ -31,7 +31,7 @@ Install-IDBridge                           # -RootPath 'D:\IDBridge' to relocate
 `Install-IDBridge` creates the runtime tree under `C:\IDBridge`
 (`Config/Logs/Exports/Plugins/Data/Vault`), writes a default
 `Config\IDBridgeConfig.psd1` — every feature disabled, all safety brakes on (`ReadOnly`,
-group `WhatIf`, `ChangeThreshold`), placeholder site values — and copies the three shipped
+group `WhatIf`, `ChangeThreshold`), placeholder site values — and copies the six shipped
 plugin templates into `Plugins\`. It never overwrites an existing config or plugin file.
 You'll edit these in steps 6–7; the config schema reference is
 [configuration.md](configuration.md).
@@ -109,14 +109,18 @@ want the run log pushed to a sheet too, create/share one more and put its ID in
 
 ## 6. Source plugin
 
-Plugins are the only place source data enters IDBridge. Step 2 copied the three shipped
-templates into `C:\IDBridge\Plugins\`:
+Plugins are the only place source data enters IDBridge. Step 2 copied the six shipped
+templates into `C:\IDBridge\Plugins\`. Three of them feed the run:
 
 | Template | Type | Reads |
 |----------|------|-------|
 | `Invoke-PluginGSheetStaff` | Source | the staff tab of the sheet from step 5 |
 | `Invoke-PluginStaffOverride` | Override | the override tab of the same sheet |
 | `Invoke-PluginSkywardSMSStudents` | Source | students from the Skyward SMS OneRoster API (minimal starting point) |
+
+(The other three are **PostRun** templates — end-of-run run reports, user-list CSV
+exports, and a webhook. None is needed for a first run; see
+[Next steps](#next-steps).)
 
 Edit the placeholder values at the top of each template you'll use — spreadsheet ID,
 domain, company, root OUs, password types — and the optional `Get-Custom*Groups` helper
@@ -191,5 +195,10 @@ Flip one brake at a time, with a read-only-style review after each:
 - **Students from a SIS:** a second source plugin (the Skyward OneRoster plugin in
   [plugins.md](plugins.md#invoke-pluginskywardsmsstudents--source-disabled-in-config) is a
   worked example).
+- **Run reports, CSV exports, alerting:** the three PostRun templates consume each run's
+  results — `Invoke-PluginPostRunReport` (JSON run summary) and
+  `Invoke-PluginPostRunExport` (user-list CSVs) work as-is once their descriptors are
+  enabled; `Invoke-PluginPostRunWebhook` POSTs a compact summary to your own endpoint.
+  See [plugins.md](plugins.md#the-postrun-contract-invoke-postrunplugins).
 - **Run-history dashboard:** `Telemetry.Tier = 'Enhanced'`, then claim your SiteID
   (`Get-IDBridgeSiteID`) at [IDBridge Pulse](https://pulse.scnlabs.net).

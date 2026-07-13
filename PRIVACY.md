@@ -69,6 +69,17 @@ Telemetry is fire-and-forget with a 10-second timeout and no retries: an unreach
 endpoint (blocked egress, air-gapped network) is logged locally and never delays or
 fails a sync.
 
+## Not telemetry: the update check
+
+Separately from telemetry, `Invoke-IDBridge` queries the **PowerShell Gallery**
+(`powershellgallery.com`, a Microsoft service) at the start of each run to see whether a
+newer IDBridge release exists, and logs a warning when one does. The request is a
+standard gallery version lookup — it carries nothing about your install beyond the
+module name, and nothing is ever downloaded or installed. It runs regardless of the
+telemetry tier (it isn't telemetry and sends nothing to SC Networks); there is no
+switch to disable it, but blocked or offline networks skip it silently (10-second
+timeout, logged at Trace, never affects the run).
+
 ## The SiteID file
 
 The SiteID is stored in plain text at `<RootPath>\Config\IDBridgeSiteID.json`. It is not

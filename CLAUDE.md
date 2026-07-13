@@ -112,9 +112,9 @@ Switches (override the config file at runtime):
 
 - [docs/getting-started.md](docs/getting-started.md) — first-run setup walkthrough: clean machine → first sync (Gallery install path).
 - [docs/architecture.md](docs/architecture.md) — startup + the full ordered pipeline, data-object lifecycle, logging model (start here).
-- [docs/functions.md](docs/functions.md) — every exported function by layer: purpose, params, returns, diffing predicates.
+- [docs/functions.md](docs/functions.md) — every function by layer (internal ones marked 🔒): purpose, params, returns, diffing predicates.
 - [docs/configuration.md](docs/configuration.md) — full `IDBridgeConfig.psd1` schema, runtime `Paths`, and secret file locations.
-- [docs/plugins.md](docs/plugins.md) — plugin contract + output schemas, with the three shipped plugins as worked examples.
+- [docs/plugins.md](docs/plugins.md) — plugin contract (Source/Override/PostRun) + output schemas, with the shipped plugins as worked examples.
 - [docs/secrets.md](docs/secrets.md) — secret vault providers (Cms/DPAPI-NG), certificate setup, secret names, migration.
 - [docs/google-bootstrap.md](docs/google-bootstrap.md) — one-command Google service-account bootstrap (custom admin role, no domain-wide delegation) + the manual finish steps.
 - [README.md](README.md) — public-facing overview, quick start, and publishing pointers.

@@ -27,7 +27,9 @@ initialize cleanly and seed secrets/run the bootstrap before the Google key exis
 Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig`, applies **runtime switch
 overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
 -SkipChangeThreshold`), logging each as `OVERRIDE: <key> = <value>` (switches win over the
-config file), and **acquires Google auth** (if `GoogleToken.Enabled`) via
+config file), runs the **notify-only update check** (a newer Gallery release logs a `Warn`
+to run `Update-Module IDBridge`; offline/blocked environments log a Trace skip — nothing
+is ever installed), and **acquires Google auth** (if `GoogleToken.Enabled`) via
 `Connect-IDBridgeGoogle`: reads the service-account key JSON from the secret vault
 (`Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount'`; **no file fallback**), validates
 it has a `private_key`, then calls `Get-GoogleApiAccessToken` (JWT → bearer token issued
@@ -48,6 +50,7 @@ startup/OU-creation failures `Throw` and abort the run.
 Invoke-IDBridge
   └─ Initialize-IDBridge ──► $script:IDBridgeConfig / $script:Logs
   └─ apply -switch overrides
+  └─ update check (notify-only Gallery query; failure = Trace skip)
   └─ Connect-IDBridgeGoogle (GoogleToken.Enabled) ──► $script:GoogleHeaders
         │
   1. Invoke-SourcePlugins ───────────► $sourceData (Source), $overrideData (Override)

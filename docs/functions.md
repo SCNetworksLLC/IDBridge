@@ -21,10 +21,12 @@ Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
 -TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold
 -DisableTelemetry`. Calls
-`Initialize-IDBridge`, applies switch overrides, acquires the Google token (when
-`GoogleToken.Enabled`) from the vault secret `GoogleAuth-ServiceAccount` →
-`$script:GoogleHeaders`, then runs the full pipeline (see architecture.md). **Returns:**
-nothing; side effects + CSV export + log push.
+`Initialize-IDBridge`, applies switch overrides, runs the notify-only Gallery update
+check (a newer release logs a `Warn`; failures are skipped at Trace), acquires the
+Google token (when `GoogleToken.Enabled`) from the vault secret
+`GoogleAuth-ServiceAccount` → `$script:GoogleHeaders`, then runs the full pipeline (see
+architecture.md). **Returns:** nothing; side effects + log push (user-list CSV exports
+live in the PostRun export plugin).
 
 ### `Initialize-IDBridge` 🌐
 Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), imports AD

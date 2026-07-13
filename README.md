@@ -25,6 +25,9 @@ Install-Module IDBridge -Scope CurrentUser
 
 Import-Module IDBridge
 
+# First-time setup: scaffold C:\IDBridge (folder tree, default config, plugin templates)
+Install-IDBridge
+
 # Safe dry run — computes all changes, writes nothing, verbose logging
 Invoke-IDBridge -ReadOnly -TraceLogging
 ```
@@ -76,12 +79,12 @@ The **module code** lives in this repo under `src/IDBridge/`. The **configuratio
 and runtime data live outside the repo** under `C:\IDBridge\` (created/used at run time):
 
 ```
-src/IDBridge/        module (psd1/psm1 + Public/) — the publishable package
+src/IDBridge/        module (psd1/psm1 + Public/Private/Templates/) — the publishable package
 docs/                reference documentation (repo only)
 CLAUDE.md            agent/developer onboarding (repo only)
 
 C:\IDBridge\Config\IDBridgeConfig.psd1   configuration   (outside repo)
-C:\IDBridge\Plugins\*.ps1                source/override plugins (outside repo)
+C:\IDBridge\Plugins\*.ps1                source/override/postrun plugins (outside repo)
 C:\IDBridge\{Logs,Exports,Data,Vault}\   runtime dirs incl. the secret vault (outside repo)
 ```
 

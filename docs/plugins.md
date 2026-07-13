@@ -27,7 +27,7 @@ There are three kinds:
 
 ## The contract (`Invoke-SourcePlugins`)
 
-Source of truth: [`src\IDBridge\Public\Source\Invoke-SourcePlugins.ps1`](../src/IDBridge/Public/Source/Invoke-SourcePlugins.ps1).
+Source of truth: [`src\IDBridge\Private\Source\Invoke-SourcePlugins.ps1`](../src/IDBridge/Private/Source/Invoke-SourcePlugins.ps1).
 
 For each enabled `Plugins` entry, in config order (`PostRun` entries are skipped here —
 they run at end of run):
@@ -125,7 +125,7 @@ touches the fields it sets.
 
 ## The PostRun contract (`Invoke-PostRunPlugins`)
 
-Source of truth: [`src\IDBridge\Public\Core\Invoke-PostRunPlugins.ps1`](../src/IDBridge/Public/Core/Invoke-PostRunPlugins.ps1).
+Source of truth: [`src\IDBridge\Private\Core\Invoke-PostRunPlugins.ps1`](../src/IDBridge/Private/Core/Invoke-PostRunPlugins.ps1).
 
 PostRun plugins run from the `finally` block of `Invoke-IDBridge`, after telemetry and
 before the Google Sheet log push (so their `Write-Log` lines make it into the sheet). They

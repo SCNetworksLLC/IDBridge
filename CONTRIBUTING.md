@@ -14,8 +14,9 @@
 ## Branch / PR flow
 
 1. Branch from `main` (e.g. `feature/<short-name>` or `fix/<short-name>`).
-2. Make focused changes; match the existing function style (one `Verb-Noun.ps1` per file under
-   `src/IDBridge/Public/`, comment-based help, `Write-Log` for logging).
+2. Make focused changes; match the existing function style (one `Verb-Noun.ps1` per file —
+   exported functions under `src/IDBridge/Public/`, internal ones under
+   `src/IDBridge/Private/` — comment-based help, `Write-Log` for logging).
 3. Update [CHANGELOG.md](CHANGELOG.md) under `## [Unreleased]`.
 4. Verify locally (below), then open a PR against `main`.
 
@@ -31,7 +32,13 @@ Invoke-IDBridge -ReadOnly -TraceLogging
 ```
 
 If you add a public function, add it to `FunctionsToExport` in the manifest and give it
-comment-based help.
+comment-based help. Internal helpers go under `Private/` and are **not** added to the
+manifest — the loader dot-sources both trees, but only `FunctionsToExport` is the
+supported surface.
+
+If you meaningfully change a shipped template under `src/IDBridge/Templates/`, bump its
+`# TemplateVersion: <n>` marker — `Install-IDBridge` compares it against installed copies
+to print the "newer template available" notice.
 
 ## Versioning & releases
 
@@ -44,8 +51,17 @@ This is intentional: the version encodes the release date. To cut a release:
 
 ## Publishing to the PowerShell Gallery
 
+Publishing is automated: pushing a `v*` tag runs the `Publish` GitHub Actions workflow
+([.github/workflows/publish.yml](.github/workflows/publish.yml)), which validates that the
+tag matches `ModuleVersion`, publishes `src/IDBridge` to the PowerShell Gallery, and creates
+a GitHub Release with that version's CHANGELOG.md section as the notes. It needs a
+`PSGALLERY_API_KEY` repository secret (Gallery API key scoped to push `IDBridge` only;
+keys expire after at most 365 days, so rotate yearly).
+
 The module is packaged from its folder, so repo-only files (docs, `CLAUDE.md`, README) are
 excluded automatically.
+
+To publish manually instead (e.g. the first-ever publish, or if CI is unavailable):
 
 ```powershell
 # 1. Confirm the name is available (only needed the first time)
