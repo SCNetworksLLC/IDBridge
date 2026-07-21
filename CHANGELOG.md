@@ -5,6 +5,17 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.21.4] - 2026-07-21
+
+### Changed
+- **`Push-LogsToSheet` is atomic and caps the log sheet at 50,000 rows.** The header
+  write (new sheets), row insert, entry write, and a new bottom-row trim now go in a
+  single `spreadsheets.batchUpdate` (requests apply in order, all-or-nothing), so a
+  failure mid-push can no longer leave blank rows under the header, and the redundant
+  metadata re-fetch after sheet creation is gone (the addSheet reply already returns the
+  sheetId). Once the sheet passes 50,000 rows the oldest (bottom) rows are trimmed in the
+  same call, keeping the newest 25,000. Cells are still written as literal strings.
+
 ## [26.7.21.3] - 2026-07-21
 
 ### Changed

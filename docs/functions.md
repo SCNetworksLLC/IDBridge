@@ -508,8 +508,9 @@ License discovery happens in `Get-TargetDataGoogle`, so ReadOnly runs show what 
 removed.
 
 ### `Push-LogsToSheet` 🔒 🌐
-**Params:** `-spreadsheetId`, `-sheetName`. Pulls `Get-IDBridgeLogs`, creates the sheet/
-header if missing, inserts rows, writes newest-first via `Set-GSheetData`.
+**Params:** `-spreadsheetId`, `-sheetName`. Pulls `Get-IDBridgeLogs`, creates the sheet if
+missing, then one atomic batchUpdate: header (new sheets), insert rows, write newest-first,
+and trim the bottom past 50,000 rows (keeps the newest 25,000).
 
 ---
 

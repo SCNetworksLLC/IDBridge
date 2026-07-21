@@ -177,5 +177,7 @@ account — which is what keeps accountless source users out of the deactivate l
   in-memory `$script:Logs` list, and the console (mapped to Error/Warning/Verbose).
   `Trace`-level messages are suppressed unless `Debug.TraceLogging = $true`.
 - **`Push-LogsToSheet`** (in `finally`) reverses the buffer (newest first), creates the
-  target sheet/header if missing, inserts blank rows, and writes via `Set-GSheetData`.
+  target sheet if missing, then applies one atomic batchUpdate: header (new sheets only),
+  insert rows under the header, write the entries, and trim the oldest rows once the sheet
+  passes 50,000 rows (keeping the newest 25,000).
 
