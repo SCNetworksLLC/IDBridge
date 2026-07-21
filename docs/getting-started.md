@@ -98,8 +98,11 @@ A new deployment reads its people from a Google Sheet. Two ways to get one:
   Export-IDBridgeDirectoryToSheet -SpreadsheetId '<id>' -GoogleOrgUnitPath '/YourDistrict' -ADSearchBase 'OU=YourDistrict,DC=...'
   ```
 
-  Every exported row gets `Process = FALSE` and review-helper columns — review and switch
-  people on deliberately. Details: [functions.md](functions.md#export-idbridgedirectorytosheet-).
+  Both scopes take one or more OUs (each a subtree) — e.g.
+  `-ADSearchBase 'OU=Staff,DC=...', 'OU=Subs,DC=...'` — and a user under any of them is
+  included. Every exported row gets `Process = FALSE` and review-helper columns — review and
+  switch people on deliberately. Details:
+  [functions.md](functions.md#export-idbridgedirectorytosheet-).
 
 Then **share the spreadsheet (Editor) with the service-account email** from step 4. If you
 want the run log pushed to a sheet too, create/share one more and put its ID in

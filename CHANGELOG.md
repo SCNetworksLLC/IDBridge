@@ -5,6 +5,15 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.21.0] - 2026-07-21
+
+### Changed
+- **`Export-IDBridgeDirectoryToSheet` now accepts multiple OU scopes.** `-ADSearchBase` and
+  `-GoogleOrgUnitPath` are now `[string[]]` — pass one or more OUs per directory and a user
+  under any of them is included. Trailing slashes on Google OU paths are now normalized away
+  (previously `/District/Staff/` missed users sitting directly in that OU). Single-OU calls
+  otherwise behave exactly as before.
+
 ## [26.7.13.2] - 2026-07-13
 
 ### Added

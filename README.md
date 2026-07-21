@@ -45,7 +45,8 @@ prompt and drops a ready-made workbook into your Drive: source and override tabs
 tables (filter/sort), Process checkboxes, a TerminationDate date column, a Groups reference tab,
 and multi-select group dropdowns. Point your source plugin's sheet range at the copied
 spreadsheet's ID. Migrating a site that already has AD/Google accounts? Use
-`Export-IDBridgeDirectoryToSheet` to seed the sheet from current directory state instead.
+`Export-IDBridgeDirectoryToSheet` to seed the sheet from current directory state instead,
+scoped to one or more AD and/or Google OU subtrees.
 
 ## Safety model
 

@@ -36,10 +36,12 @@ The target spreadsheet ID to write the seed tab into.
 The tab name to create (default StaffSeed-<yyyy-MM-dd>). Throws if the tab already exists.
 
 .PARAMETER ADSearchBase
-OU DN to scope the AD users to (subtree). Omit to skip Active Directory entirely. No config default.
+One or more OU DNs to scope the AD users to (each a subtree; a user under any of them is included).
+Omit to skip Active Directory entirely. No config default.
 
 .PARAMETER GoogleOrgUnitPath
-OU path to scope the Google users to (subtree). Omit to skip Google Workspace entirely. No config default.
+One or more OU paths to scope the Google users to (each a subtree; a user under any of them is
+included). Trailing slashes are ignored. Omit to skip Google Workspace entirely. No config default.
 
 .OUTPUTS
 [pscustomobject] @{ SpreadsheetId; SheetName; RowsWritten }.
@@ -50,9 +52,12 @@ Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -GoogleOrgUnit
 .EXAMPLE
 Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -ADSearchBase 'OU=Staff,OU=YourDistrict,DC=yourdomain,DC=local' -GoogleOrgUnitPath '/YourDistrict/Staff'
 
+.EXAMPLE
+Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -ADSearchBase 'OU=Staff,OU=YourDistrict,DC=yourdomain,DC=local', 'OU=Subs,OU=YourDistrict,DC=yourdomain,DC=local' -GoogleOrgUnitPath '/YourDistrict/Staff', '/YourDistrict/Subs'
+
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-07-08
+   Modified: 2026-07-20
 #>
 function Export-IDBridgeDirectoryToSheet {
     [CmdletBinding()]
@@ -62,9 +67,9 @@ function Export-IDBridgeDirectoryToSheet {
 
         [string]$SheetName = ("StaffSeed-" + (Get-Date -Format 'yyyy-MM-dd')),
 
-        [string]$ADSearchBase,
+        [string[]]$ADSearchBase,
 
-        [string]$GoogleOrgUnitPath
+        [string[]]$GoogleOrgUnitPath
     )
 
     #region Validate Scope
@@ -86,9 +91,12 @@ function Export-IDBridgeDirectoryToSheet {
     if ($ADSearchBase) {
         $adData = Get-TargetDataAD
 
-        #Scope to the subtree under the search base
-        $adUsers = @($adData.Users | Where-Object { $_.DistinguishedName -like ("*," + $ADSearchBase) })
-        Write-Log -Message "Export: $($adUsers.Count) of $($adData.Users.Count) AD users are under $ADSearchBase" -Level Info
+        #Scope to the subtree under any of the search bases
+        $adUsers = @($adData.Users | Where-Object {
+            $distinguishedName = $_.DistinguishedName
+            [bool]($ADSearchBase | Where-Object { $distinguishedName -like ("*," + $_) })
+        })
+        Write-Log -Message "Export: $($adUsers.Count) of $($adData.Users.Count) AD users are under $($ADSearchBase -join ', ')" -Level Info
     } else {
         Write-Log -Message "Export: No -ADSearchBase specified - skipping Active Directory" -Level Info
     }
@@ -105,10 +113,16 @@ function Export-IDBridgeDirectoryToSheet {
             if ($group.email) { $googleGroupNameByEmail[$group.email] = $group.name }
         }
 
-        #Scope to the subtree under the OU path
-        $googlePathPrefix = $GoogleOrgUnitPath.TrimEnd('/') + "/*"
-        $googleUsers = @($googleData.Users | Where-Object { $_.orgUnitPath -eq $GoogleOrgUnitPath -or $_.orgUnitPath -like $googlePathPrefix })
-        Write-Log -Message "Export: $($googleUsers.Count) of $($googleData.Users.Count) Google users are under $GoogleOrgUnitPath" -Level Info
+        #Normalize trailing slashes so '/District/Staff/' scopes the same users as '/District/Staff'
+        #(the root OU '/' is kept as-is)
+        $googleOrgUnitPaths = @($GoogleOrgUnitPath | ForEach-Object { if ($_.TrimEnd('/')) { $_.TrimEnd('/') } else { '/' } })
+
+        #Scope to the subtree under any of the OU paths
+        $googleUsers = @($googleData.Users | Where-Object {
+            $orgUnitPath = $_.orgUnitPath
+            [bool]($googleOrgUnitPaths | Where-Object { $orgUnitPath -eq $_ -or $orgUnitPath -like ($_.TrimEnd('/') + "/*") })
+        })
+        Write-Log -Message "Export: $($googleUsers.Count) of $($googleData.Users.Count) Google users are under $($googleOrgUnitPaths -join ', ')" -Level Info
     } else {
         Write-Log -Message "Export: No -GoogleOrgUnitPath specified - skipping Google Workspace" -Level Info
     }

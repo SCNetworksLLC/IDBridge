@@ -130,7 +130,8 @@ Skipped }`. Used by the change-volume safety guard between the compute and execu
 One-time onboarding tool: seeds the staff source sheet from the current directory state.
 **Params:** `-SpreadsheetId` (mandatory), `-SheetName` (def `StaffSeed-<yyyy-MM-dd>`; throws
 if the tab already exists — never appends/overwrites), `-ADSearchBase` / `-GoogleOrgUnitPath`
-(subtree scopes; **no config default** — a directory is fetched only when its scope is named,
+(one or more subtree scopes each — a user under any of them is included; trailing slashes on
+Google OU paths are normalized away; **no config default** — a directory is fetched only when its scope is named,
 and an omitted scope is skipped entirely rather than failing, so a Google-only run never touches
 or requires AD and vice versa; at least one is required). Pulls `Get-TargetDataAD` and/or
 `Get-TargetDataGoogle`, merges per person by UPN=primaryEmail, and writes one row per person in the staff sheet
