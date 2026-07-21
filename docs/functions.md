@@ -142,7 +142,10 @@ blank (nothing derived from OU names); `ApplicationGroups` is the de-duped dump 
 AD group names and `EmailGroups` the same for Google group names; users disabled/suspended
 in **every** directory they exist in get yesterday's date as `TerminationDate` (mixed state
 ⇒ Warn, treated active). PersonID = AD `EmployeeID`, falling back to the Google externalId
-(mismatch ⇒ Warn, AD wins). Also writes a `GroupsSeed-<yyyy-MM-dd>` tab listing the distinct
+(mismatch ⇒ Warn, AD wins); an optional `-PersonIDCsv` (CSV with `ID` and `Username` columns,
+e.g. a SIS export, matched case-insensitively on Username) fills in `PersonID` when the
+directories carry none — a directory ID wins a CSV mismatch (⇒ Warn). Also writes a
+`GroupsSeed-<yyyy-MM-dd>` tab listing the distinct
 group names in use — Google groups under `Email` in column A, AD groups under `Application`
 in column C — as the source range for multi-select group dropdowns on the staff sheet.
 Requires `Initialize-IDBridge` + `Connect-IDBridgeGoogle` first. **Returns:**

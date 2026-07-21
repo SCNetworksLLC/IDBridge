@@ -5,6 +5,14 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.21.2] - 2026-07-21
+
+### Added
+- **`Export-IDBridgeDirectoryToSheet -PersonIDCsv`.** Optional CSV (ID and Username columns,
+  e.g. from a SIS export) that fills in `PersonID` for exported people whose directories
+  carry no ID, matched case-insensitively on Username. A directory ID still wins a mismatch
+  with the CSV (logged as a warning), consistent with the existing AD-over-Google rule.
+
 ## [26.7.21.1] - 2026-07-21
 
 ### Changed

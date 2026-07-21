@@ -100,7 +100,9 @@ A new deployment reads its people from a Google Sheet. Two ways to get one:
 
   Both scopes take one or more OUs (each a subtree) — e.g.
   `-ADSearchBase 'OU=Staff,DC=...', 'OU=Subs,DC=...'` — and a user under any of them is
-  included. Every exported row gets `Process = FALSE` and review-helper columns — review and
+  included. If your directories don't carry employee IDs, `-PersonIDCsv` takes a CSV with
+  `ID` and `Username` columns (e.g. a SIS export) to fill in `PersonID` by username match.
+  Every exported row gets `Process = FALSE` and review-helper columns — review and
   switch people on deliberately. Details:
   [functions.md](functions.md#export-idbridgedirectorytosheet-).
 

@@ -17,6 +17,9 @@ always blank — nothing is derived from OU names. ApplicationGroups is the de-d
 the person's current AD group names; EmailGroups is the same for their Google groups (group
 emails are mapped back to group names). PersonID comes from AD EmployeeID, falling back to the
 Google organization externalId; a mismatch between the two is logged as a warning and AD wins.
+An optional -PersonIDCsv mapping (ID and Username columns, e.g. from a SIS export) fills in
+PersonID for people whose directories carry no ID, matched case-insensitively on Username; a
+directory ID wins a mismatch with the CSV (logged as a warning).
 
 A second tab (default GroupsSeed-<yyyy-MM-dd>) is also written listing the distinct group names
 in use across the exported users — Google groups under an Email header in column A, AD groups
@@ -51,6 +54,11 @@ Omit to skip Active Directory entirely. No config default.
 One or more OU paths to scope the Google users to (each a subtree; a user under any of them is
 included). Trailing slashes are ignored. Omit to skip Google Workspace entirely. No config default.
 
+.PARAMETER PersonIDCsv
+Path to an optional CSV with ID and Username columns mapping usernames to PersonIDs (e.g. from a
+SIS export). Matched case-insensitively against each row's Username; only fills in PersonID when
+the directories carry none. Throws if the file is missing or lacks the two columns.
+
 .OUTPUTS
 [pscustomobject] @{ SpreadsheetId; SheetName; GroupsSheetName; RowsWritten }.
 
@@ -62,6 +70,9 @@ Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -ADSearchBase 
 
 .EXAMPLE
 Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -ADSearchBase 'OU=Staff,OU=YourDistrict,DC=yourdomain,DC=local', 'OU=Subs,OU=YourDistrict,DC=yourdomain,DC=local' -GoogleOrgUnitPath '/YourDistrict/Staff', '/YourDistrict/Subs'
+
+.EXAMPLE
+Export-IDBridgeDirectoryToSheet -SpreadsheetId '<spreadsheet id>' -GoogleOrgUnitPath '/YourDistrict/Staff' -PersonIDCsv 'C:\IDBridge\Data\staff-ids.csv'
 
 .NOTES
    Created by: Sam Cattanach
@@ -79,7 +90,9 @@ function Export-IDBridgeDirectoryToSheet {
 
         [string[]]$ADSearchBase,
 
-        [string[]]$GoogleOrgUnitPath
+        [string[]]$GoogleOrgUnitPath,
+
+        [string]$PersonIDCsv
     )
 
     #region Validate Scope
@@ -95,6 +108,35 @@ function Export-IDBridgeDirectoryToSheet {
 
     Write-Log -Message "Export: Starting directory export to spreadsheet $SpreadsheetId tab '$SheetName'" -Level Info
     #endregion Validate Scope
+
+    #region Import PersonID CSV
+    #Optional username -> PersonID mapping (e.g. from a SIS export). Fills in PersonID for
+    #people whose directories carry no ID; a directory ID wins a mismatch (logged as a warning).
+    $csvIDByUsername = @{}
+    if ($PersonIDCsv) {
+        if (-not (Test-Path -Path $PersonIDCsv)) {
+            Write-Log -Message "Export: PersonID CSV not found at $PersonIDCsv" -Level Error
+            Throw "Export: PersonID CSV not found at $PersonIDCsv"
+        }
+
+        $csvRows = @(Import-Csv -Path $PersonIDCsv)
+        $csvColumns = @(if ($csvRows) { $csvRows[0].PSObject.Properties.Name })
+        if ($csvColumns -notcontains 'ID' -or $csvColumns -notcontains 'Username') {
+            Write-Log -Message "Export: PersonID CSV $PersonIDCsv must have 'ID' and 'Username' columns (found: $($csvColumns -join ', '))" -Level Error
+            Throw "Export: PersonID CSV $PersonIDCsv must have 'ID' and 'Username' columns (found: $($csvColumns -join ', '))"
+        }
+
+        foreach ($csvRow in $csvRows) {
+            if (-not $csvRow.Username -or -not $csvRow.ID) { continue }
+            $csvKey = $csvRow.Username.ToLower()
+            if ($csvIDByUsername.ContainsKey($csvKey) -and $csvIDByUsername[$csvKey] -ne [string]$csvRow.ID) {
+                Write-Log -Message "Export: Duplicate username '$($csvRow.Username)' in PersonID CSV with differing IDs ('$($csvIDByUsername[$csvKey])' vs '$($csvRow.ID)') - using the last one" -Level Warn
+            }
+            $csvIDByUsername[$csvKey] = [string]$csvRow.ID
+        }
+        Write-Log -Message "Export: Loaded $($csvIDByUsername.Count) username-to-PersonID mappings from $PersonIDCsv" -Level Info
+    }
+    #endregion Import PersonID CSV
 
     #region Get AD Users
     $adUsers = @()
@@ -157,6 +199,7 @@ function Export-IDBridgeDirectoryToSheet {
     #endregion Merge Directories
 
     #region Build Rows
+    $csvMatchCount = 0
     $rows = foreach ($entry in $people.GetEnumerator()) {
         $ad = $entry.Value.AD
         $google = $entry.Value.Google
@@ -169,6 +212,19 @@ function Export-IDBridgeDirectoryToSheet {
             Write-Log -Message "Export: PersonID mismatch for $($entry.Key) - AD EmployeeID '$adPersonID' vs Google externalId '$googlePersonID'; using AD" -Level Warn
         }
         $personID = if ($adPersonID) { $adPersonID } else { $googlePersonID }
+
+        $username = if ($ad) { $ad.SamAccountName } else { ($google.primaryEmail -split '@')[0] }
+
+        #CSV mapping fills in PersonID when the directories have none; a directory ID wins a mismatch
+        $csvID = $csvIDByUsername[$username.ToLower()]
+        if ($csvID) {
+            if (-not $personID) {
+                $personID = $csvID
+                $csvMatchCount++
+            } elseif ($personID -ne $csvID) {
+                Write-Log -Message "Export: PersonID mismatch for $($entry.Key) - directory '$personID' vs CSV '$csvID'; using directory" -Level Warn
+            }
+        }
 
         #Disabled only when every existing account is disabled/suspended; a mixed state stays active
         $accountDisabledStates = @()
@@ -193,7 +249,7 @@ function Export-IDBridgeDirectoryToSheet {
             PersonID          = $personID
             NameFirst         = if ($ad -and $ad.GivenName) { $ad.GivenName } elseif ($google) { [string]$google.name.givenName } else { "" }
             NameLast          = if ($ad -and $ad.Surname) { $ad.Surname } elseif ($google) { [string]$google.name.familyName } else { "" }
-            Username          = if ($ad) { $ad.SamAccountName } else { ($google.primaryEmail -split '@')[0] }
+            Username          = $username
             Building          = if ($ad -and $ad.physicalDeliveryOfficeName) { $ad.physicalDeliveryOfficeName } elseif ($googleOrg) { [string]$googleOrg.department } else { "" }
             PersonType        = ""
             JobTitle          = if ($ad -and $ad.Title) { $ad.Title } elseif ($googleOrg) { [string]$googleOrg.title } else { "" }
@@ -211,6 +267,10 @@ function Export-IDBridgeDirectoryToSheet {
             ADOrgUnit         = if ($ad) { ($ad.DistinguishedName -split ',', 2)[1] } else { "" }
             GoogleOrgUnit     = if ($google) { $google.orgUnitPath } else { "" }
         }
+    }
+
+    if ($PersonIDCsv) {
+        Write-Log -Message "Export: CSV supplied PersonID for $csvMatchCount of $($people.Count) people" -Level Info
     }
 
     $rows = @($rows | Sort-Object NameLast, NameFirst)
