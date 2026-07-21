@@ -24,7 +24,7 @@ $groups = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $goog
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-06-26
+   Modified: 2026-07-21
 #>
 function Get-GoogleUserGroupsToUpdate {
     [CmdletBinding()]
@@ -77,7 +77,11 @@ function Get-GoogleUserGroupsToUpdate {
         }
 
         if ($userGroupsRemove.Count -gt 0) {
-            Write-Log -Message "Google: Proposed: Remove Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsRemove -join ', ')"
+            #Log group names, not emails (the Remove list itself must stay emails for the API calls)
+            $userGroupsRemoveNames = foreach ($group in $userGroupsRemove) {
+                if ($groupNameByEmail.ContainsKey($group)) { $groupNameByEmail[$group] } else { $group }
+            }
+            Write-Log -Message "Google: Proposed: Remove Groups: $($item.personID) $($item.NameFirst) $($item.NameLast): $($userGroupsRemoveNames -join ', ')"
             $itemListRemove += [PSCustomObject]@{
                 PersonID = $item.PersonID
                 GoogleCurrentUserID = $item.GoogleCurrentUserID

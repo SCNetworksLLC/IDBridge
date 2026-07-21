@@ -5,6 +5,16 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.21.3] - 2026-07-21
+
+### Changed
+- **`Get-GoogleUserGroupsToUpdate` logs group names on the Remove side.** The
+  "Proposed: Remove Groups" log line previously showed each group's email address
+  (current memberships come back from Google as emails); it now maps them to the
+  group's name via the existing name/email lookup, matching the Add side. Groups
+  whose email isn't in the fetched GoogleGroups still log as the email. The Remove
+  list itself is unchanged (the API calls need emails).
+
 ## [26.7.21.2] - 2026-07-21
 
 ### Added
