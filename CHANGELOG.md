@@ -5,6 +5,18 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.21.1] - 2026-07-21
+
+### Changed
+- **`Export-IDBridgeDirectoryToSheet` now writes a `GroupsSeed-<yyyy-MM-dd>` tab and splits
+  the group dump per directory.** `ApplicationGroups` now holds only the person's current AD
+  group names and `EmailGroups` their Google group names (previously everything was merged
+  into `ApplicationGroups` and `EmailGroups` was blank). The new second tab (name via
+  `-GroupsSheetName`) lists the distinct group names in use — Google groups under an `Email`
+  header in column A, AD groups under an `Application` header in column C — ready to use as
+  the source range for multi-select group dropdowns on the staff sheet. The existing-tab
+  guard covers both tabs, and the return object gains `GroupsSheetName`.
+
 ## [26.7.21.0] - 2026-07-21
 
 ### Changed

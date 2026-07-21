@@ -128,21 +128,25 @@ Skipped }`. Used by the change-volume safety guard between the compute and execu
 
 ### `Export-IDBridgeDirectoryToSheet` 🌐
 One-time onboarding tool: seeds the staff source sheet from the current directory state.
-**Params:** `-SpreadsheetId` (mandatory), `-SheetName` (def `StaffSeed-<yyyy-MM-dd>`; throws
-if the tab already exists — never appends/overwrites), `-ADSearchBase` / `-GoogleOrgUnitPath`
+**Params:** `-SpreadsheetId` (mandatory), `-SheetName` (def `StaffSeed-<yyyy-MM-dd>`),
+`-GroupsSheetName` (def `GroupsSeed-<yyyy-MM-dd>`) — throws if either tab already exists,
+never appends/overwrites — `-ADSearchBase` / `-GoogleOrgUnitPath`
 (one or more subtree scopes each — a user under any of them is included; trailing slashes on
 Google OU paths are normalized away; **no config default** — a directory is fetched only when its scope is named,
 and an omitted scope is skipped entirely rather than failing, so a Google-only run never touches
 or requires AD and vice versa; at least one is required). Pulls `Get-TargetDataAD` and/or
 `Get-TargetDataGoogle`, merges per person by UPN=primaryEmail, and writes one row per person in the staff sheet
 layout plus review-helper columns (`InAD`/`InGoogle`/`ADEnabled`/`GoogleSuspended`/
-`ADOrgUnit`/`GoogleOrgUnit`). All rows get `Process=FALSE`; `PersonType`/`Word`/`EmailGroups`
-are left blank (nothing derived from OU names); `ApplicationGroups` is the full de-duped dump
-of current AD + Google group names; users disabled/suspended in **every** directory they
-exist in get yesterday's date as `TerminationDate` (mixed state ⇒ Warn, treated active).
-PersonID = AD `EmployeeID`, falling back to the Google externalId (mismatch ⇒ Warn, AD wins).
+`ADOrgUnit`/`GoogleOrgUnit`). All rows get `Process=FALSE`; `PersonType`/`Word` are left
+blank (nothing derived from OU names); `ApplicationGroups` is the de-duped dump of current
+AD group names and `EmailGroups` the same for Google group names; users disabled/suspended
+in **every** directory they exist in get yesterday's date as `TerminationDate` (mixed state
+⇒ Warn, treated active). PersonID = AD `EmployeeID`, falling back to the Google externalId
+(mismatch ⇒ Warn, AD wins). Also writes a `GroupsSeed-<yyyy-MM-dd>` tab listing the distinct
+group names in use — Google groups under `Email` in column A, AD groups under `Application`
+in column C — as the source range for multi-select group dropdowns on the staff sheet.
 Requires `Initialize-IDBridge` + `Connect-IDBridgeGoogle` first. **Returns:**
-`@{ SpreadsheetId; SheetName; RowsWritten }`.
+`@{ SpreadsheetId; SheetName; GroupsSheetName; RowsWritten }`.
 
 > For a deployment with **no** directory data to seed from, start from the published source-sheet
 > template (copy link: <https://docs.google.com/spreadsheets/d/1OUlm-5WGce_x2z0L1dM2kD8Ejk_f3RNF3EC8sa6uHhE/copy>) instead — it ships the source
