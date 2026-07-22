@@ -761,6 +761,7 @@ function Invoke-IDBridge {
                         UsersToDeactivate = @($ADUsersToDeactivate).Where({ $null -ne $_ })
                         GroupsToUpdate    = $ADUserGroupsToUpdate
                         OrgUnitsToCreate  = @($ADOrgUnitsForProcessing).Where({ $null -ne $_ })
+                        CurrentUsers      = @($adData.Users).Where({ $null -ne $_ })
                     }
                     Google           = [PSCustomObject]@{
                         Enabled           = ($IDConfig.Google.enabled -eq $true)
@@ -769,6 +770,7 @@ function Invoke-IDBridge {
                         UsersToDeactivate = @($GoogleUsersToDeactivate).Where({ $null -ne $_ })
                         GroupsToUpdate    = $GoogleUserGroupsToUpdate
                         OrgUnitsToCreate  = @($GoogleOrgUnitsForProcessing).Where({ $null -ne $_ })
+                        CurrentUsers      = @($googleData.Users).Where({ $null -ne $_ })
                     }
                 }
             }

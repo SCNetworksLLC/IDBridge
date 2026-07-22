@@ -115,10 +115,12 @@ ReadOnly runs too):
 ```powershell
 @{ Enabled = $true;  Type = "Source";   Function = 'Invoke-PluginGSheetStaff' }
 @{ Enabled = $false; Type = "Source";   Function = 'Invoke-PluginSkywardSMSStudents' }
+@{ Enabled = $false; Type = "Source";   Function = 'Invoke-PluginInfiniteCampusStudents' }
 @{ Enabled = $true;  Type = "Override";  Function = 'Invoke-PluginStaffOverride' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunReport' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunWebhook' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunExport' }
+@{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunOrphanReport' }
 ```
 
 | Key | Effect |
@@ -206,7 +208,7 @@ Derived from `-RootPath` (default `C:\IDBridge`); missing directories are create
 | `LogsRoot`        | `<Root>\Logs`                 | `IDBridge.log` (rotated at 5 MB) |
 | `ExportsRoot`     | `<Root>\Exports`              | Run reports and `UserList-<PersonType>.csv` exports |
 | `PluginsRoot`     | `<Root>\Plugins`              | Plugin `.ps1` files |
-| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward `LastSeen` CSV) |
+| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward / Infinite Campus `LastSeen` CSVs) |
 | `VaultRoot`       | `<Root>\Vault`                | Secret vault (`*.secret.json` envelope files) |
 | `LogFile`         | `<LogsRoot>\IDBridge.log`     | Active log file |
 
@@ -222,6 +224,7 @@ key. **Only names/locations are documented here — never values.** See [secrets
 |---------------|---------|
 | `GoogleAuth-ServiceAccount` (vault)     | `Connect-IDBridgeGoogle` → `Get-GoogleApiAccessToken` (the service-account key JSON; no file fallback) |
 | `ApiKey-SkywardSMS` (vault)             | Skyward students plugin (client secret) |
+| `ApiKey-InfiniteCampus` (vault)         | Infinite Campus students plugin (client secret) |
 | `ApiKey-Passphrase` (vault)             | Passphrase API bearer token (`New-Passphrase`) |
 | `ApiKey-PassphraseNonceStaff` (vault)   | Staff passphrase nonce |
 | `ApiKey-PassphraseNonceStudent` (vault) | Student passphrase nonce |

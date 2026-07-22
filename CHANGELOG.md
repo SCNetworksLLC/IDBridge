@@ -5,6 +5,49 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.22.0] - 2026-07-22
+
+### Added
+- **Orphan-report PostRun plugin template** (`Invoke-PluginPostRunOrphanReport`): reports
+  enabled directory accounts with a PersonID link (AD `EmployeeID` / Google `externalId`
+  type `organization`) that matched no source record this run — accounts the pipeline can
+  never update or deactivate because nothing feeds them. Writes
+  `OrphanReport-<timestamp>.csv` to `ExportsRoot` and logs a Warn with counts; skips
+  failed runs and TestRuns; report-only, no placeholders. To support it, the RunResult
+  gains `AD.CurrentUsers` / `Google.CurrentUsers` (additive, the run's fetched directory
+  user lists).
+- **Graduate grace windows in both student plugin templates.** Skyward (TemplateVersion 2):
+  `GD` students now stay provisioned and active until `$GraduateActiveUntil` (default
+  `09/01`) of their `GradYr`, then deactivate — the old immediate-deactivate GD override
+  is kept as a commented-out alternative. Infinite Campus: Grade-12 students who disappear
+  from the feed (IC drops graduates rather than flagging them) age out after
+  `$DaysLastSeenGraduate` (default 90) instead of `$DaysLastSeen` (14); past the normal
+  14-day window they're relabeled `GD`, parking them in the `Grade-GD` OU/groups for the
+  rest of the grace — the same visible 12 → GD → Trash progression as Skyward.
+- **Infinite Campus students plugin template** (`Invoke-PluginInfiniteCampusStudents`),
+  modeled on the Skyward SMS one: same per-grade settings/OU/group model, client secret
+  from the new vault secret `ApiKey-InfiniteCampus`, password types limited to
+  `RANDOM`/`API-PASSPHRASE` (Infinite Campus OneRoster has no FSPIN/word source), and
+  `IDBActive` additionally driven by the IC-provided signals (`Status`,
+  `ActiveUserAccount`, past `RoleEndDate`). Shipped disabled in the config template.
+
+### Changed
+- **`Get-SourceDataInfiniteCampus` brought to parity with `Get-SourceDataSkywardSMS`:**
+  new mandatory `-SafetyCheckCount`/`-SafetyCheckPercentage` (throws below the floor to
+  prevent mass changes from a truncated pull), `LastSeen` stamping + prior-run state merge
+  via `InfiniteCampus_Students_User_State.csv` in `DataRoot` (keyed by `SourcedId`), and an
+  optional `-ExcludeSchoolIdentifiers` filter (drops students whose primary school's
+  identifier matches). Also: the primary-role pick now falls back to the first role when no
+  `primary` exists (as the comment always claimed), and the "users" log messages/doc
+  comment now say students.
+- **Skyward students plugin template (TemplateVersion 2): `LastSeen` orphan check now
+  casts to `[datetime]`.** Fresh-pull records carry `LastSeen` as a string, so the old
+  bare comparison coerced the DateTime threshold to a string and only passed by a quirk
+  of string ordering (always true for fresh records); state-file records were already
+  DateTime and compared correctly. No behavior change today — the cast makes the
+  comparison real instead of accidental. Installed copies get the standard
+  "newer template available" notice from `Install-IDBridge`.
+
 ## [26.7.21.4] - 2026-07-21
 
 ### Changed

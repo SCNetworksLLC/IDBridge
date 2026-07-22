@@ -87,9 +87,11 @@
     Plugins = @(
         @{ Enabled = $false; Type = "Source"; Function = 'Invoke-PluginGSheetStaff' }
         @{ Enabled = $false; Type = "Source"; Function = 'Invoke-PluginSkywardSMSStudents' }
+        @{ Enabled = $false; Type = "Source"; Function = 'Invoke-PluginInfiniteCampusStudents' }
         @{ Enabled = $false; Type = "Override"; Function = 'Invoke-PluginStaffOverride' }
         @{ Enabled = $false; Type = "PostRun"; Function = 'Invoke-PluginPostRunReport' }
         @{ Enabled = $false; Type = "PostRun"; Function = 'Invoke-PluginPostRunWebhook' }
         @{ Enabled = $false; Type = "PostRun"; Function = 'Invoke-PluginPostRunExport' }
+        @{ Enabled = $false; Type = "PostRun"; Function = 'Invoke-PluginPostRunOrphanReport' }
     )
 }

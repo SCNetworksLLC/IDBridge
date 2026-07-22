@@ -53,6 +53,7 @@ Set-IDBridgeSecret -Name 'ApiKey-Passphrase'              # prompts for the valu
 Set-IDBridgeSecret -Name 'ApiKey-PassphraseNonceStaff'
 Set-IDBridgeSecret -Name 'ApiKey-PassphraseNonceStudent'
 Set-IDBridgeSecret -Name 'ApiKey-SkywardSMS'
+Set-IDBridgeSecret -Name 'ApiKey-InfiniteCampus'
 
 # The Google service-account key is stored from its JSON file:
 Set-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount' -InFile 'C:\path\to\key.json'
@@ -151,6 +152,7 @@ These names are used by the shipped code/plugins — store secrets under the **s
 |------|---------|
 | `GoogleAuth-ServiceAccount`    | Google service-account key JSON (always required when `GoogleToken.Enabled`; **no file fallback**). Seeded by hand (`-InFile`) or end-to-end by [`Initialize-IDBridgeGoogleServiceAccount`](google-bootstrap.md) |
 | `ApiKey-SkywardSMS`            | Skyward SMS OneRoster client secret (always required by the students plugin) |
+| `ApiKey-InfiniteCampus`        | Infinite Campus OneRoster client secret (always required by the students plugin) |
 | `ApiKey-Passphrase`            | Passphrase-API bearer token (only when a password type is `API-PASSPHRASE`) |
 | `ApiKey-PassphraseNonceStaff`  | Passphrase nonce for staff (only when staff use `API-PASSPHRASE`) |
 | `ApiKey-PassphraseNonceStudent`| Passphrase nonce for students (only when a grade uses `API-PASSPHRASE`) |

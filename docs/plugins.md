@@ -160,8 +160,8 @@ ones won't be renamed. Check `SchemaVersion` if you depend on shape.
 | `Applied` | One record per **attempted** write: `Timestamp/Directory/Action/PersonID/Target/Success/Error` (`Action` ∈ Create, Update, Rename, Move, Deactivate, GroupAdd, GroupRemove; `Error` `$null` on success). Empty in ReadOnly. |
 | `SourceData` | The full enriched source records (incl. matched `ADObject`/`GoogleObject` where found). |
 | `ThresholdResults` | Change-volume guard results (`Directory/Percent/Exceeded/Skipped` per enabled directory), empty if the guard is off. |
-| `AD` | `Enabled`, `UsersToCreate`, `UsersToUpdate` (keeps its `UpdateList/RenameList/MoveList` shape), `UsersToDeactivate`, `GroupsToUpdate` (keeps its `Add/Remove` shape), `OrgUnitsToCreate`. |
-| `Google` | Same shape: `Enabled/UsersToCreate/UsersToUpdate/UsersToDeactivate/GroupsToUpdate/OrgUnitsToCreate`. |
+| `AD` | `Enabled`, `UsersToCreate`, `UsersToUpdate` (keeps its `UpdateList/RenameList/MoveList` shape), `UsersToDeactivate`, `GroupsToUpdate` (keeps its `Add/Remove` shape), `OrgUnitsToCreate`, `CurrentUsers` (the full fetched AD user list the run matched against). |
+| `Google` | Same shape: `Enabled/UsersToCreate/UsersToUpdate/UsersToDeactivate/GroupsToUpdate/OrgUnitsToCreate/CurrentUsers`. |
 
 On a failed run the lists that were never computed are empty arrays (`UsersToUpdate`/
 `GroupsToUpdate` may be `$null`) — guard accordingly.
@@ -228,9 +228,32 @@ File: `C:\IDBridge\Plugins\Invoke-PluginSkywardSMSStudents.ps1`. Pulls students 
   (Skyward returns ALL-CAPS → Title Case). Because the update functions compare names
   case-sensitively (`-cne`), existing accounts get the casing fix too, not just new ones.
 - `IDBActive`: false if not seen within `DaysLastSeen` (14), or if the grade is missing/
-  disabled in settings.
+  disabled in settings. Graduated (`GD`) students stay provisioned and active until
+  `$GraduateActiveUntil` (default `09/01`) of their `GradYr`, then deactivate — disable GD
+  provisioning in `GradeOverrides` to deactivate them immediately instead.
 - Groups = `Get-CustomStudentGroups -building -grade` (bundled: `Students`, optional
   `<code>_Students`, `Grade-<grade>`) **+** `ApplicationGroups`/`EmailGroups`.
+
+### `Invoke-PluginInfiniteCampusStudents` — Source *(disabled in config)*
+File: `C:\IDBridge\Plugins\Invoke-PluginInfiniteCampusStudents.ps1`. Pulls students via
+`Get-SourceDataInfiniteCampus` (OneRoster 1.2 rostering API; client secret from the vault
+secret `ApiKey-InfiniteCampus`; optional school exclusion by identifier; safety floor).
+- `PersonID/Username = LocalID` (the IC student number), `InternalID = InternalID` (the IC
+  person ID), `UPN = <LocalID>@my.yourdistrict.org`, `PersonTypeID = "1"`.
+- Grade from `Grade`; building from a `SchoolIdentifier`→name/code map (fallback `000`).
+- **Per-grade settings** work exactly as in the Skyward plugin (`GradeDefaultSettings` +
+  `GradeOverrides` merged across `ValidGrades`), but password types are limited to
+  `RANDOM`/`API-PASSPHRASE` — Infinite Campus OneRoster exposes no food-service PIN or
+  password word.
+- `IDBActive`: false if not seen within `DaysLastSeen` (14), if IC reports the student as
+  not `active`/account-disabled (`Status`, `ActiveUserAccount`), if the primary enrollment's
+  `RoleEndDate` is in the past, or if the grade is missing/disabled in settings. Grade-12
+  students who disappear (graduates — IC drops them from the feed rather than flagging
+  them) get the longer `DaysLastSeenGraduate` window (90) before aging out; once past the
+  normal 14-day window they're relabeled `GD`, moving them to the `Grade-GD` OU/groups
+  for the rest of the grace (mirrors Skyward's GD handling).
+- Groups = `Get-CustomStudentGroups -building -grade` (bundled: `Students`, optional
+  `<code>_Students`, `Grade-<grade>`); IC has no ApplicationGroups/EmailGroups equivalent.
 
 ### `Invoke-PluginPostRunReport` — PostRun *(works as-is)*
 File: `C:\IDBridge\Plugins\Invoke-PluginPostRunReport.ps1`. Writes
@@ -241,6 +264,18 @@ and outcome: the full "what did the run do" record), per-directory *proposed* ch
 sizes, threshold results, and the run's `Warn`/`Error` log lines (via `Get-IDBridgeLogs`).
 No full user records, but the journal and log lines carry IDs and addresses — fine locally,
 think before shipping the file off the box. No placeholders: enable its descriptor and it runs.
+
+### `Invoke-PluginPostRunOrphanReport` — PostRun *(works as-is)*
+File: `C:\IDBridge\Plugins\Invoke-PluginPostRunOrphanReport.ps1`. Reports **enabled**
+directory accounts that carry a PersonID link (AD `EmployeeID` / Google `externalId` type
+`organization`) but matched no source record this run — accounts the pipeline can never
+update or deactivate because nothing feeds them (deleted sheet row, student gone before
+LastSeen state existed, person removed from the SIS). Compares `AD/Google.CurrentUsers`
+against `SourceData.PersonID`; accounts without a PersonID link are out of scope (never
+IDBridge-managed). Writes `OrphanReport-<timestamp>.csv` to `Paths.ExportsRoot` and logs a
+`Warn` with counts when orphans exist. Skips failed runs and TestRuns (capped source would
+flag everyone). Report-only — offboard by hand or with a `ForceDisable` override row.
+No placeholders: enable its descriptor and it runs.
 
 ### `Invoke-PluginPostRunWebhook` — PostRun *(disabled in config)*
 File: `C:\IDBridge\Plugins\Invoke-PluginPostRunWebhook.ps1`. POSTs a compact JSON summary

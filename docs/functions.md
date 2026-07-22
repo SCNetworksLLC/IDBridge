@@ -247,9 +247,12 @@ safety floor, returns rows where `Process='TRUE'`. **Returns:** array of row obj
 `LastSeen`, merges prior-run state CSV in `DataRoot`. **Returns:** student records.
 
 ### `Get-SourceDataInfiniteCampus` 🌐
-**Params:** `-ClientId`, `-ClientSecret`, `-TokenUrl`, `-BaseUrl`. OAuth2 →
-OneRoster `/schools` + `/students` (paginated). Normalizes to `SourcedId/LocalID/
-InternalID/NameFirst/NameLast/Email/Role/SchoolName/Grade/Status/...`. **Returns:** records.
+**Params:** `-ClientId`, `-ClientSecret`, `-TokenUrl`, `-BaseUrl`,
+`-ExcludeSchoolIdentifiers` (optional), `-SafetyCheckCount`, `-SafetyCheckPercentage`.
+OAuth2 → OneRoster `/schools` + `/students` (paginated). Normalizes to `SourcedId/LocalID/
+InternalID/NameFirst/NameLast/Email/Role/SchoolName/Grade/Status/...`, drops excluded
+schools, enforces the count safety floor, stamps `LastSeen`, merges prior-run state CSV
+in `DataRoot` (keyed by `SourcedId`). **Returns:** student records.
 
 ### `Merge-IDBridgeOverrideData` 🔒 🧮
 **Params:** `-SourceData`, `-OverrideData`. Applies override rows by `personID`: non-empty

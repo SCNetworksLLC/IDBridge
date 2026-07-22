@@ -115,16 +115,17 @@ want the run log pushed to a sheet too, create/share one more and put its ID in
 ## 6. Source plugin
 
 Plugins are the only place source data enters IDBridge. Step 2 copied the six shipped
-templates into `C:\IDBridge\Plugins\`. Three of them feed the run:
+templates into `C:\IDBridge\Plugins\`. Four of them feed the run:
 
 | Template | Type | Reads |
 |----------|------|-------|
 | `Invoke-PluginGSheetStaff` | Source | the staff tab of the sheet from step 5 |
 | `Invoke-PluginStaffOverride` | Override | the override tab of the same sheet |
 | `Invoke-PluginSkywardSMSStudents` | Source | students from the Skyward SMS OneRoster API (minimal starting point) |
+| `Invoke-PluginInfiniteCampusStudents` | Source | students from the Infinite Campus OneRoster API (minimal starting point) |
 
-(The other three are **PostRun** templates — end-of-run run reports, user-list CSV
-exports, and a webhook. None is needed for a first run; see
+(The other four are **PostRun** templates — end-of-run run reports, user-list CSV
+exports, an orphaned-account report, and a webhook. None is needed for a first run; see
 [Next steps](#next-steps).)
 
 Edit the placeholder values at the top of each template you'll use — spreadsheet ID,
@@ -197,13 +198,15 @@ Flip one brake at a time, with a read-only-style review after each:
 - **Unattended/scheduled runs:** run under a gMSA with the `DpapiNG` secrets provider —
   or grant the gMSA private-key read on the Cms certificate
   (`Grant-IDBridgeCertificatePrivateKeyAccess`). See [secrets.md](secrets.md).
-- **Students from a SIS:** a second source plugin (the Skyward OneRoster plugin in
-  [plugins.md](plugins.md#invoke-pluginskywardsmsstudents--source-disabled-in-config) is a
-  worked example).
-- **Run reports, CSV exports, alerting:** the three PostRun templates consume each run's
-  results — `Invoke-PluginPostRunReport` (JSON run summary) and
-  `Invoke-PluginPostRunExport` (user-list CSVs) work as-is once their descriptors are
-  enabled; `Invoke-PluginPostRunWebhook` POSTs a compact summary to your own endpoint.
+- **Students from a SIS:** a second source plugin (the Skyward and Infinite Campus
+  OneRoster plugins in
+  [plugins.md](plugins.md#invoke-pluginskywardsmsstudents--source-disabled-in-config) are
+  worked examples).
+- **Run reports, CSV exports, alerting:** the four PostRun templates consume each run's
+  results — `Invoke-PluginPostRunReport` (JSON run summary), `Invoke-PluginPostRunExport`
+  (user-list CSVs), and `Invoke-PluginPostRunOrphanReport` (enabled accounts no source
+  feeds anymore) work as-is once their descriptors are enabled;
+  `Invoke-PluginPostRunWebhook` POSTs a compact summary to your own endpoint.
   See [plugins.md](plugins.md#the-postrun-contract-invoke-postrunplugins).
 - **Run-history dashboard:** `Telemetry.Tier = 'Enhanced'`, then claim your SiteID
   (`Get-IDBridgeSiteID`) at [IDBridge Pulse](https://pulse.scnlabs.net).
