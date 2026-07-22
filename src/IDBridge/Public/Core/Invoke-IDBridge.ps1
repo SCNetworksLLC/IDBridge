@@ -215,7 +215,6 @@ function Invoke-IDBridge {
 
             foreach ($item in $SourceData | Where-Object { $ADUsersToSetEmployeeID.ContainsKey($_.personID) }) {
                 $matchAD = $ADUsersToSetEmployeeID[$item.personID]
-                Write-Log -Message ("AD: Matched $($matchAD.User.UserPrincipalName) with EmployeeID: $($item.personID).")
                 $item | Add-Member -MemberType NoteProperty -Name 'ADObject' -Value $matchAD.User -Force
                 $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentUserID' -Value $matchAD.ID -Force
                 $item | Add-Member -MemberType NoteProperty -Name 'ADCurrentGroups' -Value $matchAD.Groups -Force
@@ -230,7 +229,6 @@ function Invoke-IDBridge {
 
             foreach ($item in $SourceData | Where-Object { $GoogleUsersToSetEmployeeID.ContainsKey($_.personID) }) {
                 $matchGoogle = $GoogleUsersToSetEmployeeID[$item.personID]
-                Write-Log -Message ("Google: Matched $($matchGoogle.User.primaryEmail) with EmployeeID: $($item.personID).")
                 $item | Add-Member -MemberType NoteProperty -Name 'GoogleObject' -Value $matchGoogle.User -Force
                 $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentUserID' -Value $matchGoogle.ID -Force
                 $item | Add-Member -MemberType NoteProperty -Name 'GoogleCurrentGroups' -Value $matchGoogle.Groups -Force

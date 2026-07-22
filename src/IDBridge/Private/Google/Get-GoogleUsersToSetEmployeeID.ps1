@@ -44,16 +44,14 @@ function Get-GoogleUsersToSetEmployeeID {
     foreach ($item in $UserList | Where-Object {-not $_.GoogleCurrentUserID}) {
         $googleUser = $null
 
-        if ($item.UPN -notin $GoogleUsers.primaryEmail -and $item.IDBActive -eq $false) {
-            Write-Log -Message ("Google: No user found with EmployeeID: $($item.personID). Source user is inactive and has no Google account - nothing to reconcile.") -Level Trace
-        } else {
-            Write-Log -Message ("Google: No user found with EmployeeID: " + $item.personID) -Level Trace
-        }
-
+        #One outcome line per user, logged where the decision is made, so the discovery
+        #and its result read together instead of in separate phases
         if ($item.UPN -in $GoogleUsers.primaryEmail) {
             $googleUser = ($GoogleUsers | Where-Object {$_.primaryEmail -eq $item.UPN})
 
             if ($googleUser.Name.familyName -eq $item.NameLast -and $googleUser.Name.givenName -eq $item.NameFirst) {
+                Write-Log -Message ("Google: No user with EmployeeID: $($item.personID) - matched existing $($googleUser.primaryEmail) by username+name; will link EmployeeID.")
+
                 $itemUpdateList[$item.personID] = [PSCustomObject]@{
                     ID = $googleUser.ID
                     Groups = $googleUser.CurrentGroups
@@ -63,6 +61,10 @@ function Get-GoogleUsersToSetEmployeeID {
             } else {
                 Write-Log -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " is already taken with a different name of " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName) -Level Error
             }
+        } elseif ($item.IDBActive -eq $false) {
+            Write-Log -Message ("Google: No user found with EmployeeID: $($item.personID). Source user is inactive and has no Google account - nothing to reconcile.") -Level Trace
+        } else {
+            Write-Log -Message ("Google: No user found with EmployeeID: $($item.personID) - no username match; treated as new.") -Level Trace
         }
     }
 

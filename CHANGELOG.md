@@ -5,6 +5,19 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.22.1] - 2026-07-22
+
+### Changed
+- **EmployeeID-link discovery logs one outcome line per user.** `Get-ADUsersToSetEmployeeID`
+  and `Get-GoogleUsersToSetEmployeeID` previously logged a flat "No user found with
+  EmployeeID" for every unlinked user and the "Matched" line came from `Invoke-IDBridge`
+  a whole phase later, so on a first run the discovery sweep and its results appeared as
+  two separate blocks. Each user now gets a single line at the point of decision:
+  matched-by-username+name → "will link EmployeeID" (Info), no match → "treated as new"
+  (Trace), inactive with no account → "nothing to reconcile" (Trace, unchanged), username
+  taken by a different name → Error (unchanged). The duplicate caller-side "Matched"
+  lines are removed; matching behavior itself is untouched.
+
 ## [26.7.22.0] - 2026-07-22
 
 ### Added

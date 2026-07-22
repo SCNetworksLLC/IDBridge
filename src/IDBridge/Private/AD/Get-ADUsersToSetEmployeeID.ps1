@@ -43,18 +43,16 @@ function Get-ADUsersToSetEmployeeID {
 
     foreach ($item in $UserList | Where-Object {-not $_.ADCurrentUserID}) {
         if ($item.personID -notin $CurrentADUsers.employeeID){
-            if ($item.username -notin $CurrentADUsers.SamAccountName -and $item.IDBActive -eq $false) {
-                Write-Log -Message ("AD: No user found with EmployeeID: $($item.personID). Source user is inactive and has no AD account - nothing to reconcile.") -Level Trace
-            } else {
-                Write-Log -Message ("AD: No user found with EmployeeID: " + $item.personID) -Level Trace
-            }
-
+            #One outcome line per user, logged where the decision is made, so the discovery
+            #and its result read together instead of in separate phases
             if ($item.username -in $CurrentADUsers.SamAccountName) {
                 $ADUser = $null
 
                 $ADUser = ($CurrentADUsers | Where-Object {$_.SamAccountName -eq $item.username})
 
                 if ($ADUser.Surname -eq $item.NameLast -and $ADUser.GivenName -eq $item.NameFirst) {
+                    Write-Log -Message ("AD: No user with EmployeeID: $($item.personID) - matched existing $($ADUser.UserPrincipalName) by username+name; will link EmployeeID.")
+
                     $itemUpdateList[$item.personID] = [PSCustomObject]@{
                         ID = $ADUser.ObjectGUID
                         Groups = ($ADUser.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
@@ -64,7 +62,11 @@ function Get-ADUsersToSetEmployeeID {
                 } else {
                     Write-Log -Message ("AD: Username " + $item.username + " for " + $item.personID + " is already taken with a different name of " + $ADUser.GivenName + " " + $ADUser.Surname) -Level Error
                 }
-            } 
+            } elseif ($item.IDBActive -eq $false) {
+                Write-Log -Message ("AD: No user found with EmployeeID: $($item.personID). Source user is inactive and has no AD account - nothing to reconcile.") -Level Trace
+            } else {
+                Write-Log -Message ("AD: No user found with EmployeeID: $($item.personID) - no username match; treated as new.") -Level Trace
+            }
         }
     }
 
