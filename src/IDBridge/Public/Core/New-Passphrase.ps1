@@ -1,12 +1,14 @@
 <#
 .SYNOPSIS
-    Generate deterministic passphrase(s) for one or more usernames via the SC Networks Azure Function.
+    Generate deterministic passphrase(s) for one or more usernames via Keysmith (SC Networks).
 
 .DESCRIPTION
-    POSTs the nonce and username(s) to the Azure Function's /api/generate endpoint and returns the
+    POSTs the nonce and username(s) to Keysmith's /api/generate endpoint and returns the
     generated phrase(s). Word lists stay on the server — this function never sees them. The same
     nonce + username + mode always yields the same phrase (deterministic), so a user's passphrase
     can be regenerated without storing it. One or many usernames may be supplied in a single call.
+    The token is sent in the x-api-key header — the Static Web App proxy overwrites Authorization
+    before it reaches the API.
 
 .PARAMETER Nonce
     The shared secret nonce as a SecureString. Must match the nonce configured for the tool.
@@ -21,10 +23,16 @@
     Number of words for 'words' mode. 2-6, default 3.
 
 .PARAMETER AuthToken
-    Bearer token as a SecureString authorizing the Function call. Throws when not supplied.
+    Keysmith API token as a SecureString authorizing the call (minted per school in the
+    Keysmith admin UI). Throws when not supplied.
+
+.PARAMETER Rev
+    Word-list revision to derive against. Omit to use the server's latest (normal for
+    account creation). Pass a specific rev only to regenerate passphrases from an
+    earlier era — the rev used is written to the log on every call.
 
 .PARAMETER FunctionUrl
-    Base URL of the Azure Function App. Defaults to https://passphrase.azurewebsites.net.
+    Base URL of the Keysmith site. Defaults to https://keysmith.scnlabs.net.
 
 .OUTPUTS
     [string] (or [string[]]) the generated passphrase(s).
@@ -62,7 +70,10 @@ function New-Passphrase {
         [Parameter(Mandatory = $false)]
         [System.Security.SecureString]$AuthToken,
 
-        [string]$FunctionUrl = "https://passphrase.azurewebsites.net"
+        [ValidateRange(1, 99)]
+        [int]$Rev,
+
+        [string]$FunctionUrl = "https://keysmith.scnlabs.net"
     )
 
     # ── Resolve auth token ────────────────────────────────────────────────────
@@ -75,17 +86,21 @@ function New-Passphrase {
 
     $Mode = $Mode.ToLower()
 
+    # x-api-key is the auth header — the SWA proxy overwrites Authorization
+    # before it reaches the API
     $Headers = @{
-        'Authorization' = "Bearer $(ConvertFrom-SecureString $AuthToken -AsPlainText)"
-        'Content-Type'  = 'application/json'
+        'x-api-key'    = $(ConvertFrom-SecureString $AuthToken -AsPlainText)
+        'Content-Type' = 'application/json'
     }
 
-    $body = @{
+    $bodyTable = @{
         nonce     = $(ConvertFrom-SecureString $Nonce -AsPlainText)
         usernames = $Username
         mode      = $Mode
         wordCount = $WordCount
-    } | ConvertTo-Json -Compress
+    }
+    if ($PSBoundParameters.ContainsKey('Rev')) { $bodyTable.rev = $Rev }
+    $body = $bodyTable | ConvertTo-Json -Compress
 
     try {
         $generateParams = @{
@@ -97,6 +112,12 @@ function New-Passphrase {
         }
 
         $generate = Invoke-RestMethod @generateParams
+
+        # Record the word-list rev so logs show which era these passphrases
+        # belong to — regeneration later needs the same nonce + rev
+        if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+            Write-Log -Message ("Keysmith: generated $(@($generate.results).Count) passphrase(s) — word-list rev $($generate.rev)") -Level "Info"
+        }
 
         return $generate.results.phrase
     } catch {

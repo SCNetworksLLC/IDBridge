@@ -5,6 +5,26 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.7.24.0] - 2026-07-24
+
+### Changed
+- **`New-Passphrase` updated for Keysmith 2.0.** The passphrase service moved to
+  `https://keysmith.scnlabs.net` (new default `-FunctionUrl`; the old
+  `passphrase.azurewebsites.net` endpoint is pending decommission), and the API
+  token is now sent in the `x-api-key` header — the Static Web App proxy
+  overwrites `Authorization` before it reaches the API. New optional `-Rev`
+  parameter pins a word-list revision (omit for the server's latest), and every
+  call logs the rev used so account-creation runs record which era their
+  passphrases belong to. Per-school tokens are minted in the Keysmith admin UI
+  and stored in each school's vault as before; no config or plugin changes
+  required.
+
+### Added
+- `docs/keysmith.md` — how IDBridge integrates with Keysmith: registering a
+  district (invite → org admin → self-service staff access), provisioning the
+  per-school token + nonce into the vault, and the operational rules
+  (x-api-key header, word-list rev logging, annual renewal).
+
 ## [26.7.22.1] - 2026-07-22
 
 ### Changed

@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.22.1'
+    ModuleVersion     = '26.7.24.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
