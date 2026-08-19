@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IDBridge.psm1'
-    ModuleVersion     = '26.7.24.0'
+    ModuleVersion     = '26.8.19.0'
     GUID              = 'a0a0c664-888e-44e2-9c12-fc8647a520c0'
     Author            = 'Sam Cattanach'
     CompanyName       = 'SC Networks LLC'
@@ -19,6 +19,7 @@
         'Install-IDBridge'  # First-run scaffold: creates the folder tree + a default all-features-off config. Never overwrites an existing config.
         'Get-IDBridgeConfig'  # This is the public accessor for the config object after initialization. It will throw an error if called before Initialize-IDBridge.
         'Export-IDBridgeDirectoryToSheet'  # Onboarding tool: seeds the staff source sheet from current AD + Google state (new tab, Process=FALSE).
+        'Approve-IDBridgeNameMismatch'  # Onboarding tool: interactive review of source/directory name mismatches; approvals persist to Data and link on the next run.
 
         # Secrets
         'Get-IDBridgeSecret'  # Reads a named secret from the IDBridge vault (Cms/DpapiNG envelope files, or Azure Key Vault).

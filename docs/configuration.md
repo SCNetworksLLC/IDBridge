@@ -208,7 +208,7 @@ Derived from `-RootPath` (default `C:\IDBridge`); missing directories are create
 | `LogsRoot`        | `<Root>\Logs`                 | `IDBridge.log` (rotated at 5 MB) |
 | `ExportsRoot`     | `<Root>\Exports`              | Run reports and `UserList-<PersonType>.csv` exports |
 | `PluginsRoot`     | `<Root>\Plugins`              | Plugin `.ps1` files |
-| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward / Infinite Campus `LastSeen` CSVs) |
+| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward / Infinite Campus `LastSeen` CSVs) and name-mismatch approvals (`ApprovedNameMismatches.csv`) |
 | `VaultRoot`       | `<Root>\Vault`                | Secret vault (`*.secret.json` envelope files) |
 | `LogFile`         | `<LogsRoot>\IDBridge.log`     | Active log file |
 

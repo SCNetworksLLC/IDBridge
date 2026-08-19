@@ -5,6 +5,27 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.8.19.0] - 2026-08-19
+
+### Added
+- **Interactive name-mismatch approval: `Approve-IDBridgeNameMismatch`.** New onboarding
+  cmdlet that gathers the same source and directory data the pipeline would, finds every
+  unlinked source user whose username is taken by an account with a different name, and
+  walks them one at a time in the console (`[A]pprove / [S]kip / [Q]uit`) showing the SIS
+  and directory names side by side. Approvals persist to
+  `<DataRoot>\ApprovedNameMismatches.csv` (each saved as it is made) — no directory writes
+  happen in the review; the next `Invoke-IDBridge` run links approved accounts through the
+  normal gated pipeline, where the update pass sets the EmployeeID and renames the account
+  to the SIS name. AD and Google are approved independently, and an approval is honored
+  only while the account's username and directory name still match what was approved — a
+  drifted account is skipped with a warning and shows up for re-approval.
+
+### Changed
+- **Name-mismatch log lines now show both sides.** When EmployeeID linking finds the
+  username taken by a different name, the AD and Google error lines now include the
+  source (SIS) name alongside the directory name, so the mismatch can be resolved
+  without looking up the source record.
+
 ## [26.7.24.0] - 2026-07-24
 
 ### Changed

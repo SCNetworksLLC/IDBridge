@@ -151,6 +151,30 @@ in column C — as the source range for multi-select group dropdowns on the staf
 Requires `Initialize-IDBridge` + `Connect-IDBridgeGoogle` first. **Returns:**
 `@{ SpreadsheetId; SheetName; GroupsSheetName; RowsWritten }`.
 
+### `Approve-IDBridgeNameMismatch`
+Onboarding tool: interactive console review of source/directory name mismatches, run by hand —
+never called by the pipeline. **Params:** `-RootPath` (def `C:\IDBridge`), `-SkipAD`,
+`-SkipGoogle`. Gathers the same source and directory data the pipeline would
+(`Initialize-IDBridge` → source plugins → target data → dedupe → overrides), finds every
+unlinked source user whose username is taken by an account with a **different name**, and walks
+them one at a time showing both names side by side (`[A]pprove / [S]kip / [Q]uit`). Approving
+records the decision to `<DataRoot>\ApprovedNameMismatches.csv` (PersonID, Directory, Account,
+SourceName, DirectoryName, ApprovedDate) — **no directory writes happen here**; the next
+`Invoke-IDBridge` run links the approved account via the `Get-*UsersToSetEmployeeID` functions
+and the normal update pass then sets the EmployeeID and **renames the account to the source
+(SIS) name** under all the usual gates (ReadOnly, ChangeThreshold). Each approval saves as it is
+made (quitting loses nothing); AD and Google are approved independently; an approval is honored
+only while the account's username and directory name still match what was approved — a drifted
+account shows up for re-approval (replacing its old row). Warns when `Debug.testRun` is on
+(capped source data ⇒ incomplete mismatch set). **Returns:**
+`@{ Reviewed; Approved; Skipped; FilePath }`.
+
+### `Get-IDBridgeApprovedNameMismatches` 🔒
+No params. Loads `<DataRoot>\ApprovedNameMismatches.csv` (the decisions recorded by
+`Approve-IDBridgeNameMismatch`). **Returns:** hashtable `"<Directory>|<PersonID>"` → approval
+row; empty when the file doesn't exist. Consumed by the two `Get-*UsersToSetEmployeeID`
+functions.
+
 > For a deployment with **no** directory data to seed from, start from the published source-sheet
 > template (copy link: <https://docs.google.com/spreadsheets/d/1OUlm-5WGce_x2z0L1dM2kD8Ejk_f3RNF3EC8sa6uHhE/copy>) instead — it ships the source
 > and override tabs pre-built with tables, Process checkboxes, a TerminationDate date column, a
@@ -303,7 +327,9 @@ hits, attaches `ADObject`, `ADCurrentUserID`, `ADCurrentUserEnabledStatus`,
 ### `Get-ADUsersToSetEmployeeID` 🔒 🧮🌐
 **Params:** `-UserList`, `-CurrentADUsers`. For **any unlinked** source user (active or not),
 matches an existing AD user by SamAccountName **and** name — so deprovisioned users get linked
-and can then be deactivated. Unlinked users with no AD account at all are logged at Trace only
+and can then be deactivated. A name mismatch is an error and skipped, unless approved via
+`Approve-IDBridgeNameMismatch` (honored only while the account still matches the approval;
+drifted ⇒ Warn + skip). Unlinked users with no AD account at all are logged at Trace only
 (inactive ones with an explicit "nothing to reconcile" message, mirroring
 `Get-GoogleUsersToSetEmployeeID`). **Returns:** hashtable
 `personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`.
@@ -370,7 +396,9 @@ exchanges it at `https://oauth2.googleapis.com/token`. **Returns:**
 
 ### `Get-GoogleUsersToSetEmployeeID` 🔒 🧮
 **Params:** `-UserList`, `-GoogleUsers`. Matches **any unlinked** source user (active or not)
-to existing Google users by primaryEmail+name. Unlinked users with no Google account at all are
+to existing Google users by primaryEmail+name. A name mismatch is an error and skipped, unless
+approved via `Approve-IDBridgeNameMismatch` (honored only while the account still matches the
+approval; drifted ⇒ Warn + skip). Unlinked users with no Google account at all are
 logged at Trace only (inactive ones with an explicit "nothing to reconcile" message — inactive
 source rows with no account are expected and recur until the row leaves the source feed).
 **Returns:** hashtable `personID → @{ ID; Groups; SuspendedStatus; User }`.

@@ -149,7 +149,9 @@ their group memberships in the same run, using the GUID/ID returned by the creat
   self-releases — pre-archive suspended users are grandfathered, and `ForceDisable` still
   suspends (the temporary block).
 - **Link** (`SetEmployeeID`) = **any** unlinked source user (active or not), so deprovisioned
-  accounts get linked and can be deactivated.
+  accounts get linked and can be deactivated. A username match whose **name differs** is an
+  error and skipped — unless approved via the interactive `Approve-IDBridgeNameMismatch`
+  onboarding tool (persisted in `<DataRoot>\ApprovedNameMismatches.csv`).
 - **Orphans** (Google): `Get-GoogleUsersOrphaned` finds target users absent from source.
 
 ## Deactivation model (Google: archive vs. suspend vs. ForceDisable)
