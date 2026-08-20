@@ -31,7 +31,9 @@ live in the PostRun export plugin).
 ### `Initialize-IDBridge` 🌐
 Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), imports AD
 module, applies feature cascade. No Google auth — that happens in `Invoke-IDBridge`, so a
-fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`.
+fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`,
+`-SkipADCheck`/`-SkipAD` (applied to the config before the AD module import — forwarded by
+the matching `Invoke-IDBridge` switches, whose other overrides land after initialization).
 **Returns:** nothing; sets `$script:IDBridgeConfig`, `$script:Logs`.
 
 ### `Install-IDBridge` 🌐(filesystem)
@@ -91,16 +93,51 @@ a random GUID (plain-text file, deliberately unencrypted/non-secret) on first us
 the file is invalid. Only transmitted at the Enhanced tier; used to claim the install in
 the Pulse dashboard. Delete the file when cloning a config to a new install.
 
+### `Test-IDBridgeUpdateAvailable` 🔒 🌐
+No params. Queries the PowerShell Gallery for the latest stable IDBridge release (10 s
+timeout) and logs a `Warn` when a newer one exists ("run `Update-Module IDBridge`"), Trace
+when current. Notify-only — never installs anything. Failures throw to the caller
+(`Invoke-IDBridge` swallows them at Trace). **Returns:** `[bool]`.
+
+### `Get-IDBridgeTemplateVersion` 🔒
+**Params:** `-Path`. Reads the `# TemplateVersion: <n>` marker from a template file.
+**Returns:** `[int]`, or `$null` when the file has no marker. Powers `Install-IDBridge`'s
+"newer template available" notice; uses no module state or `Write-Log` (it runs before
+initialization).
+
+### `Add-IDBridgeWriteResult` 🔒
+**Params:** `-Directory {AD|Google}`, `-Action {Create|Update|Rename|Move|Deactivate|
+GroupAdd|GroupRemove}`, `-PersonID`, `-Target`, `-Success` (bool), `-ErrorMessage`.
+Appends one structured record to the run's write-result buffer (`$script:WriteResults`,
+reset by `Initialize-IDBridge`) — the source of the RunResult `Applied` list and the
+actual-outcome telemetry counts. No return.
+
+### `Add-IDBridgeGoogleBatchResult` 🔒
+**Params:** `-Action`, `-Requests`, `-Responses`, `-IdentityMap` (ContentId →
+`@{ PersonID; Target }`). Matches each Google batch request to its response part by
+ContentId and records one write result per request via `Add-IDBridgeWriteResult` (missing
+response part or status ≥ 400 ⇒ failure). No return.
+
+### `Hide-IDBridgeSecureString` 🔒 🧮
+**Params:** `-InputObject`. Walks the RunResult object graph (hashtables, lists,
+PSCustomObjects; cycle-safe) and replaces every `[SecureString]` with `$null`, in place —
+type-driven, so new credential fields are covered automatically. Called by
+`Invoke-IDBridge` just before `Invoke-PostRunPlugins`. No return.
+
 ### `New-Passphrase` 🌐
-Deterministic passphrase generator backed by an Azure Function. **Params:** `-Nonce`
-(SecureString), `-Username` (string/array), `-Mode {words|verbnoun}`, `-WordCount` (2–6,
-def 3), `-AuthToken` (SecureString, required — throws when absent), `-FunctionUrl`.
-POSTs to `<FunctionUrl>/api/generate`. **Returns:** phrase string(s).
+Deterministic passphrase generator backed by Keysmith (see [keysmith.md](keysmith.md)).
+**Params:** `-Nonce` (SecureString), `-Username` (string/array), `-Mode {words|verbnoun}`,
+`-WordCount` (2–6, def 3), `-AuthToken` (SecureString, required — throws when absent; sent
+as the `x-api-key` header — the Static Web App proxy overwrites `Authorization`), `-Rev`
+(1–99, optional — pin a word-list revision; omit for the server's latest), `-FunctionUrl`
+(def `https://keysmith.scnlabs.net`). POSTs to `<FunctionUrl>/api/generate` and logs the
+word-list rev used on every call. **Returns:** phrase string(s).
 
 ### `Get-StudentGrade`
 **Params:** `-gradYear` (2000–2099), `-gradeAdvanceDate` (`MM-dd` rollover date). **Returns:**
 grade code (`12`..`01`, `KG`, `K4`, `PK`, or `GD`) from graduation year vs. the school-year
-rollover; `$null` when the year is out of range.
+rollover; `$null` when the year falls outside the computed grade window (a year outside
+2000–2099 throws at parameter binding).
 
 ### `Format-IDBridgeName`
 **Params:** `-Name` (pipeline-friendly). Title-cases a name, capitalizing after spaces,
@@ -115,8 +152,9 @@ casing fix reaches existing accounts too.
 duplicate `personID`. **Returns:** array (guaranteed).
 
 ### `Show-GroupsNotProcessed` 🔒 🧮
-**Params:** `-ProposedGroups`, `-TargetGroups`. Trace-logs each proposed group missing
-from the target. No return.
+**Params:** `-Directory` (`AD`/`Google`, mandatory — log prefix), `-ProposedGroups`,
+`-TargetGroups`. Trace-logs one line listing the proposed groups missing from the target.
+No return.
 
 ### `Test-IDBridgeChangeThreshold` 🔒 🧮
 **Params:** `-Directory` (`AD`/`Google`, log context), `-ChangeCount`, `-PopulationCount`,
@@ -228,6 +266,30 @@ via `nextLink`; includes everything the app registration can see in that vault).
 **Params:** `-Name` (mandatory). Deletes the secret's envelope file — or, with the
 `AzKeyVault` provider, DELETEs it from the Key Vault. Throws if absent.
 
+### `Resolve-IDBridgeCmsCertificate` 🔒
+No params. Resolves the Document Encryption certificate the `Cms` provider encrypts with:
+`Secrets.Cms.Thumbprint` when configured, else exactly one unexpired `CN=IDBridge Secrets`
+certificate in the LocalMachine/CurrentUser My stores. Throws pointing at
+`New-IDBridgeSecretCertificate` (none found) or at configuring the thumbprint (ambiguous
+match). **Returns:** the certificate.
+
+### `Import-IDBridgeDpapiNGType` 🔒
+No params. Compiles the `[IDBridge.DpapiNG]` P/Invoke wrapper over `ncrypt.dll`
+(`NCryptCreateProtectionDescriptor`/`NCryptProtectSecret`/`NCryptUnprotectSecret`) used by
+the `DpapiNG` provider — once per session; later calls are no-ops. No return.
+
+### `Get-IDBridgeAzKeyVaultContext` 🔒 🌐
+No params. Validates the `Secrets.AzKeyVault` config block and returns
+`@{ VaultUri; ApiVersion; Headers }` for the Key Vault REST calls. The bearer token (from
+`Get-IDBridgeAzureAuthToken`) is cached script-scoped for the session and refreshed 5
+minutes before expiry.
+
+### `Get-IDBridgeAzureAuthToken` 🔒 🌐
+**Params:** `-ClientId`, `-TenantId`, `-CertThumbprint`, `-Scope` (all mandatory). OAuth2
+client-credentials flow with a certificate credential: builds a signed JWT client
+assertion (RS256, `x5t` from the cert hash) and exchanges it at the tenant's v2.0 token
+endpoint. **Returns:** the token response (access token + expiry).
+
 ---
 
 ## Source
@@ -254,15 +316,17 @@ enforces presence + type; cross-field rules live in `Test-IDBridgeSourceData`.
 
 ### `Test-IDBridgeSourceData` 🧮
 **Params:** `-InputObject` (records, null/empty ok), `-PluginName`. Validates each record
-(safety-net `PersonID`/`IDBActive`; cross-field: if `ProvisionAD` → OU + `ADKey`-or-
-`ADPassphraseAPI`, same for `Google*`); drops failures with a `Warn` (plugin + reasons),
+(safety-net `PersonID`/`IDBActive`; cross-field: if `ProvisionAD` → target + trash OUs +
+`ADKey`-or-`ADPassphraseAPI`, same for `Google*`); drops failures with a `Warn` (plugin + reasons),
 keeps the rest. **Returns:** the valid records as an array. Called per source plugin inside
 `Invoke-SourcePlugins`.
 
 ### `Get-SourceDataGSheet` 🌐
 **Params:** `-sheetID`, `-sheetRange`, `-userCount`, `-userCountSafetyPercentage` (def 75).
 Reads a sheet via `Get-GoogleSheetData`, validates required columns, enforces a count
-safety floor, returns rows where `Process='TRUE'`. **Returns:** array of row objects.
+safety floor (counting only `PersonID`-populated rows), returns rows where `Process='TRUE'`
+that carry every required value (only `TerminationDate` may be blank; incomplete rows are
+dropped with a log line). **Returns:** array of row objects.
 
 ### `Get-SourceDataSkywardSMS` 🌐
 **Params:** `-ClientId`, `-ClientSecret`, `-TokenUrl`, `-BaseUrl`, `-ExcludeEntityIDs`,
@@ -332,23 +396,29 @@ and can then be deactivated. A name mismatch is an error and skipped, unless app
 drifted ⇒ Warn + skip). Unlinked users with no AD account at all are logged at Trace only
 (inactive ones with an explicit "nothing to reconcile" message, mirroring
 `Get-GoogleUsersToSetEmployeeID`). **Returns:** hashtable
-`personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`.
+`personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`. `Groups` reuses the target
+snapshot's exclusion-filtered `CurrentGroups`, so `AD.groupsExcluded` applies to linked
+users too (matching the Google side).
 
 ### `Get-ADOrgUnitsForProcessing` 🔒 🧮
-**Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU DNs (+trash),
-expands ancestors, removes existing, sorts parents-first. **Returns:** ordered OU DN array.
+**Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU DNs (+trash) for **active**
+(`IDBActive=true`) users, expands ancestors, removes existing, sorts parents-first.
+**Returns:** ordered OU DN array.
 
 ### `Get-ADUsersToCreate` 🔒 🧮🌐
-**Params:** `-UserList`, `-CurrentADUsers`, `-Nonce`. **Predicate:** `IDBActive=true` AND
+**Params:** `-UserList`, `-CurrentADUsers`, `-Nonce` (unused — passphrase nonces come from
+each record's `ADPassphraseAPI`). **Predicate:** `IDBActive=true` AND
 `ProvisionAD=true` AND no `ADCurrentUserID` AND UPN absent from AD. Builds a `New-ADUser` splat
 (password from `ADKey` or `ADPassphraseAPI`→`New-Passphrase`). **Returns:** `@{ PersonID; Splat }[]`.
 
 ### `Get-ADUsersToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-LookupByID`, `-CurrentADUsers`. **Predicate:** `IDBActive=true` AND
-`ProvisionAD=true` AND has `ADCurrentUserID` + any delta (name, username/UPN, EmployeeID,
+`ProvisionAD=true` AND has `ADCurrentUserID` + any delta (name, username — the UPN is written
+only as part of a username change, never on its own — EmployeeID, EmployeeNumber/`InternalID`,
 office/title/company/dept, description/phone/email, enabled state, employeeType/ext-attr,
-passwordNeverExpires, CN, OU). A username/UPN change already held by a **different** account in
-the `CurrentADUsers` snapshot is logged as an error and the user is skipped that run (mirrors
+passwordNeverExpires, CN, OU). On a username change, a new username/UPN already held by a
+**different** account in the `CurrentADUsers` snapshot is logged as an error and the user is
+skipped that run (mirrors
 `Get-GoogleUsersToUpdate`'s primaryEmail collision check). Name comparisons are
 **case-sensitive** (`-cne`) so a casing fix from the plugin (e.g. ALL-CAPS→Title-Case) is
 applied. **Returns:** `@{ UpdateList; RenameList; MoveList }` (items carry `CN` +
@@ -379,20 +449,29 @@ Disable/move failures return the ErrorRecord (the caller records the `Deactivate
 
 > Identity key: **`externalIds` (type `organization`).value = `personID`**.
 > All write functions get auth via `Get-GoogleHeaders` and hit the Admin SDK Directory API
-> base `https://admin.googleapis.com/admin/directory/v1/`.
+> base `https://admin.googleapis.com/admin/directory/v1/` (exceptions:
+> `Remove-IDBridgeGoogleUserLicense` calls the Licensing API, `Push-LogsToSheet` the
+> Sheets API).
 > Per-user targeting mirrors AD via **`ProvisionGoogle`**: create/update/groups need
 > `IDBActive=true AND ProvisionGoogle=true`; deactivate fires on `IDBActive=false OR
 > ProvisionGoogle=false`.
 
 ### `Get-GoogleData` 🔒 🌐
-**Params:** `-GoogleHeaders`, `-APIUri`. Generic paginated GET (follows `nextPageToken`),
-consolidates the primary collection. **Returns:** combined array.
+**Params:** `-GoogleHeaders`, `-APIUri`. Generic paginated GET (follows `nextPageToken`,
+appended with `?`/`&` as the URI requires), consolidates the primary collection.
+**Returns:** combined array.
 
 ### `Get-GoogleApiAccessToken` 🔒 🌐
 **Params:** `-ServiceAccountKeyPath` or `-ServiceAccountKeyJson`, `-Scope`. Builds +
 RS256-signs a JWT issued to the service account itself (no `sub` claim / impersonation),
 exchanges it at `https://oauth2.googleapis.com/token`. **Returns:**
 `@{ Authorization='Bearer …'; Accept='application/json' }`.
+
+### `Get-IDBridgeGoogleScope` 🔒
+No params. Returns the space-separated OAuth scope string for the token request — Admin
+SDK directory user/orgunit/group + Sheets, plus `apps.licensing` unless
+`Google.enableLicenseRemoval = $false`. The scope list is a property of the module's code
+(which APIs it calls), not site configuration.
 
 ### `Get-GoogleUsersToSetEmployeeID` 🔒 🧮
 **Params:** `-UserList`, `-GoogleUsers`. Matches **any unlinked** source user (active or not)
@@ -404,9 +483,10 @@ source rows with no account are expected and recur until the row leaves the sour
 **Returns:** hashtable `personID → @{ ID; Groups; SuspendedStatus; User }`.
 
 ### `Get-GoogleOrgUnitsForProcessing` 🔒 🧮
-**Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU paths
-(+trash), expands ancestors (`/A/B/C`→`/A`,`/A/B`,`/A/B/C`), removes existing, sorts
-shallow-first. **Returns:** ordered OU path array.
+**Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU paths (+trash) for
+**active** (`IDBActive=true`) users, expands ancestors (`/A/B/C`→`/A`,`/A/B`,`/A/B/C`),
+removes existing, sorts so parents precede children (lexicographic — a parent path
+prefixes its children). **Returns:** ordered OU path array.
 
 ### `Get-GoogleUsersToCreate` 🔒 🧮🌐
 **Params:** `-UserList`, `-GoogleUsers`. **Predicate:** `IDBActive=true` AND
@@ -423,7 +503,8 @@ unarchived; `ForceDisable` suspends — the temporary block, never an archive), 
 
 > **Alias removal on renames — exact scope.** `RemoveAlias` is set only when ALL of these
 > hold: the user is being *renamed* (desired UPN ≠ current primaryEmail), the new UPN is
-> *not* anyone's primary email (that case skips the rename with an error), and the new UPN
+> *not* anyone's primary email (that case logs an error and skips the user's **entire
+> update** for the run, not just the rename), and the new UPN
 > *is* currently on some user as an **alias**. At execute time exactly that one alias is
 > deleted from its holder (refused if it's actually their primary) so the rename PUT doesn't
 > 409 — no other aliases on anyone are ever touched. The conflict is logged as a warning at
@@ -533,8 +614,9 @@ token lacks it). Prints the share-the-sheets checklist. **Returns:**
 **Params:** `-UserEmail` (the Licensing API user key), `-Assignments` (the user's license
 assignments from the target snapshot, `GoogleCurrentLicenses`; empty = no-op). One DELETE
 per assignment, logging every removal by SKU name; per-assignment errors are logged and
-don't stop the rest. Called by `Invoke-IDBridge` on the full deactivate (trash) step (on by
-default; `enableLicenseRemoval = $false` disables) — never on `ForceDisable` updates.
+don't stop the rest. Called by `Invoke-IDBridge` on the full deactivate (trash) step (on when the config key is
+absent; the shipped config template sets `enableLicenseRemoval = $false`) — never on
+`ForceDisable` updates.
 License discovery happens in `Get-TargetDataGoogle`, so ReadOnly runs show what would be
 removed.
 

@@ -14,8 +14,9 @@ which prepares all global state:
 2. **Build & validate paths** — computes `Paths.{Root,ConfigRoot,LogsRoot,ExportsRoot,
    PluginsRoot,DataRoot,VaultRoot}`, creating any missing directory.
 3. **Logging** — sets `Paths.LogFile = <LogsRoot>\IDBridge.log`, inits the in-memory
-   buffer `$script:Logs`, and **rotates the log if it exceeds 5 MB** (renames with a
-   timestamp). Writes the run-start marker.
+   buffer `$script:Logs` (and resets the per-write buffer `$script:WriteResults` that the
+   RunResult's `Applied` list is built from), and **rotates the log if it exceeds 5 MB**
+   (renames with a timestamp). Writes the run-start marker.
 4. **AD module** (if `AD.enabled`) — `Import-Module ActiveDirectory`. On failure it
    throws **unless** `Debug.skipADCheck` is set.
 5. **Feature-dependency cascade** — disabling Google/AD also disables their group
@@ -26,25 +27,30 @@ initialize cleanly and seed secrets/run the bootstrap before the Google key exis
 
 Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig`, applies **runtime switch
 overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
--SkipChangeThreshold`), logging each as `OVERRIDE: <key> = <value>` (switches win over the
-config file), runs the **notify-only update check** (a newer Gallery release logs a `Warn`
+-SkipChangeThreshold/-DisableTelemetry`), logging each as `OVERRIDE: <key> = <value>`
+(switches win over the config file; `-SkipADCheck` and `-SkipAD` are additionally
+forwarded into `Initialize-IDBridge` itself so they land before the AD module import),
+runs the **notify-only update check** (a newer Gallery release logs a `Warn`
 to run `Update-Module IDBridge`; offline/blocked environments log a Trace skip — nothing
 is ever installed), and **acquires Google auth** (if `GoogleToken.Enabled`) via
 `Connect-IDBridgeGoogle`: reads the service-account key JSON from the secret vault
 (`Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount'`; **no file fallback**), validates
 it has a `private_key`, then calls `Get-GoogleApiAccessToken` (JWT → bearer token issued
 to the service account **itself** — authorized by its `IDBridge` Workspace admin role, no
-impersonation) into `$script:GoogleHeaders`, stashing the SA email alongside
-(`Get-IDBridgeGoogleServiceAccountEmail`). An auth
+impersonation) into `$script:GoogleHeaders`, stashing the SA email and GCP project ID
+alongside (`Get-IDBridgeGoogleServiceAccountEmail` / `Get-IDBridgeGoogleProjectId`). An auth
 failure throws rather than degrading — disable Google intentionally with
 `GoogleToken.Enabled = $false` (`-SkipGoogle` disables processing but still acquires
 headers for Sheets plugins and sheet logging).
 
 ## The ordered pipeline
 
-Each step below maps to a `#region` block in `Invoke-IDBridge.ps1`. The whole body is
-wrapped in `try/catch/finally`; per-user write errors are logged and skipped, but
-startup/OU-creation failures `Throw` and abort the run.
+Each step below maps to a `#region` block in `Invoke-IDBridge.ps1` (the final log push
+sits just after the last region). The whole body is wrapped in `try/catch/finally`;
+per-user write errors are logged and skipped, but startup/OU-creation failures `Throw`
+and abort the run. Note the outer `catch` logs the failure and does **not** re-throw —
+`Invoke-IDBridge` never surfaces a terminating error to its caller (a scheduled task sees
+a normal exit); a failed run is visible in the log and as `RunResult.Success = $false`.
 
 ```
 Invoke-IDBridge
@@ -57,14 +63,15 @@ Invoke-IDBridge
         each Source plugin's output is built via New-IDBridgeSourceRecord and
         passed through Test-IDBridgeSourceData (filter-and-log) before collection
   2. Get-TargetDataGoogle / Get-TargetDataAD ─► $googleData / $adData  (current state)
-  3. Add-TargetDataGoogle / Add-TargetDataAD ─► enrich each source record w/ current
+  3. Add-TargetDataAD / Add-TargetDataGoogle ─► enrich each source record w/ current
                                                 state + duplicate flags
   4. Remove-IDBridgeDuplicateID ─────► drop pre-flagged + same-personID dupes (2 passes)
   5. Merge-IDBridgeOverrideData ─────► apply override rows (incl. AddGroup/RemoveGroup)
   6. Show-GroupsNotProcessed ────────► (trace only) warn re: proposed groups missing in target
   7. Match personIDs:
        Get-ADUsersToSetEmployeeID / Get-GoogleUsersToSetEmployeeID
-       → link source ↔ existing target user by UPN+name; attach
+       → link source ↔ existing target user by username+name (AD SamAccountName /
+         Google primaryEmail); attach
          *Object / *CurrentUserID / *CurrentGroups / enabled|suspended status
         │
   8. Compute AD change lists (read-only):                    ┐
@@ -90,14 +97,18 @@ Invoke-IDBridge
        Rename-ADObject → Move-ADObject → New-ADUser (create) →
        [refresh group list if users created] → Add/Remove group membership
  11. EXECUTE Google changes  (only if Google.enabled AND Debug.readOnly = $false)
-       New-IDBridgeGoogleOrgUnit → Update-IDBridgeGoogleUser (archive+trash deactivates,
-       + Remove-IDBridgeGoogleUserLicense when enableLicenseRemoval) →
+       New-IDBridgeGoogleOrgUnit → Update-IDBridgeGoogleUser (archive+trash deactivates) →
+       [per deactivated user: strip group memberships when enableGroupProcessingTrash,
+        then Remove-IDBridgeGoogleUserLicense when enableLicenseRemoval] →
        Update-IDBridgeGoogleUser (update/move/rename) → New-IDBridgeGoogleUser (create) →
        [refresh group list if users created] → Update-GoogleGroupMembers add/remove (batched)
         │
+ 11b. Run Summary log block: per-directory PROPOSED (ReadOnly) or APPLIED counts
+       (create/update/rename/move/deactivate/group add/remove) + change-volume percentages
+        │
  finally:
  12. Build RunResult (outcome, timing, mode flags, change lists, and the per-write Applied
-       results recorded during steps 6-11 — actual outcome counts derive from these) — one
+       results recorded during steps 10-11 — actual outcome counts derive from these) — one
        report feeding both telemetry and the PostRun plugins
  13. Send-IDBridgeTelemetry (unless Telemetry.Tier = 'Off') → one anonymous usage event
        (self-contained try/catch, 10s timeout, no retries — can never affect the run;
@@ -119,7 +130,8 @@ A single source record is a `PSCustomObject` that **accretes properties** as it 
 2. **After `Add-TargetData*`:** `ADObject`/`GoogleObject`, `ADCurrentUserID`/
    `GoogleCurrentUserID`, `ADCurrentGroups`/`GoogleCurrentGroups`,
    `ADCurrentUserEnabledStatus`/`GoogleCurrentUserSuspendedStatus` (true when the Google
-   account is suspended **or** archived), and
+   account is suspended **or** archived), `GoogleCurrentLicenses` (the discovered license
+   assignments the deactivate step logs and removes), and
    `ADDuplicateIDStatus`/`GoogleDuplicateIDStatus` when a duplicate ID is detected.
 3. **After override merge:** overridden scalar fields replaced; `GroupsProposed` mutated
    by `AddGroup`/`RemoveGroup`; `ForceDisable`/`GoogleOUOverride` flags applied.

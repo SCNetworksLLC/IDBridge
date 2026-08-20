@@ -26,7 +26,7 @@ vault under `C:\IDBridge\Vault\` (see [Secrets](#secrets-not-in-the-config-file)
 | `ReadOnly`     | bool | `$true` ⇒ compute change lists but **write nothing**. Shipped default `$true`. | `Invoke-IDBridge` (gates both execute regions) |
 | `TestRun`      | bool | Each source plugin's output is capped at 10 records for fast iteration. | `Invoke-SourcePlugins` |
 | `SkipADCheck`  | bool | Don't throw if the `ActiveDirectory` module fails to import. | `Initialize-IDBridge` |
-| `TraceLogging` | bool | Emit `Trace`-level logs (and enables parallel-logging path in `Get-TargetDataGoogle`). | `Write-Log`, `Invoke-IDBridge`, `Get-TargetDataGoogle` |
+| `TraceLogging` | bool | Emit `Trace`-level logs (including the trace messages inside `Get-TargetDataGoogle`'s parallel group fetch). Shipped default `$true`. | `Write-Log`, `Invoke-IDBridge`, `Get-TargetDataGoogle` |
 
 ### `ChangeThreshold` (change-volume safety guard)
 Optional block. After the change lists are computed (read-only) and **before any writes**,
@@ -39,7 +39,7 @@ the guard off (older configs keep working).
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `Enabled`    | bool   | Master switch for the guard. `$false` (or `-SkipChangeThreshold`) bypasses it. | `Invoke-IDBridge` |
-| `Percentage` | number | Max allowed change % of the managed population, per directory (def `25`). | `Invoke-IDBridge` → `Test-IDBridgeChangeThreshold` |
+| `Percentage` | number | Max allowed change % of the managed population, per directory. Required when `Enabled` — there is no code fallback (the shipped config sets `25`). | `Invoke-IDBridge` → `Test-IDBridgeChangeThreshold` |
 
 > A directory whose managed population is **0** (fresh tenant / empty root OU) is skipped with a
 > `Warn` rather than tripping the guard, so a legitimate first run isn't blocked by a zero
@@ -63,7 +63,7 @@ the guard off (older configs keep working).
 ### `Google` (Workspace processing)
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
-| `enabled`                     | bool   | Master switch for Google processing (an auth failure throws — see behavioral notes). | `Invoke-IDBridge`, `Get-TargetDataGoogle` |
+| `enabled`                     | bool   | Master switch for Google processing (an auth failure throws — see behavioral notes). | `Initialize-IDBridge` (cascade), `Invoke-IDBridge` |
 | `customerID`                  | string | Workspace customer ID. | Google target/API calls |
 | `userRootOU`                  | string | Root OU path, e.g. `/YourDistrict`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
 | `enableGroupProcessing`       | bool   | Enable Google group sync. | `Invoke-IDBridge` |
@@ -71,10 +71,10 @@ the guard off (older configs keep working).
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip group memberships when deactivating. | `Invoke-IDBridge` |
 | `groupsExcluded`              | array  | Group **email** wildcard patterns IDBridge never touches — matching groups are dropped at target-data retrieval, so no adds, removes, or deactivate strips ever reach them (exclusion wins even over a proposed group). Key absent = `@('classroom_teachers@*')` (the previous hardcoded behavior); if you set the key, include that pattern yourself. | `Get-TargetDataGoogle` |
-| `enableLicenseRemoval`        | bool   | Remove a user's discovered **paid** license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. The base Education Fundamentals license self-releases when the deactivate step archives the user. **Default on**; set `$false` to disable (also drops the `apps.licensing` scope from token requests). | `Invoke-IDBridge` |
+| `enableLicenseRemoval`        | bool   | Remove a user's discovered **paid** license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. The base Education Fundamentals license self-releases when the deactivate step archives the user. **On when the key is absent** (code default), but the shipped config template sets `$false` — so a scaffolded install starts with it off; setting `$false` also drops the `apps.licensing` scope from token requests. | `Invoke-IDBridge`, `Get-TargetDataGoogle`, `Get-IDBridgeGoogleScope` |
 | `licenseProductIds`           | array  | Products searched for a user's assignments (SKUs are discovered, not configured). Default `@('101031','101037')` (Education Standard/Plus + Teaching and Learning Upgrade) — paid products only; the base license is not touched by API (archiving releases it, and API removal fights OU auto-licensing). IDs: [Google's product list](https://developers.google.com/workspace/admin/licensing/how-to/products). | `Get-TargetDataGoogle` |
 
-> License removal (on by default) needs the **License Management privilege** on the
+> License removal (when enabled) needs the **License Management privilege** on the
 > service account's `IDBridge` admin role. Bootstrap-created roles include it (when the
 > privilege exists in the tenant); if licensing calls fail with a 403, re-run the
 > bootstrap to converge the role's privileges — or set `enableLicenseRemoval = $false`.
@@ -94,7 +94,7 @@ the guard off (older configs keep working).
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `GoogleSheetLoggingEnabled` | bool   | Push the in-memory log buffer to a sheet at end of run. | `Invoke-IDBridge` (finally) |
-| `SheetID`                   | string | Target spreadsheet ID for logs. | `Push-LogsToSheet` |
+| `SheetID`                   | string | Target spreadsheet ID for logs. | `Invoke-IDBridge` (finally — passed to `Push-LogsToSheet`) |
 
 ### `Telemetry`
 Anonymous usage telemetry to the IDBridge Pulse backend (see [PRIVACY.md](../PRIVACY.md) for
@@ -110,7 +110,8 @@ unrecognized `Tier` value fails safe to `Off`. `-DisableTelemetry` silences a si
 Array of plugin descriptors. `Source`/`Override` entries are executed in order by
 `Invoke-SourcePlugins` at the start of the run; `PostRun` entries by `Invoke-PostRunPlugins`
 at the end of the run (in the `finally` block, after telemetry — they fire on failed and
-ReadOnly runs too):
+ReadOnly runs too). The shipped config template lists all eight descriptors with
+`Enabled = $false`; a configured site looks like:
 
 ```powershell
 @{ Enabled = $true;  Type = "Source";   Function = 'Invoke-PluginGSheetStaff' }
@@ -222,7 +223,7 @@ key. **Only names/locations are documented here — never values.** See [secrets
 
 | Secret / item | Used by |
 |---------------|---------|
-| `GoogleAuth-ServiceAccount` (vault)     | `Connect-IDBridgeGoogle` → `Get-GoogleApiAccessToken` (the service-account key JSON; no file fallback) |
+| `GoogleAuth-ServiceAccount` (vault)     | `Connect-IDBridgeGoogle` → `Get-GoogleApiAccessToken` (the service-account key JSON; no file fallback); also read pre-connect by `Get-IDBridgeGoogleServiceAccountEmail` / `Get-IDBridgeGoogleProjectId` |
 | `ApiKey-SkywardSMS` (vault)             | Skyward students plugin (client secret) |
 | `ApiKey-InfiniteCampus` (vault)         | Infinite Campus students plugin (client secret) |
 | `ApiKey-Passphrase` (vault)             | Passphrase API bearer token (`New-Passphrase`) |

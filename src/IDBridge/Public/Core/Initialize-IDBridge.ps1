@@ -21,6 +21,15 @@ the 'GoogleAuth-ServiceAccount' secret exists.
 Base directory for Config/Logs/Exports/Plugins/Data/Vault. Defaults to C:\IDBridge.
 Missing directories are created.
 
+.PARAMETER SkipADCheck
+Set Debug.skipADCheck before the AD module import, so a failed import does not throw.
+Forwarded by Invoke-IDBridge -SkipADCheck (the other runtime overrides are applied after
+initialization, too late to affect the import).
+
+.PARAMETER SkipAD
+Set AD.enabled = $false before the AD module import, skipping it entirely (the feature
+cascade then also disables AD group processing). Forwarded by Invoke-IDBridge -SkipAD.
+
 .OUTPUTS
 None. Populates the script-scoped IDBridgeConfig and Logs state.
 
@@ -29,12 +38,16 @@ Initialize-IDBridge -RootPath 'C:\IDBridge'
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-06-26
+   Modified: 2026-08-20
 #>
 function Initialize-IDBridge {
     [CmdletBinding()]
     param (
-        [string]$RootPath = "C:\IDBridge"
+        [string]$RootPath = "C:\IDBridge",
+
+        [switch]$SkipADCheck,
+
+        [switch]$SkipAD
     )
 
     Write-Host "Importing config file from $RootPath"
@@ -51,6 +64,11 @@ function Initialize-IDBridge {
     catch {
         Throw "Error importing config file: $_"
     }
+
+    #Switch overrides forwarded by Invoke-IDBridge that must land BEFORE the AD module
+    #import below - the remaining runtime overrides are applied after initialization
+    if ($SkipADCheck) { $script:IDBridgeConfig.Debug.skipADCheck = $true }
+    if ($SkipAD)      { $script:IDBridgeConfig.AD.enabled = $false }
 
     $script:IDBridgeConfig.Paths = @{
         Root        = $RootPath

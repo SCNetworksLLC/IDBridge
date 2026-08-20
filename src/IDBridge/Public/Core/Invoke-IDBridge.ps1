@@ -54,7 +54,7 @@ Invoke-IDBridge -RootPath 'C:\IDBridge'
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-07-13
+   Modified: 2026-08-20
 #>
 function Invoke-IDBridge {
     [CmdletBinding()]
@@ -75,7 +75,12 @@ function Invoke-IDBridge {
 
     try{
         #region Import Configuration
-        try { Initialize-IDBridge -RootPath $RootPath } catch { Throw }
+        #-SkipADCheck/-SkipAD are forwarded so they land before the AD module import;
+        #the remaining switch overrides are applied after initialization below
+        $initializeSplat = @{ RootPath = $RootPath }
+        if ($SkipADCheck) { $initializeSplat.SkipADCheck = $true }
+        if ($SkipAD)      { $initializeSplat.SkipAD = $true }
+        try { Initialize-IDBridge @initializeSplat } catch { Throw }
 
         try { $IDConfig = Get-IDBridgeConfig } catch { Throw }
         #endregion Import Configuration

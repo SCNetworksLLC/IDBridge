@@ -9,8 +9,8 @@ space-separated scope string for the service account's token request (the token 
 to the service account itself; authorization comes from its assigned admin role):
 
   - Always: Admin SDK directory user/orgunit/group + Sheets.
-  - apps.licensing: included unless Google.enableLicenseRemoval = $false (the feature is on
-    by default).
+  - apps.licensing: included unless Google.enableLicenseRemoval = $false (on when the key
+    is absent; the shipped config template sets $false).
 
 .EXAMPLE
 $scope = Get-IDBridgeGoogleScope

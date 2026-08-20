@@ -31,7 +31,7 @@ Install-IDBridge                           # -RootPath 'D:\IDBridge' to relocate
 `Install-IDBridge` creates the runtime tree under `C:\IDBridge`
 (`Config/Logs/Exports/Plugins/Data/Vault`), writes a default
 `Config\IDBridgeConfig.psd1` — every feature disabled, all safety brakes on (`ReadOnly`,
-group `WhatIf`, `ChangeThreshold`), placeholder site values — and copies the six shipped
+group `WhatIf`, `ChangeThreshold`), placeholder site values — and copies the eight shipped
 plugin templates into `Plugins\`. It never overwrites an existing config or plugin file.
 You'll edit these in steps 6–7; the config schema reference is
 [configuration.md](configuration.md).
@@ -114,7 +114,7 @@ want the run log pushed to a sheet too, create/share one more and put its ID in
 
 ## 6. Source plugin
 
-Plugins are the only place source data enters IDBridge. Step 2 copied the six shipped
+Plugins are the only place source data enters IDBridge. Step 2 copied the eight shipped
 templates into `C:\IDBridge\Plugins\`. Four of them feed the run:
 
 | Template | Type | Reads |

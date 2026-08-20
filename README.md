@@ -97,8 +97,9 @@ C:\IDBridge\{Logs,Exports,Data,Vault}\   runtime dirs incl. the secret vault (ou
 - [docs/functions.md](docs/functions.md) — every exported function by layer
 - [docs/configuration.md](docs/configuration.md) — `IDBridgeConfig.psd1` schema + paths
 - [docs/plugins.md](docs/plugins.md) — plugin contract + worked examples
-- [docs/secrets.md](docs/secrets.md) — secret vault (Cms/DPAPI-NG), certificate setup & migration
+- [docs/secrets.md](docs/secrets.md) — secret vault (Cms/DPAPI-NG/Azure Key Vault), certificate setup & migration
 - [docs/google-bootstrap.md](docs/google-bootstrap.md) — Google service-account bootstrap (`Initialize-IDBridgeGoogleServiceAccount`)
+- [docs/keysmith.md](docs/keysmith.md) — Keysmith passphrase integration: registering a district, provisioning the token + nonce, operational rules
 
 ## Contributing & releases
 

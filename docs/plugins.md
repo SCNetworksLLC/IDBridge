@@ -32,10 +32,13 @@ Source of truth: [`src\IDBridge\Private\Source\Invoke-SourcePlugins.ps1`](../src
 For each enabled `Plugins` entry, in config order (`PostRun` entries are skipped here —
 they run at end of run):
 1. Skip if `Enabled -ne $true`.
-2. Require `<PluginsRoot>\<Function>.ps1` to exist; **dot-source** it (load on failure ⇒
-   warn + disable).
+2. If `<PluginsRoot>\<Function>.ps1` exists, **dot-source** it (load failure ⇒ warn +
+   disable). A missing file is tolerated when the function already exists in the session —
+   the `Get-Command` check below is the real gate.
 3. Require `Get-Command <Function>` to resolve (missing ⇒ warn + disable).
-4. Invoke with **no arguments**: `& $plugin.Function`.
+4. Invoke with **no arguments**: `& $plugin.Function`. A Source/Override plugin that
+   **throws aborts the whole run** (unlike PostRun plugins, which are isolated — see the
+   PostRun contract below).
 5. Append the returned object(s) to `SourceData` or `OverrideData` based on `Type`. When
    `Debug.testRun` is set, each source plugin's validated output is capped at the first 10
    records before collection (after `Test-IDBridgeSourceData` and the plugin's own safety
@@ -70,8 +73,7 @@ normalized to `@()`). Downstream `Get-*To*` functions depend on these exact prop
 | `UPN` | Primary email / SamAccountName source, e.g. `username@domain`. |
 | `PersonTypeID` | `"1"` = student, `"2"`/`"3"` = staff tiers. Drives the staff-CSV export filter. |
 | `InternalID` | Optional secondary id (AD `EmployeeNumber`). |
-| `IDBActive` | `$true`/`$false` — the create/update vs. deactivate driver. |
-| `GroupsProposed` | `[string[]]` of desired group **names** (unique). |
+| `GroupsProposed` | `[string[]]` of desired group **names** (de-duplicate in the plugin — the factory doesn't). |
 | `PersonType` | Human-readable role (used for OU paths + custom-group logic). |
 | `Description`, `TelephoneNumber`, `EmailAddress` | Optional AD attributes (Description / OfficePhone / mail). Applied only when non-empty (set-but-don't-clear). |
 | `PasswordNeverExpires` | `[bool]` (def `$false`) — AD passwordNeverExpires. |
@@ -159,9 +161,9 @@ ones won't be renamed. Check `SchemaVersion` if you depend on shape.
 | `Counts` | `Managed/Create/Update/Deactivate/GroupAdd/GroupRemove/Failed` — **actual applied outcomes** aggregated from `Applied` (`Update` includes renames/moves; `Failed` = total failed writes). Counts are **directory writes, not people**: a person provisioned to both AD and Google counts once per directory (`Managed` is the per-person number). Zeros in ReadOnly or while a directory's group processing is off/WhatIf — nothing attempted, nothing recorded. |
 | `Applied` | One record per **attempted** write: `Timestamp/Directory/Action/PersonID/Target/Success/Error` (`Action` ∈ Create, Update, Rename, Move, Deactivate, GroupAdd, GroupRemove; `Error` `$null` on success). Empty in ReadOnly. |
 | `SourceData` | The full enriched source records (incl. matched `ADObject`/`GoogleObject` where found). |
-| `ThresholdResults` | Change-volume guard results (`Directory/Percent/Exceeded/Skipped` per enabled directory), empty if the guard is off. |
+| `ThresholdResults` | Change-volume guard results (`Directory/ChangeCount/PopulationCount/Percent/Exceeded/Skipped` per enabled directory; `Percent` is `$null` when skipped), empty if the guard is off. |
 | `AD` | `Enabled`, `UsersToCreate`, `UsersToUpdate` (keeps its `UpdateList/RenameList/MoveList` shape), `UsersToDeactivate`, `GroupsToUpdate` (keeps its `Add/Remove` shape), `OrgUnitsToCreate`, `CurrentUsers` (the full fetched AD user list the run matched against). |
-| `Google` | Same shape: `Enabled/UsersToCreate/UsersToUpdate/UsersToDeactivate/GroupsToUpdate/OrgUnitsToCreate/CurrentUsers`. |
+| `Google` | Same property names: `Enabled/UsersToCreate/UsersToUpdate/UsersToDeactivate/GroupsToUpdate/OrgUnitsToCreate/CurrentUsers` — but `Google.UsersToUpdate` is a **flat array** (no `UpdateList/RenameList/MoveList` sub-lists; only the AD one has those). |
 
 On a failed run the lists that were never computed are empty arrays (`UsersToUpdate`/
 `GroupsToUpdate` may be `$null`) — guard accordingly.
@@ -184,7 +186,7 @@ Two things to know about the data:
 
 ## Worked examples (the shipped plugins)
 
-### `Invoke-PluginGSheetStaff` — Source *(enabled)*
+### `Invoke-PluginGSheetStaff` — Source *(disabled in config)*
 File: `C:\IDBridge\Plugins\Invoke-PluginGSheetStaff.ps1`. Pulls staff from a Google Sheet via
 `Get-SourceDataGSheet` (spreadsheet ID + range `Staff`, safety floor 650 @ 75%).
 - `UPN = <Username>@yourdistrict.org`; AD OU `OU=<PersonType>,OU=Staff,<root>`,
@@ -196,11 +198,11 @@ File: `C:\IDBridge\Plugins\Invoke-PluginGSheetStaff.ps1`. Pulls staff from a Goo
   API only if a type is `API-PASSPHRASE` (reads the `ApiKey-PassphraseNonceStaff` +
   `ApiKey-Passphrase` vault secrets via `Get-IDBridgeSecret`).
 - Groups = `Get-CustomStaffGroups -building -personType` (optional, bundled in-file) **+**
-  comma-split `ApplicationGroups` **+** `EmailGroups`, de-duplicated. The bundled helper
-  encodes the district's group policy (All Staff, building Staff/Faculty/Support, Admin tiers,
-  All Principals, etc.) via building/person-type allow- and deny-lists.
+  comma-split `ApplicationGroups` **+** `EmailGroups`, de-duplicated. The bundled helper is
+  a starting point (`All Staff`, `<building> Staff`, and `All Professional Staff` via a
+  person-type allow-list) — extend it to encode your district's group policy.
 
-### `Invoke-PluginStaffOverride` — Override *(enabled)*
+### `Invoke-PluginStaffOverride` — Override *(disabled in config)*
 File: `C:\IDBridge\Plugins\Invoke-PluginStaffOverride.ps1`. Reads `Get-GoogleSheetData`
 (same sheet, range `Override`). Required columns: `PersonID, Type, Value, StartDate, EndDate`.
 - Validates `Type` against the allowed override list; invalid ⇒ Warn + skip.

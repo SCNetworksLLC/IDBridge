@@ -5,6 +5,81 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.8.20.0] - 2026-08-20
+
+### Changed
+- **Docs: full staleness pass — every doc verified against the code.** functions.md:
+  `New-Passphrase` entry brought up to Keysmith 2.0 (default
+  `https://keysmith.scnlabs.net`, `x-api-key` header, `-Rev` parameter, rev logging — the
+  code changed in 26.7.24.0, the entry hadn't); `Show-GroupsNotProcessed` gains its
+  mandatory `-Directory` param (added in 26.7.13.1); ten previously-undocumented internal
+  helpers get 🔒 entries (`Add-IDBridgeWriteResult`, `Add-IDBridgeGoogleBatchResult`,
+  `Hide-IDBridgeSecureString`, `Test-IDBridgeUpdateAvailable`,
+  `Get-IDBridgeTemplateVersion`, `Resolve-IDBridgeCmsCertificate`,
+  `Import-IDBridgeDpapiNGType`, `Get-IDBridgeAzKeyVaultContext`,
+  `Get-IDBridgeAzureAuthToken`, `Get-IDBridgeGoogleScope`); the AD update entry now says
+  the UPN is written only as part of a username change (and the collision check is scoped
+  to that case); the Google alias-conflict note now says a primary-email collision skips
+  the user's entire update that run, not just the rename; OU-planner entries note the
+  active-users-only scope and the real (parents-before-children) ordering; the AD linking
+  entry documents that a just-linked user's groups come from an unfiltered query, so
+  `AD.groupsExcluded` applies to them from the next run.
+- **Docs: architecture.md pipeline diagram corrected.** `-DisableTelemetry` added to the
+  switch-override list, with a note that overrides land after `Initialize-IDBridge` (so
+  `-SkipADCheck`/`-SkipAD` can't rescue a failed AD import at startup — use the config
+  keys for that); `Add-TargetDataAD` runs before `Add-TargetDataGoogle`; the Google
+  execute step now shows the deactivate group-strip pass and puts license removal after
+  it; the Run Summary log block appears as step 11b; `Applied` results are recorded in
+  steps 10–11 (not 6–11); the outer catch is documented as log-and-continue (no re-throw
+  to the caller); linking is by username+name (AD `SamAccountName` / Google
+  `primaryEmail`), and `GoogleCurrentLicenses` joins the data-lifecycle list.
+- **Docs: configuration.md defaults and attributions corrected.** `enableLicenseRemoval`
+  is on when the key is absent but the shipped template sets `$false` (the old "default
+  on" wording read as if a fresh install removes licenses) — same correction in CLAUDE.md
+  and functions.md; `ChangeThreshold.Percentage` has no code fallback (the shipped config
+  sets 25); `TraceLogging` ships `$true`; `Google.enabled` is not read by
+  `Get-TargetDataGoogle`; `Logging.SheetID` is read in `Invoke-IDBridge`'s finally block,
+  not by `Push-LogsToSheet`; the Plugins example notes all eight shipped descriptors are
+  disabled.
+- **Docs: plugins.md contract fixes.** A missing plugin file is tolerated when the
+  function already exists in the session (the `Get-Command` check is the real gate); a
+  Source/Override plugin that throws aborts the whole run (unlike the isolated PostRun
+  contract); the duplicate `IDBActive` row is gone; `ThresholdResults` documents its full
+  six-property shape; `Google.UsersToUpdate` is documented as a flat array (only the AD
+  side has `UpdateList/RenameList/MoveList`); the GSheet staff worked example now
+  describes the bundled group helper that actually ships.
+- **Docs: keysmith.md fixed and linked.** The vault example used a nonexistent
+  `-Value` parameter (now `Set-IDBridgeSecret -Name … ` prompting) and invented secret
+  names (now the shipped `ApiKey-Passphrase` / `ApiKey-PassphraseNonceStaff` /
+  `ApiKey-PassphraseNonceStudent`); `New-Passphrase` is exported, not module-internal; the
+  doc is now listed in README.md and CLAUDE.md (it wasn't linked from anywhere).
+- **Docs: smaller corrections.** getting-started.md counts eight shipped plugin templates
+  (said six since 26.7.22.0 added two); README's secrets line mentions the Azure Key Vault
+  provider; CONTRIBUTING notes CI publishes with `Publish-PSResource`; PRIVACY.md notes
+  the `Telemetry.Endpoint` override. Docs only — no behavior change.
+
+### Fixed
+- **`AD.groupsExcluded` now applies to users linked during the run.**
+  `Get-ADUsersToSetEmployeeID` populated a just-linked user's group list from a fresh,
+  unfiltered AD query, so on the run that linked a user (typically onboarding runs, when
+  linking is heaviest) excluded groups could reach the group-remove list or the deactivate
+  group strip. It now reuses the exclusion-filtered `CurrentGroups` from the target
+  snapshot — matching how the Google side has always worked, and dropping a live
+  `Get-ADGroup` round trip per linked user.
+- **`-SkipADCheck` and `-SkipAD` now take effect at startup.** Both switches were applied
+  after `Initialize-IDBridge` had already imported the AD module, so neither could prevent
+  the startup throw on a machine without RSAT (`-SkipADCheck` was fully inert; `-SkipAD`
+  still disabled processing but not the import). `Invoke-IDBridge` now forwards them into
+  `Initialize-IDBridge`, which applies them to the loaded config before the import — the
+  documented behavior, now real. Config-file behavior is unchanged, and
+  `Initialize-IDBridge` gains the two optional switches for standalone use.
+- **`Get-GoogleData` pagination no longer assumes a query string.** The `pageToken` was
+  always appended with `&`, which would malform the follow-up URI for a base URI without
+  one. Every current caller passes a query string, so nothing was broken in practice —
+  the helper now picks `?` or `&` as the URI requires. Also corrected the
+  `Get-IDBridgeGoogleScope` doc comment that still called license removal "on by default"
+  (the shipped config template sets `enableLicenseRemoval = $false`).
+
 ## [26.8.19.0] - 2026-08-19
 
 ### Added
