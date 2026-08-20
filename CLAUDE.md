@@ -60,7 +60,7 @@ Switches (override the config file at runtime):
 | `-RootPath`      | Base dir for Config/Logs/Exports/Plugins/Data/Vault (def `C:\IDBridge`) |
 | `-ReadOnly`      | Sets `Debug.readOnly`; when `$true`, computes but writes nothing  |
 | `-TestRun`       | Sets `Debug.testRun`; each source plugin's output is capped at 10 records |
-| `-SkipADCheck`   | Sets `Debug.skipADCheck` — but note it lands after `Initialize-IDBridge` has already imported AD, so set the config key to survive a failed import at startup |
+| `-SkipADCheck`   | Don't fail startup if the AD module can't import                 |
 | `-TraceLogging`  | Enable verbose/trace logging                                     |
 | `-SkipAD`        | Disable all AD processing for this run                           |
 | `-SkipGoogle`    | Disable all Google processing for this run                       |

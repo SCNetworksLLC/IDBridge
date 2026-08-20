@@ -58,6 +58,28 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   provider; CONTRIBUTING notes CI publishes with `Publish-PSResource`; PRIVACY.md notes
   the `Telemetry.Endpoint` override. Docs only — no behavior change.
 
+### Fixed
+- **`AD.groupsExcluded` now applies to users linked during the run.**
+  `Get-ADUsersToSetEmployeeID` populated a just-linked user's group list from a fresh,
+  unfiltered AD query, so on the run that linked a user (typically onboarding runs, when
+  linking is heaviest) excluded groups could reach the group-remove list or the deactivate
+  group strip. It now reuses the exclusion-filtered `CurrentGroups` from the target
+  snapshot — matching how the Google side has always worked, and dropping a live
+  `Get-ADGroup` round trip per linked user.
+- **`-SkipADCheck` and `-SkipAD` now take effect at startup.** Both switches were applied
+  after `Initialize-IDBridge` had already imported the AD module, so neither could prevent
+  the startup throw on a machine without RSAT (`-SkipADCheck` was fully inert; `-SkipAD`
+  still disabled processing but not the import). `Invoke-IDBridge` now forwards them into
+  `Initialize-IDBridge`, which applies them to the loaded config before the import — the
+  documented behavior, now real. Config-file behavior is unchanged, and
+  `Initialize-IDBridge` gains the two optional switches for standalone use.
+- **`Get-GoogleData` pagination no longer assumes a query string.** The `pageToken` was
+  always appended with `&`, which would malform the follow-up URI for a base URI without
+  one. Every current caller passes a query string, so nothing was broken in practice —
+  the helper now picks `?` or `&` as the URI requires. Also corrected the
+  `Get-IDBridgeGoogleScope` doc comment that still called license removal "on by default"
+  (the shipped config template sets `enableLicenseRemoval = $false`).
+
 ## [26.8.19.0] - 2026-08-19
 
 ### Added

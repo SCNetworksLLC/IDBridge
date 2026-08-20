@@ -31,7 +31,9 @@ live in the PostRun export plugin).
 ### `Initialize-IDBridge` 🌐
 Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), imports AD
 module, applies feature cascade. No Google auth — that happens in `Invoke-IDBridge`, so a
-fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`.
+fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`,
+`-SkipADCheck`/`-SkipAD` (applied to the config before the AD module import — forwarded by
+the matching `Invoke-IDBridge` switches, whose other overrides land after initialization).
 **Returns:** nothing; sets `$script:IDBridgeConfig`, `$script:Logs`.
 
 ### `Install-IDBridge` 🌐(filesystem)
@@ -394,10 +396,9 @@ and can then be deactivated. A name mismatch is an error and skipped, unless app
 drifted ⇒ Warn + skip). Unlinked users with no AD account at all are logged at Trace only
 (inactive ones with an explicit "nothing to reconcile" message, mirroring
 `Get-GoogleUsersToSetEmployeeID`). **Returns:** hashtable
-`personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`. Note `Groups` comes from a
-fresh, unfiltered AD query — `AD.groupsExcluded` patterns are not applied to a linked
-user's `ADCurrentGroups` until the next run (unlike the Google side, which reuses the
-filtered snapshot).
+`personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`. `Groups` reuses the target
+snapshot's exclusion-filtered `CurrentGroups`, so `AD.groupsExcluded` applies to linked
+users too (matching the Google side).
 
 ### `Get-ADOrgUnitsForProcessing` 🔒 🧮
 **Params:** `-UserList`, `-CurrentOrgUnits`. Collects needed OU DNs (+trash) for **active**
@@ -456,9 +457,9 @@ Disable/move failures return the ErrorRecord (the caller records the `Deactivate
 > ProvisionGoogle=false`.
 
 ### `Get-GoogleData` 🔒 🌐
-**Params:** `-GoogleHeaders`, `-APIUri`. Generic paginated GET (follows `nextPageToken`;
-the URI must already carry a query string — the token is appended with `&`), consolidates
-the primary collection. **Returns:** combined array.
+**Params:** `-GoogleHeaders`, `-APIUri`. Generic paginated GET (follows `nextPageToken`,
+appended with `?`/`&` as the URI requires), consolidates the primary collection.
+**Returns:** combined array.
 
 ### `Get-GoogleApiAccessToken` 🔒 🌐
 **Params:** `-ServiceAccountKeyPath` or `-ServiceAccountKeyJson`, `-Scope`. Builds +

@@ -26,7 +26,7 @@ $matches = Get-ADUsersToSetEmployeeID -UserList $sourceData -CurrentADUsers $adD
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-19
+   Modified: 2026-08-20
 #>
 function Get-ADUsersToSetEmployeeID {
     [CmdletBinding()]
@@ -79,7 +79,9 @@ function Get-ADUsersToSetEmployeeID {
                 if ($link) {
                     $itemUpdateList[$item.personID] = [PSCustomObject]@{
                         ID = $ADUser.ObjectGUID
-                        Groups = ($ADUser.MemberOf | Get-ADGroup | Select-Object -ExpandProperty Name)
+                        #CurrentGroups is the AD.groupsExcluded-filtered name list built by
+                        #Get-TargetDataAD - a fresh MemberOf query would bypass the exclusions
+                        Groups = $ADUser.CurrentGroups
                         EnabledStatus = $ADUser.Enabled
                         User = $ADUser
                     }

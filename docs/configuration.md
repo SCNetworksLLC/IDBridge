@@ -88,7 +88,7 @@ the guard off (older configs keep working).
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals. | `Invoke-IDBridge` |
 | `enableGroupProcessingTrash`  | bool   | Strip groups on deactivate (passed to `Disable-IDBridgeADUser`). | `Invoke-IDBridge` |
-| `groupsExcluded`              | array  | Group **name** wildcard patterns IDBridge never touches — matching groups are dropped at target-data retrieval, so no adds, removes, or deactivate strips ever reach them (exclusion wins even over a proposed group). Default `@()`. One caveat: a user first **linked** by username+name during a run gets `ADCurrentGroups` from a fresh, unfiltered AD query, so exclusions apply to that user from the next run. | `Get-TargetDataAD` |
+| `groupsExcluded`              | array  | Group **name** wildcard patterns IDBridge never touches — matching groups are dropped at target-data retrieval, so no adds, removes, or deactivate strips ever reach them (exclusion wins even over a proposed group). Default `@()`. | `Get-TargetDataAD` |
 
 ### `Logging`
 | Key | Type | Effect | Read by |

@@ -39,7 +39,7 @@
     - Input validation checks for empty headers and invalid API URIs.
 
     Created by: Sam Cattanach
-    Modified: 02/18/2025 09:30:19 AM   
+    Modified: 2026-08-20
 #>
 function Get-GoogleData {
     param (
@@ -72,8 +72,9 @@ function Get-GoogleData {
     $data = $request.$dataType
 
     # Handle pagination: Fetch additional data if a nextPageToken exists
+    $separator = if ($APIUri.Contains('?')) { '&' } else { '?' }
     while ($request.nextPageToken) {
-        $requestUri = ($APIUri + "&pageToken=" + $request.nextPageToken)
+        $requestUri = ($APIUri + $separator + "pageToken=" + $request.nextPageToken)
         
         try {
             # Send a request for the next page

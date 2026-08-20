@@ -28,9 +28,8 @@ initialize cleanly and seed secrets/run the bootstrap before the Google key exis
 Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig`, applies **runtime switch
 overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
 -SkipChangeThreshold/-DisableTelemetry`), logging each as `OVERRIDE: <key> = <value>`
-(switches win over the config file — but note the overrides land **after**
-`Initialize-IDBridge` has already run, so `-SkipADCheck`/`-SkipAD` cannot rescue a failed
-AD module import at startup; set `Debug.SkipADCheck`/`AD.enabled` in the config for that),
+(switches win over the config file; `-SkipADCheck` and `-SkipAD` are additionally
+forwarded into `Initialize-IDBridge` itself so they land before the AD module import),
 runs the **notify-only update check** (a newer Gallery release logs a `Warn`
 to run `Update-Module IDBridge`; offline/blocked environments log a Trace skip — nothing
 is ever installed), and **acquires Google auth** (if `GoogleToken.Enabled`) via
