@@ -4,7 +4,7 @@ IDBridge sets initial account passwords by calling **Keysmith**
 (`https://keysmith.scnlabs.net`) — SC Networks' deterministic passphrase
 generator. Same nonce + username + word-list rev always produces the same
 passphrase, so a student's password can be regenerated at any time without ever
-being stored. The module-internal `New-Passphrase` function does the API call;
+being stored. The module's exported `New-Passphrase` function does the API call;
 the AD and Google create paths use it when a record carries an
 `ADPassphraseAPI` / `GooglePassphraseAPI` block (populated by the school's
 source plugin from config).
@@ -23,16 +23,18 @@ Each district gets its own Keysmith organization, API token, and nonce:
    approves them. No SC Networks involvement needed for day-to-day staff access.
 3. **SC Networks mints the district's API token** (Keysmith admin → API Tokens,
    label = the org slug). The token is shown once.
-4. **Provision the token and the district's nonce into the IDBridge vault** on
-   the school's server:
+4. **Provision the token and the district's nonce(s) into the IDBridge vault** on
+   the school's server (each command prompts for the value, masked):
 
    ```powershell
-   Set-IDBridgeSecret -Name 'KeysmithToken' -Value (Read-Host -AsSecureString)
-   Set-IDBridgeSecret -Name 'KeysmithNonce' -Value (Read-Host -AsSecureString)
+   Set-IDBridgeSecret -Name 'ApiKey-Passphrase'              # the Keysmith API token
+   Set-IDBridgeSecret -Name 'ApiKey-PassphraseNonceStaff'    # staff nonce
+   Set-IDBridgeSecret -Name 'ApiKey-PassphraseNonceStudent'  # student nonce
    ```
 
-   (Secret names are per the school's plugin config — the plugin reads them and
-   builds the `*PassphraseAPI` block per record.)
+   (These are the names the shipped plugins read — see
+   [secrets.md](secrets.md#secret-names); a custom plugin can use its own names. The
+   plugin reads them and builds the `*PassphraseAPI` block per record.)
 
 ## Operational rules
 

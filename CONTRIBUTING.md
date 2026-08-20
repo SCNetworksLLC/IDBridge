@@ -61,7 +61,9 @@ keys expire after at most 365 days, so rotate yearly).
 The module is packaged from its folder, so repo-only files (docs, `CLAUDE.md`, README) are
 excluded automatically.
 
-To publish manually instead (e.g. the first-ever publish, or if CI is unavailable):
+To publish manually instead (e.g. the first-ever publish, or if CI is unavailable — the
+workflow itself uses `Publish-PSResource`; classic `Publish-Module` works the same for a
+manual publish):
 
 ```powershell
 # 1. Confirm the name is available (only needed the first time)

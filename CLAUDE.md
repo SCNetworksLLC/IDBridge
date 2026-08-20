@@ -60,7 +60,7 @@ Switches (override the config file at runtime):
 | `-RootPath`      | Base dir for Config/Logs/Exports/Plugins/Data/Vault (def `C:\IDBridge`) |
 | `-ReadOnly`      | Sets `Debug.readOnly`; when `$true`, computes but writes nothing  |
 | `-TestRun`       | Sets `Debug.testRun`; each source plugin's output is capped at 10 records |
-| `-SkipADCheck`   | Don't fail startup if the AD module can't import                 |
+| `-SkipADCheck`   | Sets `Debug.skipADCheck` — but note it lands after `Initialize-IDBridge` has already imported AD, so set the config key to survive a failed import at startup |
 | `-TraceLogging`  | Enable verbose/trace logging                                     |
 | `-SkipAD`        | Disable all AD processing for this run                           |
 | `-SkipGoogle`    | Disable all Google processing for this run                       |
@@ -78,7 +78,8 @@ Switches (override the config file at runtime):
    `Google.groupsExcluded` / `AD.groupsExcluded` list wildcard patterns (email / name)
    for groups IDBridge must never touch — dropped at target-data retrieval, so no adds,
    removes, or deactivate strips ever reach them.
-   License removal is **on by default** (`Google.enableLicenseRemoval = $false` disables):
+   License removal is on when the key is absent (the shipped config template sets
+   `Google.enableLicenseRemoval = $false`, so a scaffolded install starts with it off):
    the user's assignments are discovered dynamically and removed only on the full
    deactivate (trash) step, never on `ForceDisable`.
 3. A run that can't authenticate to Google **fails at startup** (no silent degradation) —
@@ -115,8 +116,9 @@ Switches (override the config file at runtime):
 - [docs/functions.md](docs/functions.md) — every function by layer (internal ones marked 🔒): purpose, params, returns, diffing predicates.
 - [docs/configuration.md](docs/configuration.md) — full `IDBridgeConfig.psd1` schema, runtime `Paths`, and secret file locations.
 - [docs/plugins.md](docs/plugins.md) — plugin contract (Source/Override/PostRun) + output schemas, with the shipped plugins as worked examples.
-- [docs/secrets.md](docs/secrets.md) — secret vault providers (Cms/DPAPI-NG), certificate setup, secret names, migration.
+- [docs/secrets.md](docs/secrets.md) — secret vault providers (Cms/DPAPI-NG/AzKeyVault), certificate setup, secret names, migration.
 - [docs/google-bootstrap.md](docs/google-bootstrap.md) — one-command Google service-account bootstrap (custom admin role, no domain-wide delegation) + the manual finish steps.
+- [docs/keysmith.md](docs/keysmith.md) — Keysmith passphrase integration: district registration, vault secrets, `New-Passphrase` operational rules.
 - [README.md](README.md) — public-facing overview, quick start, and publishing pointers.
 
 
