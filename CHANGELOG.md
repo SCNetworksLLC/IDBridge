@@ -5,7 +5,7 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
-## [Unreleased]
+## [26.8.21.0] - 2026-08-21
 
 ### Added
 - **`Invoke-IDBridge -Preview`: review the proposed changes as a table, no CSV export
