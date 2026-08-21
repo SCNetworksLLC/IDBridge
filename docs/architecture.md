@@ -27,7 +27,8 @@ initialize cleanly and seed secrets/run the bootstrap before the Google key exis
 
 Back in `Invoke-IDBridge`, it then calls `Get-IDBridgeConfig`, applies **runtime switch
 overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
--SkipChangeThreshold/-DisableTelemetry`), logging each as `OVERRIDE: <key> = <value>`
+-SkipChangeThreshold/-DisableTelemetry/-Preview/-ShowPasswords` — `-Preview` forces
+`Debug.readOnly` and is described at step 9c below), logging each as `OVERRIDE: <key> = <value>`
 (switches win over the config file; `-SkipADCheck` and `-SkipAD` are additionally
 forwarded into `Initialize-IDBridge` itself so they land before the AD module import),
 runs the **notify-only update check** (a newer Gallery release logs a `Warn`
@@ -57,8 +58,10 @@ Invoke-IDBridge
   └─ Initialize-IDBridge ──► $script:IDBridgeConfig / $script:Logs
   └─ apply -switch overrides
   └─ update check (notify-only Gallery query; failure = Trace skip)
-  └─ Connect-IDBridgeGoogle (GoogleToken.Enabled) ──► $script:GoogleHeaders
         │
+  Steps 0-5 are the shared gather phase, Get-IDBridgePipelineData — one function used by
+  both Invoke-IDBridge and Approve-IDBridgeNameMismatch so the sequence can't drift:
+  0. Connect-IDBridgeGoogle (GoogleToken.Enabled) ──► $script:GoogleHeaders
   1. Invoke-SourcePlugins ───────────► $sourceData (Source), $overrideData (Override)
         each Source plugin's output is built via New-IDBridgeSourceRecord and
         passed through Test-IDBridgeSourceData (filter-and-log) before collection
@@ -91,6 +94,14 @@ Invoke-IDBridge
        lifecycle changes (create/update/rename/move/deactivate) vs the managed root-OU
        population via Test-IDBridgeChangeThreshold; Throw (abort before any writes) if any
        directory exceeds ChangeThreshold.Percentage. Bypass: -SkipChangeThreshold.
+       Under -Preview a breach logs a Warn and continues (a preview exists to review
+       exactly those changes).
+        │
+9c. -Preview only: ConvertTo-IDBridgePreviewRow flattens every change list into uniform
+       rows (Directory/Action/PersonID/Name/Account/Building/OrgUnit/Password/Changes)
+       emitted to the pipeline for Format-Table review; the Password column is filled for
+       creates only when -ShowPasswords. The run then falls through with readOnly forced,
+       so steps 10-11 are skipped.
         │
  10. EXECUTE AD changes      (only if AD.enabled    AND Debug.readOnly = $false)
        New-IDBridgeADOrgUnit → Disable-IDBridgeADUser → Set-ADUser (update) →
@@ -118,6 +129,8 @@ Invoke-IDBridge
        fires on failed and ReadOnly runs too; user list CSV exports live here in
        Invoke-PluginPostRunExport; see plugins.md)
  15. Push-LogsToSheet (if Logging.GoogleSheetLoggingEnabled) → writes $script:Logs to sheet
+     Preview runs stay quiet: steps 13-15 are all skipped under -Preview (the file log
+     still writes).
 ```
 
 ## Data-object lifecycle

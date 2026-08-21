@@ -4,17 +4,25 @@ Top-level orchestrator: provision and synchronize AD and Google Workspace accoun
 
 .DESCRIPTION
 Entry point for an IDBridge run. Calls Initialize-IDBridge, applies the runtime switch
-overrides, acquires the Google bearer token via Connect-IDBridgeGoogle (when
-GoogleToken.Enabled), then runs the ordered pipeline: gather source data from the configured plugins, read
-current AD/Google state, enrich and de-duplicate the source records, apply override rows, match
-person IDs to existing accounts, and compute every change list (org units, deactivations,
-updates/renames/moves, creates, and group membership) read-only. Before any writes it runs the
-change-volume safety guard (ChangeThreshold). It then executes the AD and Google changes only
-when the directory is enabled and Debug.readOnly is $false, and (in the finally block) sends
-usage telemetry, runs the configured PostRun plugins with the RunResult object (user list CSV
-exports live in the Invoke-PluginPostRunExport plugin), and pushes the run log to a Google
-Sheet when configured. Per-user write errors are
+overrides, then runs the ordered pipeline: the shared gather phase (Get-IDBridgePipelineData -
+Google auth, source plugins, current AD/Google state, enrichment, de-duplication, override
+rows), matches person IDs to existing accounts, and computes every change list (org units,
+deactivations, updates/renames/moves, creates, and group membership) read-only. Before any
+writes it runs the change-volume safety guard (ChangeThreshold). It then executes the AD and
+Google changes only when the directory is enabled and Debug.readOnly is $false, and (in the
+finally block) sends usage telemetry, runs the configured PostRun plugins with the RunResult
+object (user list CSV exports live in the Invoke-PluginPostRunExport plugin), and pushes the
+run log to a Google Sheet when configured. Per-user write errors are
 logged and skipped; startup/OU-creation failures and a tripped change threshold abort the run.
+
+With -Preview the run stops after the plan phase and emits the proposed changes as flat row
+objects (Directory, Action, PersonID, Name, Account, Building, OrgUnit, Password, Changes)
+for review with Format-Table / Where-Object / Out-GridView - no CSV export needed. Preview
+forces ReadOnly and stays quiet: no telemetry, no PostRun plugins, no Google Sheet log push,
+and a tripped change threshold logs a warning instead of aborting (so the changes that would
+trip it can be reviewed). Passwords for pending creates are decoded into the Password column
+only with -ShowPasswords - Keysmith passphrases are deterministic, so the previewed password
+is the one the real run will set.
 
 .PARAMETER RootPath
 Base directory for Config/Logs/Exports/Plugins/Data/Vault. Defaults to C:\IDBridge.
@@ -43,8 +51,19 @@ Bypass the change-volume safety guard (ChangeThreshold) for this run.
 .PARAMETER DisableTelemetry
 Disable usage telemetry for this run (overrides Telemetry.Tier). See PRIVACY.md.
 
+.PARAMETER Preview
+Review mode: forces ReadOnly, computes every change list, and emits the proposed changes as
+flat row objects instead of applying anything. Quiet - skips telemetry, PostRun plugins, and
+the Google Sheet log push; a tripped change threshold warns instead of aborting.
+
+.PARAMETER ShowPasswords
+With -Preview, decode the pending creates' passwords into the Password column. The values are
+emitted to the pipeline only - never logged. No effect without -Preview.
+
 .OUTPUTS
-None. Side effects: AD/Google mutations (unless ReadOnly), PostRun plugin output, and log output.
+None, unless -Preview: then the proposed change rows
+(@{ Directory; Action; PersonID; Name; Account; Building; OrgUnit; Password; Changes }).
+Side effects: AD/Google mutations (unless ReadOnly), PostRun plugin output, and log output.
 
 .EXAMPLE
 Invoke-IDBridge -ReadOnly -TraceLogging
@@ -52,9 +71,15 @@ Invoke-IDBridge -ReadOnly -TraceLogging
 .EXAMPLE
 Invoke-IDBridge -RootPath 'C:\IDBridge'
 
+.EXAMPLE
+Invoke-IDBridge -Preview | Format-Table
+
+.EXAMPLE
+Invoke-IDBridge -Preview -ShowPasswords | Where-Object Action -eq 'Create' | Format-Table
+
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-20
+   Modified: 2026-08-21
 #>
 function Invoke-IDBridge {
     [CmdletBinding()]
@@ -68,7 +93,9 @@ function Invoke-IDBridge {
         [switch]$SkipAD,
         [switch]$SkipGoogle,
         [switch]$SkipChangeThreshold,
-        [switch]$DisableTelemetry
+        [switch]$DisableTelemetry,
+        [switch]$Preview,
+        [switch]$ShowPasswords
     )
 
     $runStart = Get-Date
@@ -96,6 +123,8 @@ function Invoke-IDBridge {
         if ($SkipGoogle)  { $IDConfig.Google.enabled = $false; $IDConfig.Google.enableGroupProcessing = $false }
         if ($SkipChangeThreshold -and $IDConfig.ContainsKey('ChangeThreshold')) { $IDConfig.ChangeThreshold.Enabled = $false }
         if ($DisableTelemetry) { $IDConfig.Telemetry = @{ Tier = 'Off' } }
+        #Preview computes everything and writes nothing - the apply phase is gated on readOnly
+        if ($Preview) { $IDConfig.Debug.readOnly = $true }
 
         foreach ($key in $PSBoundParameters.Keys | Where-Object { $_ -ne 'RootPath' }) {
             Write-Log -Message "OVERRIDE: $key = $($PSBoundParameters[$key])" -Level Info
@@ -114,82 +143,21 @@ function Invoke-IDBridge {
 
 
 
-        #region Google Auth
-        # Acquired here (not in Initialize-IDBridge) so setup sessions initialize cleanly
-        # before the key secret exists. Gated on GoogleToken.Enabled only: -SkipGoogle runs
-        # still need headers for Sheets plugins and Google Sheet logging.
-        if ($IDConfig.GoogleToken.Enabled -eq $true) {
-            try { Connect-IDBridgeGoogle } catch { Throw }
-        } else {
-            Write-Log -Message "Google API integration is disabled. Google-related functions will be skipped." -Level Trace
-        }
-        #endregion Google Auth
-
-
-
-
         Write-Log -Message "######## Phase: Gather Source & Directory Data ########"
 
-        #region Plugins
+        #region Gather Source & Directory Data
+        # Shared with Approve-IDBridgeNameMismatch: Google auth (acquired here, not in
+        # Initialize-IDBridge, so setup sessions initialize cleanly before the key secret
+        # exists), source plugins, AD/Google target data, enrichment, dedupe, override merge.
         try {
-            $plugins = Invoke-SourcePlugins
-            
-            $sourceData = $plugins.SourceData
-            $overrideData = $plugins.OverrideData
+            $pipelineData = Get-IDBridgePipelineData
+
+            $sourceData = $pipelineData.SourceData
+            $adData     = $pipelineData.ADData
+            $googleData = $pipelineData.GoogleData
         }
         catch { Throw }
-        #endregion Plugins
-
-
-
-
-        #region Get Google Data
-        if ($IDConfig.Google.enabled -eq $true) {
-            try {
-                $googleData = Get-TargetDataGoogle -ErrorAction Stop
-            }
-            catch { Throw }
-        }
-        #endregion Get Google Data
-
-
-
-
-        #region Get Data AD
-        if ($IDConfig.AD.enabled -eq $true) {
-            try {
-                $adData = Get-TargetDataAD -ErrorAction Stop
-            }
-            catch { Throw }
-        }
-        #endregion Get Data AD
-
-
-
-
-        #region Target Data Preparation
-        if ($IDConfig.AD.enabled -eq $true) {
-            $sourceData = Add-TargetDataAD -SourceData $sourceData -ADData $adData
-        }
-
-        if ($IDConfig.Google.enabled -eq $true) {
-            $sourceData = Add-TargetDataGoogle -SourceData $sourceData -GoogleData $googleData
-        }
-        #endregion Target Data Preparation
-
-
-
-
-        #region Remove Duplicate IDs
-        $sourceData = Remove-IDBridgeDuplicateID -SourceData $sourceData
-        #endregion Remove Duplicate IDs
-
-
-
-
-        #region Process Override Data
-        $sourceData = Merge-IDBridgeOverrideData -SourceData $sourceData -OverrideData $overrideData
-        #endregion Process Override Data
+        #endregion Gather Source & Directory Data
 
 
 
@@ -318,11 +286,52 @@ function Invoke-IDBridge {
             $breaches = @($thresholdResults | Where-Object { $_.Exceeded })
             if ($breaches.Count -gt 0) {
                 $breachSummary = ($breaches | ForEach-Object { "$($_.Directory) $($_.Percent)%" }) -join ', '
-                Write-Log -Message "Change threshold exceeded ($breachSummary > $($IDConfig.ChangeThreshold.Percentage)%). Aborting run before any writes. Set ChangeThreshold.Enabled = `$false or run with -SkipChangeThreshold to override." -Level Error
-                Throw "Change threshold exceeded: $breachSummary (limit $($IDConfig.ChangeThreshold.Percentage)%)."
+                #A preview exists to review exactly this - warn and keep going instead of aborting
+                if ($Preview) {
+                    Write-Log -Message "Change threshold exceeded ($breachSummary > $($IDConfig.ChangeThreshold.Percentage)%). A live run would abort here - continuing because this is a Preview." -Level Warn
+                } else {
+                    Write-Log -Message "Change threshold exceeded ($breachSummary > $($IDConfig.ChangeThreshold.Percentage)%). Aborting run before any writes. Set ChangeThreshold.Enabled = `$false or run with -SkipChangeThreshold to override." -Level Error
+                    Throw "Change threshold exceeded: $breachSummary (limit $($IDConfig.ChangeThreshold.Percentage)%)."
+                }
             }
         }
         #endregion Change Threshold Safety Check
+
+
+
+
+        #region Preview Output
+        # Emit the proposed changes as flat rows for table review. Lists for a disabled
+        # directory (or disabled group processing) were never assigned and pass as $null.
+        if ($Preview) {
+            $previewSplat = @{
+                SourceData    = $sourceData
+                ShowPasswords = $ShowPasswords
+            }
+
+            if ($IDConfig.AD.enabled -eq $true) {
+                $previewSplat.ADUsersToCreate      = $ADUsersToCreate
+                $previewSplat.ADUsersToUpdate      = $ADUsersToUpdate
+                $previewSplat.ADUsersToDeactivate  = $ADUsersToDeactivate
+                $previewSplat.ADUserGroupsToUpdate = $ADUserGroupsToUpdate
+                $previewSplat.ADOrgUnitsToCreate   = $ADOrgUnitsForProcessing
+            }
+
+            if ($IDConfig.Google.enabled -eq $true) {
+                $previewSplat.GoogleUsersToCreate      = $GoogleUsersToCreate
+                $previewSplat.GoogleUsersToUpdate      = $GoogleUsersToUpdate
+                $previewSplat.GoogleUsersToDeactivate  = $GoogleUsersToDeactivate
+                $previewSplat.GoogleUserGroupsToUpdate = $GoogleUserGroupsToUpdate
+                $previewSplat.GoogleOrgUnitsToCreate   = $GoogleOrgUnitsForProcessing
+            }
+
+            $previewRows = @(ConvertTo-IDBridgePreviewRow @previewSplat)
+
+            Write-Log -Message "Preview: Emitting $($previewRows.Count) proposed change row(s). Nothing was written."
+
+            $previewRows
+        }
+        #endregion Preview Output
 
 
 
@@ -785,8 +794,9 @@ function Invoke-IDBridge {
             #region Telemetry
             # Usage telemetry (see PRIVACY.md) - fully self-contained: any failure here is swallowed
             # and logged locally so it can never mask the run's real outcome or throw out of finally.
+            # Preview runs stay quiet - a review peek is not a run.
             try {
-                if ($runResult) {
+                if ($runResult -and -not $Preview) {
                     $telemetrySplat = @{
                         Success           = $runResult.Success
                         DurationSeconds   = $runResult.DurationSeconds
@@ -812,8 +822,9 @@ function Invoke-IDBridge {
             # SecureStrings (account keys, passphrase API secrets) are scrubbed from the report
             # before any plugin sees it - the run is over, nothing downstream needs them. Isolated
             # like telemetry: a PostRun failure can never mask the run's real outcome.
+            # Preview runs stay quiet - no PostRun side effects for a review peek.
             try {
-                if ($runResult) {
+                if ($runResult -and -not $Preview) {
                     Hide-IDBridgeSecureString -InputObject $runResult
                     Invoke-PostRunPlugins -RunResult $runResult
                 }
@@ -825,7 +836,8 @@ function Invoke-IDBridge {
 
             Write-Log -Message "######## End of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
 
-            if ($IDConfig.Logging.GoogleSheetLoggingEnabled) {
+            #Preview runs stay quiet - don't push the log sheet for a review peek
+            if ($IDConfig.Logging.GoogleSheetLoggingEnabled -and -not $Preview) {
                 Push-LogsToSheet -spreadsheetId $IDConfig.Logging.SheetID -sheetName 'Logs'
             }
         }
