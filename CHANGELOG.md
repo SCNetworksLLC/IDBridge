@@ -25,6 +25,12 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   previewed password is the one the real run will set; without the switch the column is
   empty.
 
+### Fixed
+- **Module loader: `Private`/`Public` glob casing.** `IDBridge.psm1` globbed
+  `\private\*.ps1` / `\public\*.ps1` while the folders are capitalized — harmless on
+  Windows, but on a case-sensitive filesystem (Linux, e.g. Claude Code cloud sessions)
+  the module imported with zero functions. The globs now match the real folder names.
+
 ### Changed
 - **The gather phase now lives in one place: new internal `Get-IDBridgePipelineData`.**
   `Invoke-IDBridge` and `Approve-IDBridgeNameMismatch` carried verbatim copies of the
