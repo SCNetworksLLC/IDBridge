@@ -51,17 +51,22 @@ This is intentional: the version encodes the release date. A release always ship
 2. Bump `ModuleVersion` in `src/IDBridge/IDBridge.psd1` to the new `YY.M.D.build`, and commit.
 3. **Merge the branch to `main`** (via pull request), so the tagged code and `main`'s
    history are the same commit.
-4. Tag the merge commit on `main`: `git checkout main && git pull`, then
-   `git tag v<version>` and `git push --tags`. The tag push is what triggers the Gallery
-   publish (next section). Note: Claude Code cloud sessions can push branches but not
-   tags, so this last step runs from a normal clone.
+4. Trigger the publish (next section), either way:
+   - **Tag push** (from a normal clone): `git checkout main && git pull`, then
+     `git tag v<version>` and `git push --tags`.
+   - **Workflow dispatch** (works from anywhere, including Claude Code cloud sessions,
+     which can push branches but not tags): Actions → Publish → Run workflow (or the
+     GitHub API). The workflow reads `ModuleVersion` from `main`, refuses to run if that
+     tag already exists, and mints the `v<version>` tag itself before publishing.
 
 ## Publishing to the PowerShell Gallery
 
-Publishing is automated: pushing a `v*` tag runs the `Publish` GitHub Actions workflow
-([.github/workflows/publish.yml](.github/workflows/publish.yml)), which validates that the
-tag matches `ModuleVersion`, publishes `src/IDBridge` to the PowerShell Gallery, and creates
-a GitHub Release with that version's CHANGELOG.md section as the notes. It needs a
+Publishing is automated by the `Publish` GitHub Actions workflow
+([.github/workflows/publish.yml](.github/workflows/publish.yml)), started either by pushing
+a `v*` tag (the workflow validates that the tag matches `ModuleVersion`) or by dispatching
+it manually (the workflow mints the `v<ModuleVersion>` tag itself, refusing to re-release an
+existing version). Either way it then publishes `src/IDBridge` to the PowerShell Gallery and
+creates a GitHub Release with that version's CHANGELOG.md section as the notes. It needs a
 `PSGALLERY_API_KEY` repository secret (Gallery API key scoped to push `IDBridge` only;
 keys expire after at most 365 days, so rotate yearly).
 
