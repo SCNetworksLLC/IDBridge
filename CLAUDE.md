@@ -69,6 +69,27 @@ Switches (override the config file at runtime):
 | `-Preview`       | Forces ReadOnly; emits the proposed changes as flat rows for table review (quiet: no telemetry/PostRun plugins/sheet log push; threshold breach warns instead of aborting) |
 | `-ShowPasswords` | With `-Preview`: fill the Password column for pending creates (emitted only, never logged) |
 
+## Tests
+
+Pester v5 tests live in `tests\` (repo root, mirrored on the module layout, never packaged).
+Run them with `Invoke-Pester -Path .\tests` — the suite is pure decide-phase (no AD, Google,
+or `C:\IDBridge`) and runs on any OS with PowerShell 7.5+. Conventions (fixture factories,
+`InModuleScope` for `Private\` functions, mocking `Write-Log`/`Get-IDBridgeConfig`) are in
+[tests/README.md](tests/README.md). Run the suite before and after changes; new decide-phase
+logic gets tests alongside it.
+
+> **Claude Code cloud sessions:** the sandbox has no `pwsh` and its proxy **blocks
+> www.powershellgallery.com** (403), so `Install-Module` can never work there — don't retry
+> it. Both installs come from allowed hosts instead:
+> ```bash
+> # PowerShell: tarball from GitHub releases
+> curl -sSL -o /tmp/pwsh.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/powershell-7.5.2-linux-x64.tar.gz
+> mkdir -p /opt/pwsh && tar -xzf /tmp/pwsh.tar.gz -C /opt/pwsh && chmod +x /opt/pwsh/pwsh && ln -sf /opt/pwsh/pwsh /usr/local/bin/pwsh
+> # Pester: the nupkg from nuget.org (a zip; the module lives under tools/)
+> curl -sSL -o /tmp/pester.nupkg https://api.nuget.org/v3-flatcontainer/pester/5.7.1/pester.5.7.1.nupkg
+> d=/root/.local/share/powershell/Modules/Pester/5.7.1 && mkdir -p $d && python3 -c "import zipfile; zipfile.ZipFile('/tmp/pester.nupkg').extractall('$d')" && mv $d/tools/* $d/
+> ```
+
 ## Safety model (read this before changing behavior)
 
 1. **Decide, then act.** The pipeline computes *all* change lists (create/update/

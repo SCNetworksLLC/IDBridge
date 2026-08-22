@@ -40,8 +40,10 @@ function Get-ADOrgUnitsForProcessing {
     $OUListExpanded = [System.Collections.Generic.List[string]]::new()
     foreach ($ou in $OUList) {
         $components  = $ou -split ','
-        $ouComponents = $components | Where-Object { $_ -match '^OU=' }
-        $baseDC       = $components | Where-Object { $_ -notmatch '^OU=' }
+        # @() keeps a single match an array - unrolled to a string, the [x..y] slice below
+        # would index CHARACTERS and mangle a one-OU DN ("OU=Trash,DC=x" -> "O,DC=x").
+        $ouComponents = @($components | Where-Object { $_ -match '^OU=' })
+        $baseDC       = @($components | Where-Object { $_ -notmatch '^OU=' })
 
         for ($i = $ouComponents.Count; $i -ge 1; $i--) {
             $ancestor = $ouComponents[($ouComponents.Count - $i)..($ouComponents.Count - 1)]

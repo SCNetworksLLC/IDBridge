@@ -5,9 +5,41 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
-## [Unreleased]
+## [26.8.22.0] - 2026-08-22
 
 ### Added
+- **Pester test suite (`tests\`).** First tests for the module, runnable on any OS with
+  PowerShell 7.5+ and Pester 5.5+ (`Invoke-Pester -Path .\tests`) — no AD, Google, or
+  `C:\IDBridge` needed. Structural tests (`IDBridge.Module.Tests.ps1`) lock down the
+  packaging rules: every module file parses, one `Verb-Noun` function per file, `Public\`
+  matches `FunctionsToExport` exactly, `Private\` is never exported. Unit tests cover
+  `Format-IDBridgeName` and `Get-ADUserGroupsToUpdate`, the latter establishing the
+  pattern for testing the Private\ decision functions (`InModuleScope` + mocked
+  `Write-Log` + `New-TestADRecord` fixtures from `tests\TestHelper.psm1`). See
+  `tests\README.md` for conventions. Tests live outside `src\IDBridge` so they are
+  never packaged.
+- **Decide-phase test coverage for the sync pipeline.** Unit tests for the change-volume
+  safety guard (`Test-IDBridgeChangeThreshold`, including the inclusive-limit boundary and
+  the zero-population skip), duplicate-personID removal (`Remove-IDBridgeDuplicateID`), and
+  the full AD + Google change-list planner family: `Get-ADUsersToCreate` / `ToDeactivate` /
+  `ToSetEmployeeID` / `ToUpdate` and `Get-GoogleUsersToCreate` / `ToDeactivate` /
+  `ToSetEmployeeID` / `ToUpdate` / `Get-GoogleUserGroupsToUpdate` — covering the safety
+  behaviors (never add unknown groups, username/UPN collision skips, set-but-don't-clear,
+  ForceDisable suspend-not-archive, approved-name-mismatch linking, OU override). The test
+  helper gains `New-TestADUser` / `New-TestGoogleUser` fixture factories (and
+  `New-TestADRecord` is now `New-TestSourceRecord`).
+- **Tests for the remaining decide-phase functions.** The OU planners
+  (`Get-ADOrgUnitsForProcessing` / `Get-GoogleOrgUnitsForProcessing`: ancestor expansion,
+  parents-before-children ordering, dedupe, existing-OU filtering), the `-Preview` row
+  flattener (`ConvertTo-IDBridgePreviewRow`: apply-order rows, password column gated on
+  `-ShowPasswords`, SecureStrings rendered `(secure)` in Changes), and the source toolkit
+  (`New-IDBridgeSourceRecord` defaults/normalization/validation, `Test-IDBridgeSourceData`
+  cross-field rules and safety net).
+- **CI: `Tests` workflow.** `.github/workflows/tests.yml` runs the Pester suite on
+  ubuntu-latest for every push and pull request.
+- **CLAUDE.md: Tests section.** How to run the suite, plus the Claude Code cloud-session
+  recipe (PSGallery is blocked there: PowerShell comes from the GitHub release tarball,
+  Pester from its nuget.org package).
 - **Publish workflow: `workflow_dispatch` release path.** The `Publish` workflow can now
   be dispatched (Actions → Publish → Run workflow, or the GitHub API) as an alternative
   to pushing a `v*` tag: it reads `ModuleVersion` from `main`, refuses to run if that
@@ -15,6 +47,14 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   Gallery and creates the GitHub Release as before. Lets environments that can push
   branches but not tags (e.g. Claude Code cloud sessions) cut a release; the tag-push
   path is unchanged.
+
+### Fixed
+- **`Get-ADOrgUnitsForProcessing`: a one-OU DN was mangled into an invalid create
+  proposal.** With exactly one `OU=` component (e.g. a root-level `OU=Trash,DC=x`),
+  `Where-Object` unrolled the component list to a plain string and the ancestor slice then
+  indexed characters, proposing the invalid DN `O,DC=x` — on every run, even when the real
+  OU already existed (the mangled name never matched). Live runs would try to create that
+  DN and fail. Found by the new OU-planner tests; multi-level OU paths were unaffected.
 
 ### Changed
 - **Docs: CONTRIBUTING.md release steps now include the merge to `main`.** A release
