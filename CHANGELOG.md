@@ -8,6 +8,16 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 ## [Unreleased]
 
 ### Added
+- **Pester test suite (`tests\`).** First tests for the module, runnable on any OS with
+  PowerShell 7.5+ and Pester 5.5+ (`Invoke-Pester -Path .\tests`) — no AD, Google, or
+  `C:\IDBridge` needed. Structural tests (`IDBridge.Module.Tests.ps1`) lock down the
+  packaging rules: every module file parses, one `Verb-Noun` function per file, `Public\`
+  matches `FunctionsToExport` exactly, `Private\` is never exported. Unit tests cover
+  `Format-IDBridgeName` and `Get-ADUserGroupsToUpdate`, the latter establishing the
+  pattern for testing the Private\ decision functions (`InModuleScope` + mocked
+  `Write-Log` + `New-TestADRecord` fixtures from `tests\TestHelper.psm1`). See
+  `tests\README.md` for conventions. Tests live outside `src\IDBridge` so they are
+  never packaged.
 - **Publish workflow: `workflow_dispatch` release path.** The `Publish` workflow can now
   be dispatched (Actions → Publish → Run workflow, or the GitHub API) as an alternative
   to pushing a `v*` tag: it reads `ModuleVersion` from `main`, refuses to run if that
