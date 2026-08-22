@@ -14,13 +14,17 @@ Invoke-Pester -Path .\tests                 # from the repo root
 ```
 
 The suite is pure decide-phase: no Active Directory, no Google, no `C:\IDBridge`, no
-config file. It runs on any OS with PowerShell 7.5+ (including Linux).
+config file. It runs on any OS with PowerShell 7.5+ (including Linux). CI runs it on every
+push and PR (`.github/workflows/tests.yml`).
 
 ## Conventions
 
 - **`TestHelper.psm1`** — import it first in `BeforeAll`, then call `Import-IDBridgeForTest`
-  to (re)load the module under test. `New-TestADRecord` builds the enriched source-record
-  objects the diffing functions consume.
+  to (re)load the module under test. Three fixture factories build the shapes the diffing
+  functions consume: `New-TestSourceRecord` (enriched source record), `New-TestADUser`, and
+  `New-TestGoogleUser`. Their defaults are mutually consistent — a default record diffed
+  against a default AD/Google user proposes **no** changes — so each test overrides only the
+  field it is about.
 - **Private functions** aren't exported — call them inside `InModuleScope IDBridge { ... }`,
   passing fixtures in via `-Parameters`. See `Private\AD\Get-ADUserGroupsToUpdate.Tests.ps1`
   for the pattern.

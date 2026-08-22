@@ -4,7 +4,7 @@ Unit tests for the AD group-membership diff (Get-ADUserGroupsToUpdate).
 
 .DESCRIPTION
 Template for testing the Private\ decision functions: build synthetic enriched records with
-New-TestADRecord, enter module scope with InModuleScope (the function isn't exported), and
+New-TestSourceRecord, enter module scope with InModuleScope (the function isn't exported), and
 mock Write-Log so no config or filesystem is needed. Pure decide-phase — nothing here can
 touch AD.
 #>
@@ -16,7 +16,7 @@ BeforeAll {
 
 Describe 'Get-ADUserGroupsToUpdate' {
     It 'adds a proposed group the user is not in yet' {
-        $records = @(New-TestADRecord -GroupsProposed 'Staff', 'Math Dept' -ADCurrentGroups 'Staff')
+        $records = @(New-TestSourceRecord -GroupsProposed 'Staff', 'Math Dept' -ADCurrentGroups 'Staff')
 
         InModuleScope IDBridge -Parameters @{ records = $records } {
             Mock Write-Log {}
@@ -33,7 +33,7 @@ Describe 'Get-ADUserGroupsToUpdate' {
     }
 
     It 'never adds a proposed group that does not exist in AD' {
-        $records = @(New-TestADRecord -GroupsProposed 'Ghost Group' -ADCurrentGroups @())
+        $records = @(New-TestSourceRecord -GroupsProposed 'Ghost Group' -ADCurrentGroups @())
 
         InModuleScope IDBridge -Parameters @{ records = $records } {
             Mock Write-Log {}
@@ -45,7 +45,7 @@ Describe 'Get-ADUserGroupsToUpdate' {
     }
 
     It 'removes a current group that is no longer proposed' {
-        $records = @(New-TestADRecord -GroupsProposed 'Staff' -ADCurrentGroups 'Staff', 'Old Team')
+        $records = @(New-TestSourceRecord -GroupsProposed 'Staff' -ADCurrentGroups 'Staff', 'Old Team')
 
         InModuleScope IDBridge -Parameters @{ records = $records } {
             Mock Write-Log {}
@@ -60,7 +60,7 @@ Describe 'Get-ADUserGroupsToUpdate' {
     }
 
     It 'still computes removals when no groups exist in AD (CurrentADGroups is null)' {
-        $records = @(New-TestADRecord -GroupsProposed 'Staff' -ADCurrentGroups 'Old Team')
+        $records = @(New-TestSourceRecord -GroupsProposed 'Staff' -ADCurrentGroups 'Old Team')
 
         InModuleScope IDBridge -Parameters @{ records = $records } {
             Mock Write-Log {}
@@ -75,9 +75,9 @@ Describe 'Get-ADUserGroupsToUpdate' {
     It 'skips users that are inactive, not AD-provisioned, or not linked to an AD account' {
         # Each record proposes an obvious change that must NOT surface because of its gate field.
         $records = @(
-            (New-TestADRecord -PersonID '1' -IDBActive $false -GroupsProposed 'Staff')
-            (New-TestADRecord -PersonID '2' -ProvisionAD $false -GroupsProposed 'Staff')
-            (New-TestADRecord -PersonID '3' -ADCurrentUserID $null -GroupsProposed 'Staff')
+            (New-TestSourceRecord -PersonID '1' -IDBActive $false -GroupsProposed 'Staff')
+            (New-TestSourceRecord -PersonID '2' -ProvisionAD $false -GroupsProposed 'Staff')
+            (New-TestSourceRecord -PersonID '3' -ADCurrentUserID $null -GroupsProposed 'Staff')
         )
 
         InModuleScope IDBridge -Parameters @{ records = $records } {
@@ -91,7 +91,7 @@ Describe 'Get-ADUserGroupsToUpdate' {
     }
 
     It 'returns empty lists when membership already matches' {
-        $records = @(New-TestADRecord -GroupsProposed 'Staff' -ADCurrentGroups 'Staff')
+        $records = @(New-TestSourceRecord -GroupsProposed 'Staff' -ADCurrentGroups 'Staff')
 
         InModuleScope IDBridge -Parameters @{ records = $records } {
             Mock Write-Log {}

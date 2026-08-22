@@ -18,6 +18,21 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   `Write-Log` + `New-TestADRecord` fixtures from `tests\TestHelper.psm1`). See
   `tests\README.md` for conventions. Tests live outside `src\IDBridge` so they are
   never packaged.
+- **Decide-phase test coverage for the sync pipeline.** Unit tests for the change-volume
+  safety guard (`Test-IDBridgeChangeThreshold`, including the inclusive-limit boundary and
+  the zero-population skip), duplicate-personID removal (`Remove-IDBridgeDuplicateID`), and
+  the full AD + Google change-list planner family: `Get-ADUsersToCreate` / `ToDeactivate` /
+  `ToSetEmployeeID` / `ToUpdate` and `Get-GoogleUsersToCreate` / `ToDeactivate` /
+  `ToSetEmployeeID` / `ToUpdate` / `Get-GoogleUserGroupsToUpdate` — covering the safety
+  behaviors (never add unknown groups, username/UPN collision skips, set-but-don't-clear,
+  ForceDisable suspend-not-archive, approved-name-mismatch linking, OU override). The test
+  helper gains `New-TestADUser` / `New-TestGoogleUser` fixture factories (and
+  `New-TestADRecord` is now `New-TestSourceRecord`).
+- **CI: `Tests` workflow.** `.github/workflows/tests.yml` runs the Pester suite on
+  ubuntu-latest for every push and pull request.
+- **CLAUDE.md: Tests section.** How to run the suite, plus the Claude Code cloud-session
+  recipe (PSGallery is blocked there: PowerShell comes from the GitHub release tarball,
+  Pester from its nuget.org package).
 - **Publish workflow: `workflow_dispatch` release path.** The `Publish` workflow can now
   be dispatched (Actions → Publish → Run workflow, or the GitHub API) as an alternative
   to pushing a `v*` tag: it reads `ModuleVersion` from `main`, refuses to run if that
