@@ -87,6 +87,7 @@ function New-TestSourceRecord {
         [bool]$ADCurrentUserEnabledStatus = $true,
         [AllowNull()][string[]]$ADCurrentGroups = @(),
         [string]$ADOrganizationalUnit = 'OU=Staff,DC=example,DC=org',
+        [string]$ADOrganizationalUnitTrash = 'OU=Trash,DC=example,DC=org',
         [bool]$ADChangePasswordAtLogon = $true,
         $ADPassphraseAPI = $null,
         $ADKey = $null,
@@ -99,6 +100,7 @@ function New-TestSourceRecord {
         $GoogleCurrentLicenses = $null,
         $GoogleObject = $null,
         [string]$GoogleOrganizationalUnit = '/Staff',
+        [string]$GoogleOrganizationalUnitTrash = '/Trash',
         [bool]$GoogleChangePasswordAtLogon = $true,
         $GooglePassphraseAPI = $null,
         $GoogleKey = $null,
@@ -132,6 +134,7 @@ function New-TestSourceRecord {
         ADCurrentUserEnabledStatus       = $ADCurrentUserEnabledStatus
         ADCurrentGroups                  = $ADCurrentGroups
         ADOrganizationalUnit             = $ADOrganizationalUnit
+        ADOrganizationalUnitTrash        = $ADOrganizationalUnitTrash
         ADChangePasswordAtLogon          = $ADChangePasswordAtLogon
         ADPassphraseAPI                  = $ADPassphraseAPI
         ADKey                            = $ADKey
@@ -142,6 +145,7 @@ function New-TestSourceRecord {
         GoogleCurrentLicenses            = $GoogleCurrentLicenses
         GoogleObject                     = $GoogleObject
         GoogleOrganizationalUnit         = $GoogleOrganizationalUnit
+        GoogleOrganizationalUnitTrash    = $GoogleOrganizationalUnitTrash
         GoogleChangePasswordAtLogon      = $GoogleChangePasswordAtLogon
         GooglePassphraseAPI              = $GooglePassphraseAPI
         GoogleKey                        = $GoogleKey

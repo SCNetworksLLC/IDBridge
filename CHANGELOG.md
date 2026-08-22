@@ -28,6 +28,13 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   ForceDisable suspend-not-archive, approved-name-mismatch linking, OU override). The test
   helper gains `New-TestADUser` / `New-TestGoogleUser` fixture factories (and
   `New-TestADRecord` is now `New-TestSourceRecord`).
+- **Tests for the remaining decide-phase functions.** The OU planners
+  (`Get-ADOrgUnitsForProcessing` / `Get-GoogleOrgUnitsForProcessing`: ancestor expansion,
+  parents-before-children ordering, dedupe, existing-OU filtering), the `-Preview` row
+  flattener (`ConvertTo-IDBridgePreviewRow`: apply-order rows, password column gated on
+  `-ShowPasswords`, SecureStrings rendered `(secure)` in Changes), and the source toolkit
+  (`New-IDBridgeSourceRecord` defaults/normalization/validation, `Test-IDBridgeSourceData`
+  cross-field rules and safety net).
 - **CI: `Tests` workflow.** `.github/workflows/tests.yml` runs the Pester suite on
   ubuntu-latest for every push and pull request.
 - **CLAUDE.md: Tests section.** How to run the suite, plus the Claude Code cloud-session
@@ -40,6 +47,14 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   Gallery and creates the GitHub Release as before. Lets environments that can push
   branches but not tags (e.g. Claude Code cloud sessions) cut a release; the tag-push
   path is unchanged.
+
+### Fixed
+- **`Get-ADOrgUnitsForProcessing`: a one-OU DN was mangled into an invalid create
+  proposal.** With exactly one `OU=` component (e.g. a root-level `OU=Trash,DC=x`),
+  `Where-Object` unrolled the component list to a plain string and the ancestor slice then
+  indexed characters, proposing the invalid DN `O,DC=x` — on every run, even when the real
+  OU already existed (the mangled name never matched). Live runs would try to create that
+  DN and fail. Found by the new OU-planner tests; multi-level OU paths were unaffected.
 
 ### Changed
 - **Docs: CONTRIBUTING.md release steps now include the merge to `main`.** A release
