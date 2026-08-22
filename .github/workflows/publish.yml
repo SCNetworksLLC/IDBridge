@@ -1,9 +1,15 @@
 name: Publish
 
+# Two ways to cut a release:
+#   - push a v* tag (the classic path, from a normal clone), or
+#   - dispatch this workflow (Actions -> Publish -> Run workflow, or via the GitHub API,
+#     e.g. from a Claude Code cloud session, which can't push tags): the workflow reads
+#     ModuleVersion from main and mints the v<version> tag itself before publishing.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,14 +20,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate manifest and tag
+      - name: Resolve version, validate or mint the tag
+        id: version
         shell: pwsh
         run: |
           $manifest = Test-ModuleManifest -Path ./src/IDBridge/IDBridge.psd1
-          $tagVersion = '${{ github.ref_name }}'.TrimStart('v')
-          if ("$($manifest.Version)" -ne $tagVersion) {
-              throw "Tag v$tagVersion does not match ModuleVersion $($manifest.Version) in IDBridge.psd1"
+          $version = "$($manifest.Version)"
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+              # Guard against a double-publish: a dispatched release requires a fresh version
+              if (git ls-remote --tags origin "refs/tags/v$version") {
+                  throw "Tag v$version already exists - bump ModuleVersion before dispatching a release."
+              }
+              git tag "v$version"
+              git push origin "v$version"
+          } else {
+              $tagVersion = '${{ github.ref_name }}'.TrimStart('v')
+              if ($version -ne $tagVersion) {
+                  throw "Tag v$tagVersion does not match ModuleVersion $version in IDBridge.psd1"
+              }
           }
+          "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Publish to PowerShell Gallery
         shell: pwsh
@@ -32,9 +50,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $version = '${{ steps.version.outputs.version }}'
           $changelog = Get-Content ./CHANGELOG.md -Raw
           $match = [regex]::Match($changelog, "(?s)## \[$([regex]::Escape($version))\][^\n]*\n(.*?)(?=\n## \[|\z)")
           $notes = if ($match.Success) { $match.Groups[1].Value.Trim() } else { 'See CHANGELOG.md for details.' }
           Set-Content -Path release-notes.md -Value $notes
-          gh release create '${{ github.ref_name }}' --title "v$version" --notes-file release-notes.md
+          gh release create "v$version" --title "v$version" --notes-file release-notes.md

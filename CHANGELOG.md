@@ -7,6 +7,15 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 
 ## [Unreleased]
 
+### Added
+- **Publish workflow: `workflow_dispatch` release path.** The `Publish` workflow can now
+  be dispatched (Actions → Publish → Run workflow, or the GitHub API) as an alternative
+  to pushing a `v*` tag: it reads `ModuleVersion` from `main`, refuses to run if that
+  version's tag already exists, mints the `v<version>` tag itself, then publishes to the
+  Gallery and creates the GitHub Release as before. Lets environments that can push
+  branches but not tags (e.g. Claude Code cloud sessions) cut a release; the tag-push
+  path is unchanged.
+
 ### Changed
 - **Docs: CONTRIBUTING.md release steps now include the merge to `main`.** A release
   always ships from `main`: fold the changelog and bump `ModuleVersion` on the work
