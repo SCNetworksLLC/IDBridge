@@ -30,6 +30,9 @@ Install-IDBridge
 
 # Safe dry run — computes all changes, writes nothing, verbose logging
 Invoke-IDBridge -ReadOnly -TraceLogging
+
+# Or review the proposed changes as a table (quiet, read-only)
+Invoke-IDBridge -Preview | Format-Table
 ```
 
 `Invoke-IDBridge` is the entry point; `-RootPath` defaults to `C:\IDBridge`.

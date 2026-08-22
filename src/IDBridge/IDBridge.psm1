@@ -3,8 +3,10 @@
 $Private = @()
 $Public  = @()
 
-$Private = @( Get-ChildItem -Path $PSScriptRoot\private\*.ps1 -ErrorAction SilentlyContinue -Recurse )
-$Public = @( Get-ChildItem -Path $PSScriptRoot\public\*.ps1 -ErrorAction SilentlyContinue -Recurse )
+# Casing matches the real folder names - on a case-sensitive filesystem (Linux, e.g.
+# Claude Code cloud sessions) a lowercase glob finds nothing and the module loads empty.
+$Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue -Recurse )
+$Public = @( Get-ChildItem -Path $PSScriptRoot\Public\*.ps1 -ErrorAction SilentlyContinue -Recurse )
 
 $FoundErrors = @(
     foreach ($Import in @($Private + $Public)) {

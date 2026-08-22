@@ -132,7 +132,9 @@ Source of truth: [`src\IDBridge\Private\Core\Invoke-PostRunPlugins.ps1`](../src/
 PostRun plugins run from the `finally` block of `Invoke-IDBridge`, after telemetry and
 before the Google Sheet log push (so their `Write-Log` lines make it into the sheet). They
 fire on **every** run — failed and ReadOnly runs included; the RunResult carries
-`Success`/`ReadOnly` so the plugin decides what to do. Discovery/loading is identical to
+`Success`/`ReadOnly` so the plugin decides what to do. The one exception is
+`Invoke-IDBridge -Preview`: preview runs stay quiet and skip telemetry, PostRun plugins,
+and the log-sheet push entirely. Discovery/loading is identical to
 the source contract (file check, dot-source, `Get-Command`, warn + disable on failure),
 but each plugin:
 

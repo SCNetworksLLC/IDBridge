@@ -38,7 +38,7 @@ Approve-IDBridgeNameMismatch -RootPath 'C:\IDBridge' -SkipGoogle
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-19
+   Modified: 2026-08-21
 #>
 function Approve-IDBridgeNameMismatch {
     [CmdletBinding()]
@@ -74,54 +74,20 @@ function Approve-IDBridgeNameMismatch {
 
 
 
-    #region Google Auth
-    # Gated on GoogleToken.Enabled only (mirrors Invoke-IDBridge): -SkipGoogle reviews
-    # still need headers for Sheets source plugins.
-    if ($IDConfig.GoogleToken.Enabled -eq $true) {
-        try { Connect-IDBridgeGoogle } catch { Throw }
-    } else {
-        Write-Log -Message "Google API integration is disabled. Google-related functions will be skipped." -Level Trace
-    }
-    #endregion Google Auth
-
-
-
     #region Gather Source & Directory Data
+    # Shared with Invoke-IDBridge: Google auth, source plugins, AD/Google target data,
+    # enrichment, dedupe, override merge. PersonID matching deliberately does NOT happen
+    # here - the mismatch detection below inspects the unlinked (pre-matching) state.
     Write-Log -Message "Approve: Gathering source and directory data for name-mismatch review."
 
     try {
-        $plugins = Invoke-SourcePlugins
+        $pipelineData = Get-IDBridgePipelineData
 
-        $sourceData = $plugins.SourceData
-        $overrideData = $plugins.OverrideData
+        $sourceData = $pipelineData.SourceData
+        $adData     = $pipelineData.ADData
+        $googleData = $pipelineData.GoogleData
     }
     catch { Throw }
-
-    if ($IDConfig.Google.enabled -eq $true) {
-        try {
-            $googleData = Get-TargetDataGoogle -ErrorAction Stop
-        }
-        catch { Throw }
-    }
-
-    if ($IDConfig.AD.enabled -eq $true) {
-        try {
-            $adData = Get-TargetDataAD -ErrorAction Stop
-        }
-        catch { Throw }
-    }
-
-    if ($IDConfig.AD.enabled -eq $true) {
-        $sourceData = Add-TargetDataAD -SourceData $sourceData -ADData $adData
-    }
-
-    if ($IDConfig.Google.enabled -eq $true) {
-        $sourceData = Add-TargetDataGoogle -SourceData $sourceData -GoogleData $googleData
-    }
-
-    $sourceData = Remove-IDBridgeDuplicateID -SourceData $sourceData
-
-    $sourceData = Merge-IDBridgeOverrideData -SourceData $sourceData -OverrideData $overrideData
     #endregion Gather Source & Directory Data
 
 

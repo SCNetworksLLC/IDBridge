@@ -66,6 +66,8 @@ Switches (override the config file at runtime):
 | `-SkipGoogle`    | Disable all Google processing for this run                       |
 | `-SkipChangeThreshold` | Bypass the change-volume safety guard (`ChangeThreshold`) for this run    |
 | `-DisableTelemetry` | Disable usage telemetry for this run (see PRIVACY.md)             |
+| `-Preview`       | Forces ReadOnly; emits the proposed changes as flat rows for table review (quiet: no telemetry/PostRun plugins/sheet log push; threshold breach warns instead of aborting) |
+| `-ShowPasswords` | With `-Preview`: fill the Password column for pending creates (emitted only, never logged) |
 
 ## Safety model (read this before changing behavior)
 

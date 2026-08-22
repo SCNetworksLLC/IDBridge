@@ -43,7 +43,9 @@ the guard off (older configs keep working).
 
 > A directory whose managed population is **0** (fresh tenant / empty root OU) is skipped with a
 > `Warn` rather than tripping the guard, so a legitimate first run isn't blocked by a zero
-> denominator. The `-SkipChangeThreshold` switch sets `Enabled = $false` for that run.
+> denominator. The `-SkipChangeThreshold` switch sets `Enabled = $false` for that run. Under
+> `Invoke-IDBridge -Preview` a breach logs a `Warn` and continues instead of aborting — a
+> preview exists to review exactly those changes.
 
 ### `GoogleToken` (API authentication)
 | Key | Type | Effect | Read by |
@@ -244,5 +246,6 @@ key. **Only names/locations are documented here — never values.** See [secrets
   `WhatIf = $true` — a fresh run reports intended changes without modifying anything.
 - **Change-volume guard:** `ChangeThreshold` aborts the whole run (before any writes) if a
   directory's proposed lifecycle changes exceed `Percentage` of its managed population. It fires
-  regardless of `ReadOnly`, so even a preview run that breaches the limit stops at the guard.
+  regardless of `ReadOnly`, so even a read-only run that breaches the limit stops at the guard
+  (`Invoke-IDBridge -Preview` is the exception: a breach warns and the preview continues).
   Bypass with `ChangeThreshold.Enabled = $false` or the `-SkipChangeThreshold` switch.

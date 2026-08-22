@@ -20,13 +20,18 @@ Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (
 ### `Invoke-IDBridge` 🌐
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
 -TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold
--DisableTelemetry`. Calls
+-DisableTelemetry -Preview -ShowPasswords`. Calls
 `Initialize-IDBridge`, applies switch overrides, runs the notify-only Gallery update
-check (a newer release logs a `Warn`; failures are skipped at Trace), acquires the
-Google token (when `GoogleToken.Enabled`) from the vault secret
-`GoogleAuth-ServiceAccount` → `$script:GoogleHeaders`, then runs the full pipeline (see
-architecture.md). **Returns:** nothing; side effects + log push (user-list CSV exports
-live in the PostRun export plugin).
+check (a newer release logs a `Warn`; failures are skipped at Trace), then runs the full
+pipeline: the shared gather phase (`Get-IDBridgePipelineData` — includes the Google auth
+from the vault secret `GoogleAuth-ServiceAccount` → `$script:GoogleHeaders`), personID
+matching, plan, guard, apply (see architecture.md). `-Preview` forces ReadOnly and emits
+the proposed changes as flat rows (via `ConvertTo-IDBridgePreviewRow`) for
+`Format-Table` review — quiet: no telemetry, no PostRun plugins, no sheet log push, and a
+tripped change threshold warns instead of aborting; `-ShowPasswords` fills the Password
+column for pending creates (emitted only, never logged). **Returns:** nothing (side
+effects + log push; user-list CSV exports live in the PostRun export plugin), or the
+preview rows under `-Preview`.
 
 ### `Initialize-IDBridge` 🌐
 Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), imports AD
@@ -164,6 +169,30 @@ a breach). Pure compute + log — the caller (`Invoke-IDBridge`) decides whether
 **Returns:** `[pscustomobject]@{ Directory; ChangeCount; PopulationCount; Percent; Exceeded;
 Skipped }`. Used by the change-volume safety guard between the compute and execute regions.
 
+### `Get-IDBridgePipelineData` 🔒 🌐
+The shared gather phase, called by `Invoke-IDBridge` and `Approve-IDBridgeNameMismatch` so
+the sequence lives in one place: Google auth (`Connect-IDBridgeGoogle`, when
+`GoogleToken.Enabled`) → `Invoke-SourcePlugins` → `Get-TargetDataGoogle`/`Get-TargetDataAD`
+(per enabled directory) → `Add-TargetDataAD`/`Add-TargetDataGoogle` →
+`Remove-IDBridgeDuplicateID` → `Merge-IDBridgeOverrideData`. Reads the initialized config
+(callers run `Initialize-IDBridge` and their overrides first); read-only; personID matching
+is **not** done here. No params. **Returns:** `@{ SourceData; ADData; GoogleData }`
+(`ADData`/`GoogleData` are `$null` when that directory is disabled).
+
+### `ConvertTo-IDBridgePreviewRow` 🔒 🧮
+Flattens the computed change lists into the uniform rows `Invoke-IDBridge -Preview` emits.
+**Params:** `-SourceData` (mandatory; resolves Name/Account/Building via personID for rows
+whose list item doesn't carry them), `-ShowPasswords`, and one optional param per change
+list (`-ADUsersToCreate/-ADUsersToUpdate/-ADUsersToDeactivate/-ADUserGroupsToUpdate/
+-ADOrgUnitsToCreate` and the Google equivalents) — omitted/`$null` lists contribute no
+rows. Rows follow the apply order per directory; group changes emit one row per
+user+group; update splats render compactly minus bookkeeping keys (`Identity`, `Division`,
+`GoogleUserID`); the Password column is filled for Create rows only when `-ShowPasswords`
+(decoded at emit time, never logged — a SecureString anywhere else renders `(secure)`).
+**Returns:** `[object[]]` of `@{ Directory; Action; PersonID; Name; Account; Building;
+OrgUnit; Password; Changes }` with `Action` one of
+`CreateOU/Deactivate/Update/Rename/Move/Create/GroupAdd/GroupRemove`.
+
 ### `Export-IDBridgeDirectoryToSheet` 🌐
 One-time onboarding tool: seeds the staff source sheet from the current directory state.
 **Params:** `-SpreadsheetId` (mandatory), `-SheetName` (def `StaffSeed-<yyyy-MM-dd>`),
@@ -193,7 +222,7 @@ Requires `Initialize-IDBridge` + `Connect-IDBridgeGoogle` first. **Returns:**
 Onboarding tool: interactive console review of source/directory name mismatches, run by hand —
 never called by the pipeline. **Params:** `-RootPath` (def `C:\IDBridge`), `-SkipAD`,
 `-SkipGoogle`. Gathers the same source and directory data the pipeline would
-(`Initialize-IDBridge` → source plugins → target data → dedupe → overrides), finds every
+(`Initialize-IDBridge` → the shared `Get-IDBridgePipelineData` gather phase), finds every
 unlinked source user whose username is taken by an account with a **different name**, and walks
 them one at a time showing both names side by side (`[A]pprove / [S]kip / [Q]uit`). Approving
 records the decision to `<DataRoot>\ApprovedNameMismatches.csv` (PersonID, Directory, Account,

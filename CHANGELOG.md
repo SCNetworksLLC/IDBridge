@@ -5,6 +5,41 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.8.21.0] - 2026-08-21
+
+### Added
+- **`Invoke-IDBridge -Preview`: review the proposed changes as a table, no CSV export
+  needed.** Forces ReadOnly, runs the exact pipeline a live run would (same plugins,
+  matching, plan phase), and emits every proposed change as flat row objects —
+  `Directory / Action / PersonID / Name / Account / Building / OrgUnit / Password /
+  Changes` — for `Format-Table` / `Where-Object` / `Out-GridView` review
+  (`Invoke-IDBridge -Preview | Format-Table`). Rows cover OU creates, deactivations
+  (Google rows list the licenses removal would strip), updates (compact changed-property
+  summary), renames/moves (old → new), creates, and per-group membership changes. Preview
+  runs stay quiet: no telemetry, no PostRun plugins, no Google Sheet log push, and a
+  tripped `ChangeThreshold` logs a warning and continues instead of aborting — a preview
+  exists to review exactly those changes. New internal `ConvertTo-IDBridgePreviewRow`
+  does the flattening.
+- **`-ShowPasswords`** (with `-Preview`): fills the Password column for pending creates,
+  decoded at emit time and never logged. Keysmith passphrases are deterministic, so the
+  previewed password is the one the real run will set; without the switch the column is
+  empty.
+
+### Fixed
+- **Module loader: `Private`/`Public` glob casing.** `IDBridge.psm1` globbed
+  `\private\*.ps1` / `\public\*.ps1` while the folders are capitalized — harmless on
+  Windows, but on a case-sensitive filesystem (Linux, e.g. Claude Code cloud sessions)
+  the module imported with zero functions. The globs now match the real folder names.
+
+### Changed
+- **The gather phase now lives in one place: new internal `Get-IDBridgePipelineData`.**
+  `Invoke-IDBridge` and `Approve-IDBridgeNameMismatch` carried verbatim copies of the
+  Google auth → source plugins → target data → enrich → dedupe → override-merge sequence;
+  both now call the shared function, so a gather-phase fix lands in the rarely-run
+  onboarding tool automatically instead of silently drifting. Pure refactor — no behavior
+  change (the only visible difference is log ordering: the "Gather Source & Directory
+  Data" phase line now precedes the Google auth messages it wraps).
+
 ## [26.8.20.0] - 2026-08-20
 
 ### Changed

@@ -177,9 +177,20 @@ adds/removes — and writes **nothing**. Iterate here until the log
 the plugin, or the config and re-run. This is where OU paths, `PersonType` mappings, and
 group proposals get proven out.
 
+For a table view of the same proposal instead of reading the log, use `-Preview` — it runs
+the identical pipeline read-only and emits one row per proposed change:
+
+```powershell
+Invoke-IDBridge -Preview | Format-Table                                             # everything
+Invoke-IDBridge -Preview -ShowPasswords | Where-Object Action -eq 'Create' | Format-Table  # pending creates + their passwords
+```
+
+Preview runs are also quiet (no telemetry, PostRun plugins, or log-sheet push), so you can
+peek as often as you like.
+
 ## 9. Enable writes — incrementally
 
-Flip one brake at a time, with a read-only-style review after each:
+Flip one brake at a time, with a read-only-style review (`-ReadOnly` or `-Preview`) after each:
 
 1. `Debug.ReadOnly = $false` — user lifecycle writes (create/update/deactivate/move/rename)
    go live. Group changes are still log-only (`WhatIf`), and the `ChangeThreshold` guard

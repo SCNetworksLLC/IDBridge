@@ -21,6 +21,8 @@ Telemetry = @{
 
 If the `Telemetry` block is absent, the tier is `Basic`. An unrecognized value is treated
 as `Off` (fail-safe). Any single run can be silenced with `Invoke-IDBridge -DisableTelemetry`.
+Preview runs (`Invoke-IDBridge -Preview`) never send a telemetry event at any tier — a
+review peek is not a run.
 
 ### Off
 Nothing is sent. No exceptions.
