@@ -43,11 +43,18 @@ to print the "newer template available" notice.
 ## Versioning & releases
 
 IDBridge uses a **calendar version** `YY.M.D.build` (e.g. `26.6.21.0` = 2026-06-21, build 0).
-This is intentional: the version encodes the release date. To cut a release:
+This is intentional: the version encodes the release date. A release always ships from
+`main` — merging the work branch to `main` is part of cutting it. To cut a release:
 
-1. Move the `## [Unreleased]` notes into a new dated section in [CHANGELOG.md](CHANGELOG.md).
-2. Bump `ModuleVersion` in `src/IDBridge/IDBridge.psd1` to the new `YY.M.D.build`.
-3. Commit, then tag: `git tag v<version>` and `git push --tags`.
+1. On the work branch: move the `## [Unreleased]` notes into a new dated section in
+   [CHANGELOG.md](CHANGELOG.md).
+2. Bump `ModuleVersion` in `src/IDBridge/IDBridge.psd1` to the new `YY.M.D.build`, and commit.
+3. **Merge the branch to `main`** (via pull request), so the tagged code and `main`'s
+   history are the same commit.
+4. Tag the merge commit on `main`: `git checkout main && git pull`, then
+   `git tag v<version>` and `git push --tags`. The tag push is what triggers the Gallery
+   publish (next section). Note: Claude Code cloud sessions can push branches but not
+   tags, so this last step runs from a normal clone.
 
 ## Publishing to the PowerShell Gallery
 

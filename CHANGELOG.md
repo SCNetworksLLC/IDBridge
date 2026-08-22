@@ -5,6 +5,15 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [Unreleased]
+
+### Changed
+- **Docs: CONTRIBUTING.md release steps now include the merge to `main`.** A release
+  always ships from `main`: fold the changelog and bump `ModuleVersion` on the work
+  branch, merge to `main` via PR, then tag the merge commit — the tag push triggers the
+  Gallery publish. Also notes that Claude Code cloud sessions can push branches but not
+  tags, so the tag step runs from a normal clone.
+
 ## [26.8.21.0] - 2026-08-21
 
 ### Added
