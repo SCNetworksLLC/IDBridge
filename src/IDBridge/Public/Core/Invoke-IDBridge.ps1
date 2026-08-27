@@ -15,6 +15,13 @@ object (user list CSV exports live in the Invoke-PluginPostRunExport plugin), an
 run log to a Google Sheet when configured. Per-user write errors are
 logged and skipped; startup/OU-creation failures and a tripped change threshold abort the run.
 
+Only one run per RootPath executes at a time: a machine-wide mutex is taken before
+initialization and a second run aborts immediately, telling you a run is already in
+progress. ReadOnly and Preview runs take the same lock — they still write the shared log
+file and the Data state files, and a preview racing a live run would show half-applied
+state. The lock is process-bound, so it can never go stale: the OS releases it if a run
+dies holding it (including Task Scheduler's execution time limit kill).
+
 With -Preview the run stops after the plan phase and emits the proposed changes as flat row
 objects (Directory, Action, PersonID, Name, Account, Building, OrgUnit, Password, Changes)
 for review with Format-Table / Where-Object / Out-GridView - no CSV export needed. Preview
@@ -99,6 +106,28 @@ function Invoke-IDBridge {
     )
 
     $runStart = Get-Date
+
+    #region Single-Run Lock
+    # One run per root at a time, machine-wide ('Global\' spans the console and the scheduled
+    # task's session 0). Taken BEFORE Initialize-IDBridge so nothing shared - the log file
+    # included, which initialization already writes - is touched while another run is in
+    # flight. ReadOnly/Preview runs hold the lock too: they share the log and Data state
+    # files, and a preview racing a live run would show half-applied state. A mutex (not a
+    # lock file) so the OS releases it if a run dies holding it - it can never go stale.
+    $runMutexName = 'Global\IDBridge-' + ($RootPath -replace '[^A-Za-z0-9]', '-')
+    $runMutex = $null
+    $runMutexHeld = $false
+    try {
+        $runMutex = [System.Threading.Mutex]::new($false, $runMutexName)
+        try { $runMutexHeld = $runMutex.WaitOne(0) }
+        catch [System.Threading.AbandonedMutexException] { $runMutexHeld = $true }   #previous holder died mid-run; the lock is ours
+    }
+    catch [System.UnauthorizedAccessException] { }   #held by another account's run (e.g. the gMSA task) - not acquirable, so busy
+    if (-not $runMutexHeld) {
+        if ($runMutex) { $runMutex.Dispose() }
+        Throw "Another IDBridge run against '$RootPath' is already in progress (ReadOnly and Preview runs hold the run lock too). Try again when it finishes."
+    }
+    #endregion Single-Run Lock
 
     try{
         #region Import Configuration
@@ -841,5 +870,9 @@ function Invoke-IDBridge {
                 Push-LogsToSheet -spreadsheetId $IDConfig.Logging.SheetID -sheetName 'Logs'
             }
         }
+
+        #Release the single-run lock last (process death would release it too)
+        if ($runMutexHeld) { $runMutex.ReleaseMutex() }
+        if ($runMutex) { $runMutex.Dispose() }
     }
 }

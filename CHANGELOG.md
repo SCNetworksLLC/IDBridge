@@ -5,6 +5,50 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.8.27.0] - 2026-08-27
+
+### Added
+- **AD service-account bootstrap (`Initialize-IDBridgeADServiceAccount`).** One-command
+  AD-side setup for unattended runs: creates the `gMSA-IDBridge` group Managed Service
+  Account with this computer's account allowed to retrieve the password (no password
+  ever generated or stored; a missing/immature KDS root key is explained, never created
+  silently), delegates least-privilege rights on the managed root OU (`AD.userRootOU`
+  by default: create OUs only — no OU delete/modify; create + full control over
+  descendant user objects — Delete included, required by `Move-ADObject` for OU moves
+  and trash; write the `member` attribute of descendant group objects only — no group
+  create/delete), and grants the gMSA private-key read on the Cms certificate via the
+  existing `Grant-IDBridgeCertificatePrivateKeyAccess` (auto-resolved like
+  `Set-IDBridgeSecret`; `-SkipCertificateAccess` for DpapiNG/AzKeyVault sites).
+  Idempotent — re-runs add missing computer principals/ACEs and touch nothing else.
+- **Scheduled-run registration (`Register-IDBridgeScheduledTask`).** Host-side
+  follow-up: installs and verifies the gMSA on this computer (a stale-Kerberos-ticket
+  failure right after account creation is fixed automatically — the computer's tickets
+  are purged and the install retried once before a reboot is suggested), grants it the
+  'Log on as a batch job' right (new internal `Grant-IDBridgeBatchLogonRight`, a
+  built-in P/Invoke over `advapi32` `LsaAddAccountRights`; local — a GPO managing the
+  right still wins) and the filesystem rights a run needs (read on the module folder
+  and runtime root, modify on `Logs`/`Exports`/`Data`), and registers a Task Scheduler
+  task running `Invoke-IDBridge -RootPath <root>` in pwsh as the gMSA every
+  `-IntervalMinutes` (default 15, midnight-aligned; `-LogonType Password`, no stored
+  credential; never overlaps a still-running run, hung runs killed after 1 hour). The
+  task is **created disabled** unless `-Enabled` is passed — verify with
+  `Start-ScheduledTask`, then `Enable-ScheduledTask`. Re-running replaces the task.
+- **Single-run lock.** `Invoke-IDBridge` now takes a machine-wide named mutex (per
+  RootPath, `Global\` so a console session and the scheduled task's session 0 see the
+  same lock) before initialization; a second concurrent run aborts immediately with
+  "another IDBridge run is already in progress" — before any shared write, no telemetry
+  or PostRun side effects. ReadOnly and Preview runs hold the lock too: they still write
+  the shared log file and the source plugins' `Data` state CSVs, and a preview racing a
+  live run would show half-applied state. A mutex rather than a lock file so the OS
+  releases it when a run dies holding it (a kill at the task's execution time limit
+  included) — it can never go stale. Complements, not replaces, Task Scheduler's own
+  no-overlap policy: the lock covers interactive-vs-scheduled collisions.
+- **docs/ad-bootstrap.md** — the AD counterpart to google-bootstrap.md: both functions,
+  the exact delegation ACE table, the moves-require-Delete caveat, the "never place
+  privileged accounts under the managed root OU" rule, KDS root key and
+  "Log on as a batch job" prerequisites, verification and recovery steps. Getting-started's
+  unattended-runs pointer now leads here.
+
 ## [26.8.22.0] - 2026-08-22
 
 ### Added

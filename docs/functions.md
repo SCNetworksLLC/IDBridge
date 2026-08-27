@@ -20,7 +20,10 @@ Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (
 ### `Invoke-IDBridge` 🌐
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
 -TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold
--DisableTelemetry -Preview -ShowPasswords`. Calls
+-DisableTelemetry -Preview -ShowPasswords`. Only one run per RootPath executes at a
+time: a machine-wide mutex is taken before initialization (ReadOnly/Preview runs hold it
+too — they share the log and `Data` state files) and a second run throws immediately;
+the OS releases the lock if a run dies holding it, so it never goes stale. Calls
 `Initialize-IDBridge`, applies switch overrides, runs the notify-only Gallery update
 check (a newer release logs a `Warn`; failures are skipped at Trace), then runs the full
 pipeline: the shared gather phase (`Get-IDBridgePipelineData` — includes the Google auth
@@ -55,6 +58,40 @@ file's shipped template is newer than the installed copy, the skip notice adds a
 never touched). Needs no initialized state (`Write-Host` only, no `Write-Log`);
 run it before `Initialize-IDBridge` on a fresh install. **Params:** `-RootPath`.
 **Returns:** nothing; prints what it created.
+
+### `Initialize-IDBridgeADServiceAccount` 🌐
+AD-side bootstrap for unattended runs (see [ad-bootstrap.md](ad-bootstrap.md)). Creates
+the `gMSA-IDBridge` group Managed Service Account (password retrievable by this
+computer; requires a usable KDS root key — explained, never created silently), delegates
+least-privilege rights on the managed root OU (create OUs only; create + full control
+over descendant `user` objects — Delete included, required for OU moves; write the
+`member` attribute of descendant `group` objects only), and grants the gMSA private-key
+read on the Cms certificate via `Grant-IDBridgeCertificatePrivateKeyAccess`
+(auto-resolved like `Set-IDBridgeSecret`). Idempotent; elevated session. **Params:**
+`-AccountName` (def `gMSA-IDBridge`), `-TargetOU` (def `AD.userRootOU`), `-ComputerName`
+(def this computer), `-CertThumbprint`, `-SkipCertificateAccess` (DpapiNG/AzKeyVault
+sites). **Returns:** the gMSA.
+
+### `Register-IDBridgeScheduledTask` 🌐(filesystem)
+Host-side follow-up: installs + verifies the gMSA on this computer (auto-purging the
+computer's Kerberos tickets and retrying once when it was only just allowed), grants it
+'Log on as a batch job' (`Grant-IDBridgeBatchLogonRight`) and the filesystem rights a
+run needs (read on module + runtime root, modify on `Logs`/`Exports`/`Data`), and
+registers a Task Scheduler task running `Invoke-IDBridge -RootPath <root>` in pwsh as
+the gMSA every `-IntervalMinutes` (`-LogonType Password`, no stored credential; no
+overlap, hung runs killed after 1 h). **Created disabled unless `-Enabled`** — verify,
+then `Enable-ScheduledTask`. Idempotent — re-running replaces the task. Elevated
+session. **Params:** `-AccountName`, `-TaskName` (def `IDBridge Sync`),
+`-IntervalMinutes` (def 15, midnight-aligned), `-Enabled`, `-RootPath` (def
+`Paths.Root`), `-ModulePath` (def the loaded module's manifest). **Returns:** the
+registered task.
+
+### `Grant-IDBridgeBatchLogonRight` 🔒
+**Params:** `-Identity` (mandatory account, e.g. `'DOMAIN\gMSA-IDBridge$'`). Grants
+`SeBatchLogonRight` ('Log on as a batch job') in the local security policy through a
+built-in P/Invoke wrapper over `advapi32.dll` (`LsaOpenPolicy`/`LsaAddAccountRights` —
+no cmdlet exists for user rights). Idempotent; local only (a GPO managing the right
+overwrites it on refresh); elevated session. No return.
 
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.

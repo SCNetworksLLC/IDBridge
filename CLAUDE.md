@@ -113,6 +113,10 @@ logic gets tests alongside it.
    changes (create/update/rename/move/deactivate) exceed a percentage (default `25`) of its
    managed root-OU population — protection against a broken source feed mass-changing the
    directory. Bypass with `ChangeThreshold.Enabled = $false` or `-SkipChangeThreshold`.
+5. **Single-run lock.** `Invoke-IDBridge` takes a machine-wide mutex (per RootPath, before
+   initialization) and a second concurrent run aborts immediately — ReadOnly/Preview runs
+   included, since they still write the shared log and `Data` state files. Process-bound,
+   so a killed run can never leave a stale lock.
 
 ## Conventions
 
@@ -141,6 +145,7 @@ logic gets tests alongside it.
 - [docs/plugins.md](docs/plugins.md) — plugin contract (Source/Override/PostRun) + output schemas, with the shipped plugins as worked examples.
 - [docs/secrets.md](docs/secrets.md) — secret vault providers (Cms/DPAPI-NG/AzKeyVault), certificate setup, secret names, migration.
 - [docs/google-bootstrap.md](docs/google-bootstrap.md) — one-command Google service-account bootstrap (custom admin role, no domain-wide delegation) + the manual finish steps.
+- [docs/ad-bootstrap.md](docs/ad-bootstrap.md) — AD service-account bootstrap: gMSA creation, least-privilege OU delegation, cert private-key access, and the daily scheduled task.
 - [docs/keysmith.md](docs/keysmith.md) — Keysmith passphrase integration: district registration, vault secrets, `New-Passphrase` operational rules.
 - [README.md](README.md) — public-facing overview, quick start, and publishing pointers.
 
