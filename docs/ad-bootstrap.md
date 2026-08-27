@@ -60,13 +60,10 @@ single-DC lab).
 
 | Step | Notes |
 |------|-------|
-| Install + verify the gMSA on this host | `Install-ADServiceAccount` / `Test-ADServiceAccount`. Right after the account is created (or this host newly allowed), this fails until the computer's Kerberos tickets refresh — `klist -li 0x3e7 purge` (elevated) or a reboot, then re-run. The error says exactly this. |
+| Install + verify the gMSA on this host | `Install-ADServiceAccount` / `Test-ADServiceAccount`. Right after the account is created (or this host newly allowed), stale Kerberos tickets make this fail — the function purges the computer's tickets (`klist -li 0x3e7 purge`) and retries once on its own; only if that also fails does it ask for a reboot. |
+| Grant "Log on as a batch job" | `SeBatchLogonRight` in the local security policy (LSA API — no cmdlet exists), required to start a scheduled task. **GPO caveat:** if a GPO manages that right, the GPO's list overwrites the local grant on the next policy refresh — add the gMSA to the GPO instead. |
 | Grant filesystem rights | Read on the module folder and the runtime root (config, plugins, vault); modify on `Logs`, `Exports`, `Data`. |
-| Register the task | Daily at `-DailyAt` (default 05:00), named `-TaskName` (default `IDBridge Sync`, replaced if present): `pwsh -NoProfile -NonInteractive -Command "Import-Module '<manifest>'; Invoke-IDBridge -RootPath '<root>'"` as the gMSA. A missed trigger runs as soon as possible after (`-StartWhenAvailable`). |
-
-**"Log on as a batch job":** Task Scheduler grants the right locally when the task is
-registered. If a GPO manages that right, the local grant is overridden — add the gMSA
-to the GPO or the task will not start.
+| Register the task | Every `-IntervalMinutes` (default 15, anchored to midnight so runs land on :00/:15/:30/:45), named `-TaskName` (default `IDBridge Sync`, replaced if present): `pwsh -NoProfile -NonInteractive -Command "Import-Module '<manifest>'; Invoke-IDBridge -RootPath '<root>'"` as the gMSA. A still-running run is never overlapped; a hung run is killed after 1 hour. **Created disabled** unless `-Enabled` is passed. |
 
 ## Secrets for the scheduled run
 
@@ -78,22 +75,26 @@ The run decrypts the vault as the gMSA, which works out of the box on either pro
   SID in `Secrets.DpapiNG.ProtectionDescriptor`, then (re-)seed the secrets. See
   [secrets.md](secrets.md#production-alternative-gmsa--dpapi-ng-provider).
 
-## Verify
+## Verify, then enable
+
+The task is registered **disabled** so nothing runs before the config is reviewed:
 
 1. `Start-ScheduledTask -TaskName 'IDBridge Sync'` — with `Debug.ReadOnly = $true` in
-   the config for a safe first run.
+   the config for a safe first run (a disabled task still runs when started by hand).
 2. Check `<Root>\Logs\IDBridge.log` for the run: Google auth succeeded (vault read as
    the gMSA worked) and the AD phases planned without permission errors.
-3. A `0x80070569` task start failure is the batch-logon right (GPO note above); an
-   `Access is denied` inside the AD apply phase means the delegation OU doesn't cover
-   the object being written (check the plugin's OUs sit under `AD.userRootOU`).
+3. `Enable-ScheduledTask -TaskName 'IDBridge Sync'` — the schedule goes live.
+4. A `0x80070569` task start failure is the batch-logon right (the GPO caveat above);
+   an `Access is denied` inside the AD apply phase means the delegation OU doesn't
+   cover the object being written (check the plugin's OUs sit under `AD.userRootOU`).
 
 ## Recovery / changes
 
 - **New IDBridge host:** re-run `Initialize-IDBridgeADServiceAccount -ComputerName <new host>`
   (adds the principal), then `Register-IDBridgeScheduledTask` on the new machine.
-- **Change the run time:** re-run `Register-IDBridgeScheduledTask -DailyAt '<time>'` —
-  the task is replaced in place.
+- **Change the cadence:** re-run `Register-IDBridgeScheduledTask -IntervalMinutes <n>` —
+  the task is replaced in place (pass `-Enabled` to keep it live, the replacement is
+  otherwise disabled again).
 - **Offboarding:** disable or delete the task and the gMSA
   (`Remove-ADServiceAccount`); the OU ACEs name the account's SID and die with it
   (remove them from the OU's Security tab at leisure).

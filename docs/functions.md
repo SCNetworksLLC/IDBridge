@@ -70,15 +70,25 @@ read on the Cms certificate via `Grant-IDBridgeCertificatePrivateKeyAccess`
 sites). **Returns:** the gMSA.
 
 ### `Register-IDBridgeScheduledTask` 🌐(filesystem)
-Host-side follow-up: installs + verifies the gMSA on this computer (with
-Kerberos-ticket-refresh guidance when it was only just allowed), grants the filesystem
-rights a run needs (read on module + runtime root, modify on `Logs`/`Exports`/`Data`),
-and registers a daily Task Scheduler task running `Invoke-IDBridge -RootPath <root>` in
-pwsh as the gMSA (`-LogonType Password`, no stored credential; missed triggers catch
-up). Idempotent — re-running replaces the task. Elevated session. **Params:**
-`-AccountName`, `-TaskName` (def `IDBridge Sync`), `-DailyAt` (def 05:00), `-RootPath`
-(def `Paths.Root`), `-ModulePath` (def the loaded module's manifest). **Returns:** the
+Host-side follow-up: installs + verifies the gMSA on this computer (auto-purging the
+computer's Kerberos tickets and retrying once when it was only just allowed), grants it
+'Log on as a batch job' (`Grant-IDBridgeBatchLogonRight`) and the filesystem rights a
+run needs (read on module + runtime root, modify on `Logs`/`Exports`/`Data`), and
+registers a Task Scheduler task running `Invoke-IDBridge -RootPath <root>` in pwsh as
+the gMSA every `-IntervalMinutes` (`-LogonType Password`, no stored credential; no
+overlap, hung runs killed after 1 h). **Created disabled unless `-Enabled`** — verify,
+then `Enable-ScheduledTask`. Idempotent — re-running replaces the task. Elevated
+session. **Params:** `-AccountName`, `-TaskName` (def `IDBridge Sync`),
+`-IntervalMinutes` (def 15, midnight-aligned), `-Enabled`, `-RootPath` (def
+`Paths.Root`), `-ModulePath` (def the loaded module's manifest). **Returns:** the
 registered task.
+
+### `Grant-IDBridgeBatchLogonRight` 🔒
+**Params:** `-Identity` (mandatory account, e.g. `'DOMAIN\gMSA-IDBridge$'`). Grants
+`SeBatchLogonRight` ('Log on as a batch job') in the local security policy through a
+built-in P/Invoke wrapper over `advapi32.dll` (`LsaOpenPolicy`/`LsaAddAccountRights` —
+no cmdlet exists for user rights). Idempotent; local only (a GPO managing the right
+overwrites it on refresh); elevated session. No return.
 
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.

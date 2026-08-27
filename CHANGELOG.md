@@ -22,12 +22,17 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   Idempotent — re-runs add missing computer principals/ACEs and touch nothing else.
 - **Scheduled-run registration (`Register-IDBridgeScheduledTask`).** Host-side
   follow-up: installs and verifies the gMSA on this computer (a stale-Kerberos-ticket
-  failure right after account creation explains the `klist -li 0x3e7 purge`/reboot
-  fix), grants the filesystem rights a run needs (read on the module folder and runtime
-  root, modify on `Logs`/`Exports`/`Data`), and registers a daily Task Scheduler task
-  running `Invoke-IDBridge -RootPath <root>` in pwsh as the gMSA (`-LogonType
-  Password`, no stored credential; missed triggers catch up via `-StartWhenAvailable`).
-  Re-running replaces the task (e.g. to change `-DailyAt`).
+  failure right after account creation is fixed automatically — the computer's tickets
+  are purged and the install retried once before a reboot is suggested), grants it the
+  'Log on as a batch job' right (new internal `Grant-IDBridgeBatchLogonRight`, a
+  built-in P/Invoke over `advapi32` `LsaAddAccountRights`; local — a GPO managing the
+  right still wins) and the filesystem rights a run needs (read on the module folder
+  and runtime root, modify on `Logs`/`Exports`/`Data`), and registers a Task Scheduler
+  task running `Invoke-IDBridge -RootPath <root>` in pwsh as the gMSA every
+  `-IntervalMinutes` (default 15, midnight-aligned; `-LogonType Password`, no stored
+  credential; never overlaps a still-running run, hung runs killed after 1 hour). The
+  task is **created disabled** unless `-Enabled` is passed — verify with
+  `Start-ScheduledTask`, then `Enable-ScheduledTask`. Re-running replaces the task.
 - **docs/ad-bootstrap.md** — the AD counterpart to google-bootstrap.md: both functions,
   the exact delegation ACE table, the moves-require-Delete caveat, the "never place
   privileged accounts under the managed root OU" rule, KDS root key and
