@@ -5,7 +5,7 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
-## [Unreleased]
+## [26.8.27.0] - 2026-08-27
 
 ### Added
 - **AD service-account bootstrap (`Initialize-IDBridgeADServiceAccount`).** One-command
