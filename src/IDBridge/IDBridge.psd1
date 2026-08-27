@@ -20,6 +20,8 @@
         'Get-IDBridgeConfig'  # This is the public accessor for the config object after initialization. It will throw an error if called before Initialize-IDBridge.
         'Export-IDBridgeDirectoryToSheet'  # Onboarding tool: seeds the staff source sheet from current AD + Google state (new tab, Process=FALSE).
         'Approve-IDBridgeNameMismatch'  # Onboarding tool: interactive review of source/directory name mismatches; approvals persist to Data and link on the next run.
+        'Initialize-IDBridgeADServiceAccount'  # One-command AD bootstrap: creates the gMSA, delegates least-privilege rights on the managed root OU, grants it the Cms cert's private key.
+        'Register-IDBridgeScheduledTask'  # Installs the gMSA on this host, grants the filesystem rights a run needs, registers the daily Invoke-IDBridge scheduled task.
 
         # Secrets
         'Get-IDBridgeSecret'  # Reads a named secret from the IDBridge vault (Cms/DpapiNG envelope files, or Azure Key Vault).

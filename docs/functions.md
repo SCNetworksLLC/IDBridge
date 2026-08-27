@@ -56,6 +56,30 @@ never touched). Needs no initialized state (`Write-Host` only, no `Write-Log`);
 run it before `Initialize-IDBridge` on a fresh install. **Params:** `-RootPath`.
 **Returns:** nothing; prints what it created.
 
+### `Initialize-IDBridgeADServiceAccount` 🌐
+AD-side bootstrap for unattended runs (see [ad-bootstrap.md](ad-bootstrap.md)). Creates
+the `gMSA-IDBridge` group Managed Service Account (password retrievable by this
+computer; requires a usable KDS root key — explained, never created silently), delegates
+least-privilege rights on the managed root OU (create OUs only; create + full control
+over descendant `user` objects — Delete included, required for OU moves; write the
+`member` attribute of descendant `group` objects only), and grants the gMSA private-key
+read on the Cms certificate via `Grant-IDBridgeCertificatePrivateKeyAccess`
+(auto-resolved like `Set-IDBridgeSecret`). Idempotent; elevated session. **Params:**
+`-AccountName` (def `gMSA-IDBridge`), `-TargetOU` (def `AD.userRootOU`), `-ComputerName`
+(def this computer), `-CertThumbprint`, `-SkipCertificateAccess` (DpapiNG/AzKeyVault
+sites). **Returns:** the gMSA.
+
+### `Register-IDBridgeScheduledTask` 🌐(filesystem)
+Host-side follow-up: installs + verifies the gMSA on this computer (with
+Kerberos-ticket-refresh guidance when it was only just allowed), grants the filesystem
+rights a run needs (read on module + runtime root, modify on `Logs`/`Exports`/`Data`),
+and registers a daily Task Scheduler task running `Invoke-IDBridge -RootPath <root>` in
+pwsh as the gMSA (`-LogonType Password`, no stored credential; missed triggers catch
+up). Idempotent — re-running replaces the task. Elevated session. **Params:**
+`-AccountName`, `-TaskName` (def `IDBridge Sync`), `-DailyAt` (def 05:00), `-RootPath`
+(def `Paths.Root`), `-ModulePath` (def the loaded module's manifest). **Returns:** the
+registered task.
+
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.
 

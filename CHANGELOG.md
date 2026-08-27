@@ -5,6 +5,35 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [Unreleased]
+
+### Added
+- **AD service-account bootstrap (`Initialize-IDBridgeADServiceAccount`).** One-command
+  AD-side setup for unattended runs: creates the `gMSA-IDBridge` group Managed Service
+  Account with this computer's account allowed to retrieve the password (no password
+  ever generated or stored; a missing/immature KDS root key is explained, never created
+  silently), delegates least-privilege rights on the managed root OU (`AD.userRootOU`
+  by default: create OUs only — no OU delete/modify; create + full control over
+  descendant user objects — Delete included, required by `Move-ADObject` for OU moves
+  and trash; write the `member` attribute of descendant group objects only — no group
+  create/delete), and grants the gMSA private-key read on the Cms certificate via the
+  existing `Grant-IDBridgeCertificatePrivateKeyAccess` (auto-resolved like
+  `Set-IDBridgeSecret`; `-SkipCertificateAccess` for DpapiNG/AzKeyVault sites).
+  Idempotent — re-runs add missing computer principals/ACEs and touch nothing else.
+- **Scheduled-run registration (`Register-IDBridgeScheduledTask`).** Host-side
+  follow-up: installs and verifies the gMSA on this computer (a stale-Kerberos-ticket
+  failure right after account creation explains the `klist -li 0x3e7 purge`/reboot
+  fix), grants the filesystem rights a run needs (read on the module folder and runtime
+  root, modify on `Logs`/`Exports`/`Data`), and registers a daily Task Scheduler task
+  running `Invoke-IDBridge -RootPath <root>` in pwsh as the gMSA (`-LogonType
+  Password`, no stored credential; missed triggers catch up via `-StartWhenAvailable`).
+  Re-running replaces the task (e.g. to change `-DailyAt`).
+- **docs/ad-bootstrap.md** — the AD counterpart to google-bootstrap.md: both functions,
+  the exact delegation ACE table, the moves-require-Delete caveat, the "never place
+  privileged accounts under the managed root OU" rule, KDS root key and
+  "Log on as a batch job" prerequisites, verification and recovery steps. Getting-started's
+  unattended-runs pointer now leads here.
+
 ## [26.8.22.0] - 2026-08-22
 
 ### Added
