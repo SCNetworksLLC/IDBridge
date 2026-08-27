@@ -33,6 +33,16 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
   credential; never overlaps a still-running run, hung runs killed after 1 hour). The
   task is **created disabled** unless `-Enabled` is passed — verify with
   `Start-ScheduledTask`, then `Enable-ScheduledTask`. Re-running replaces the task.
+- **Single-run lock.** `Invoke-IDBridge` now takes a machine-wide named mutex (per
+  RootPath, `Global\` so a console session and the scheduled task's session 0 see the
+  same lock) before initialization; a second concurrent run aborts immediately with
+  "another IDBridge run is already in progress" — before any shared write, no telemetry
+  or PostRun side effects. ReadOnly and Preview runs hold the lock too: they still write
+  the shared log file and the source plugins' `Data` state CSVs, and a preview racing a
+  live run would show half-applied state. A mutex rather than a lock file so the OS
+  releases it when a run dies holding it (a kill at the task's execution time limit
+  included) — it can never go stale. Complements, not replaces, Task Scheduler's own
+  no-overlap policy: the lock covers interactive-vs-scheduled collisions.
 - **docs/ad-bootstrap.md** — the AD counterpart to google-bootstrap.md: both functions,
   the exact delegation ACE table, the moves-require-Delete caveat, the "never place
   privileged accounts under the managed root OU" rule, KDS root key and

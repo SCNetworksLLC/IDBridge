@@ -20,7 +20,10 @@ Legend: 🌐 = makes external API/cmdlet calls · 🧮 = pure decision/compute (
 ### `Invoke-IDBridge` 🌐
 Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-ReadOnly
 -TestRun -SkipADCheck -TraceLogging -SkipAD -SkipGoogle -SkipChangeThreshold
--DisableTelemetry -Preview -ShowPasswords`. Calls
+-DisableTelemetry -Preview -ShowPasswords`. Only one run per RootPath executes at a
+time: a machine-wide mutex is taken before initialization (ReadOnly/Preview runs hold it
+too — they share the log and `Data` state files) and a second run throws immediately;
+the OS releases the lock if a run dies holding it, so it never goes stale. Calls
 `Initialize-IDBridge`, applies switch overrides, runs the notify-only Gallery update
 check (a newer release logs a `Warn`; failures are skipped at Trace), then runs the full
 pipeline: the shared gather phase (`Get-IDBridgePipelineData` — includes the Google auth

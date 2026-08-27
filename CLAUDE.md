@@ -113,6 +113,10 @@ logic gets tests alongside it.
    changes (create/update/rename/move/deactivate) exceed a percentage (default `25`) of its
    managed root-OU population — protection against a broken source feed mass-changing the
    directory. Bypass with `ChangeThreshold.Enabled = $false` or `-SkipChangeThreshold`.
+5. **Single-run lock.** `Invoke-IDBridge` takes a machine-wide mutex (per RootPath, before
+   initialization) and a second concurrent run aborts immediately — ReadOnly/Preview runs
+   included, since they still write the shared log and `Data` state files. Process-bound,
+   so a killed run can never leave a stale lock.
 
 ## Conventions
 

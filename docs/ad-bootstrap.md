@@ -65,6 +65,11 @@ single-DC lab).
 | Grant filesystem rights | Read on the module folder and the runtime root (config, plugins, vault); modify on `Logs`, `Exports`, `Data`. |
 | Register the task | Every `-IntervalMinutes` (default 15, anchored to midnight so runs land on :00/:15/:30/:45), named `-TaskName` (default `IDBridge Sync`, replaced if present): `pwsh -NoProfile -NonInteractive -Command "Import-Module '<manifest>'; Invoke-IDBridge -RootPath '<root>'"` as the gMSA. A still-running run is never overlapped; a hung run is killed after 1 hour. **Created disabled** unless `-Enabled` is passed. |
 
+Task-vs-task overlap is Task Scheduler's job (above); an **interactive run vs. the
+task** is covered by `Invoke-IDBridge` itself, which takes a machine-wide single-run
+lock — the second run (a `-ReadOnly`/`-Preview` included) aborts with "another IDBridge
+run is already in progress" and, at this cadence, simply lands in the next slot.
+
 ## Secrets for the scheduled run
 
 The run decrypts the vault as the gMSA, which works out of the box on either provider:
