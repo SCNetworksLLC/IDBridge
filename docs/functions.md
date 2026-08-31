@@ -279,6 +279,23 @@ No params. Loads `<DataRoot>\ApprovedNameMismatches.csv` (the decisions recorded
 row; empty when the file doesn't exist. Consumed by the two `Get-*UsersToSetEmployeeID`
 functions.
 
+### `Reset-IDBridgeADPassword` 🌐
+Operations tool: Windows Forms GUI to bulk-reset AD passwords to their deterministic Keysmith
+passphrases, run by hand — never called by the pipeline. **Params:** `-RootPath` (def
+`C:\IDBridge`). Shows the domain's OU tree with checkboxes (checking an OU checks everything
+under it), the Keysmith settings (nonce and API token by vault secret name — defaulting to the
+shipped-plugin names `ApiKey-PassphraseNonceStudent`/`Staff` and `ApiKey-Passphrase`, editable,
+with masked manual entry as a fallback — plus mode, word count, and an optional word-list rev;
+blank rev = server's latest), and run options (include sub-OUs, enabled accounts only,
+ChangePasswordAtLogon, passphrase-CSV export — off by default). "Load Users" lists the matching
+accounts for review; "Reset Passwords" confirms with the exact count, fetches every passphrase
+up front (`Get-ADUsersToResetPassword` — any Keysmith failure aborts before a single write),
+then applies `Set-ADAccountPassword -Reset` per account. Writes to AD when confirmed
+**regardless of `Debug.readOnly`** — interactive, gated by its own confirmation dialog.
+Passphrases are never logged; the optional CSV lands in `Exports`. Requires Windows, an STA
+session, and the ActiveDirectory module. **Returns:** `@{ Total; Succeeded; Failed;
+ExportPath }` for the last run.
+
 > For a deployment with **no** directory data to seed from, start from the published source-sheet
 > template (copy link: <https://docs.google.com/spreadsheets/d/1OUlm-5WGce_x2z0L1dM2kD8Ejk_f3RNF3EC8sa6uHhE/copy>) instead — it ships the source
 > and override tabs pre-built with tables, Process checkboxes, a TerminationDate date column, a
@@ -493,6 +510,16 @@ applied. **Returns:** `@{ UpdateList; RenameList; MoveList }` (items carry `CN` 
 ### `Get-ADUsersToDeactivate` 🔒 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionAD=false)` AND
 `ADCurrentUserEnabledStatus=true`. **Returns:** user objects to disable.
+
+### `Get-ADUsersToResetPassword` 🔒 🧮🌐
+**Params:** `-UserList` (AD user objects: SamAccountName + DistinguishedName), `-PassphraseAPI`
+(hashtable — Nonce/AuthToken SecureStrings, Mode, WordCount, optional Rev; the `ADPassphraseAPI`
+shape, forwarded to `New-Passphrase`). Decide phase for `Reset-IDBridgeADPassword`: fetches a
+deterministic passphrase per SamAccountName (one batched call per 500 users, the Keysmith
+per-request max; phrases pair with users by position) and builds a `Set-ADAccountPassword -Reset`
+splat each. An API failure or returned-count mismatch throws — no partial reset list. The
+plaintext phrase rides on each item for the caller's optional export and is never logged.
+**Returns:** `@{ SamAccountName; DistinguishedName; Passphrase; Splat }[]`.
 
 ### `Get-ADUserGroupsToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-CurrentADGroups`. Diffs `GroupsProposed` vs `ADCurrentGroups`
