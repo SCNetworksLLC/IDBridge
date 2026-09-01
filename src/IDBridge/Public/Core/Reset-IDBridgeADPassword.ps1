@@ -520,7 +520,7 @@ function Reset-IDBridgeADPassword {
         if ($chkExport.Checked -and $succeededItems.Count -gt 0) {
             try {
                 $state.ExportPath = Join-Path $IDConfig.Paths.ExportsRoot ("ADPasswordReset_" + (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") + ".csv")
-                $succeededItems | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { $_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', '' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
+                $succeededItems | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { [regex]::Match(($_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', ''), '^OU=((?:\\.|[^,\\])*)').Groups[1].Value -replace '\\(.)', '$1' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
                 Write-Log -Message "Reset: Exported $($succeededItems.Count) passphrase(s) to $($state.ExportPath). Delete the file after handout."
             }
             catch {
@@ -564,7 +564,7 @@ function Reset-IDBridgeADPassword {
 
         try {
             $state.ExportPath = Join-Path $IDConfig.Paths.ExportsRoot ("ADPasswordExport_" + (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") + ".csv")
-            $resets | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { $_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', '' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
+            $resets | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { [regex]::Match(($_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', ''), '^OU=((?:\\.|[^,\\])*)').Groups[1].Value -replace '\\(.)', '$1' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
         }
         catch {
             Write-Log -Message ("Reset: Passphrase export failed: $($_.Exception.Message)") -Level Error

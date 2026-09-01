@@ -5,6 +5,14 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.9.1.2] - 2026-09-01
+
+### Changed
+- **`Reset-IDBridgeADPassword` CSVs: `OrgUnit` is now just the containing OU's name**
+  (e.g. `Grade-05`) instead of the full DN path — easier to read on handout slips. Applies
+  to both the reset run's handout CSV and the export-only CSV; the on-screen grid keeps
+  the full path so same-named OUs in different buildings stay distinguishable.
+
 ## [26.9.1.1] - 2026-09-01
 
 ### Added
