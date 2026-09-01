@@ -15,8 +15,12 @@ account, optionally also setting ChangePasswordAtLogon.
 
 Because Keysmith passphrases are deterministic, the phrases never need to be stored — anyone
 with the nonce can regenerate them at keysmith.scnlabs.net. Optionally the run can export a
-username/passphrase CSV to the Exports folder for handout (off by default). Passphrases are
-never written to the log.
+username/passphrase/OU CSV to the Exports folder for handout (off by default). "Export
+Passphrases" instead writes that same CSV for the loaded users WITHOUT touching AD —
+regenerating what the current passwords already are, e.g. for login slips. The exported
+phrases match the accounts' current passwords only when the nonce, mode, word count, and
+word-list rev match what the passwords were last set with — pin the rev for accounts from an
+earlier era. Passphrases are never written to the log.
 
 This tool writes to AD when confirmed regardless of Debug.readOnly — it is interactive and gated
 by its own confirmation dialog instead (the pipeline's ReadOnly/ChangeThreshold gates protect
@@ -28,7 +32,7 @@ Base dir for Config/Logs/Exports/Plugins/Data/Vault. Defaults to C:\IDBridge.
 
 .OUTPUTS
 [pscustomobject] @{ Total; Succeeded; Failed; ExportPath } for the last reset run (zeroes when
-the window is closed without running one).
+the window is closed without running one; an export-only run fills ExportPath only).
 
 .EXAMPLE
 Reset-IDBridgeADPassword
@@ -322,6 +326,13 @@ function Reset-IDBridgeADPassword {
     $btnReset.Enabled = $false
     $form.Controls.Add($btnReset)
 
+    $btnExport = [System.Windows.Forms.Button]::new()
+    $btnExport.Text = "Export Passphrases"
+    $btnExport.Location = [System.Drawing.Point]::new(560, 600)
+    $btnExport.Size = [System.Drawing.Size]::new(160, 32)
+    $btnExport.Enabled = $false
+    $form.Controls.Add($btnExport)
+
     $btnClose = [System.Windows.Forms.Button]::new()
     $btnClose.Text = "Close"
     $btnClose.Location = [System.Drawing.Point]::new(870, 600)
@@ -394,14 +405,17 @@ function Reset-IDBridgeADPassword {
         Write-Log -Message "Reset: Loaded $($state.Users.Count) user(s) from $($checkedDNs.Count) org unit(s) for review."
         $lblCount.Text = "$($state.Users.Count) user(s) loaded from $($checkedDNs.Count) org unit(s)."
         $btnReset.Enabled = ($state.Users.Count -gt 0)
+        $btnExport.Enabled = ($state.Users.Count -gt 0)
     })
     #endregion Load Users Handler
 
 
 
-    #region Reset Passwords Handler
-    $btnReset.add_Click({
-        #Resolve the nonce and token - from the vault by secret name, or the masked manual entry
+    #region Resolve Keysmith Settings
+    #Shared by the reset and export handlers: nonce/token from the vault by secret name (or
+    #the masked manual entry) plus the optional rev. Returns the PassphraseAPI hashtable, or
+    #$null after showing the error - the caller just returns.
+    $getKeysmithApi = {
         try {
             if ($cboNonce.Text -eq $ManualEntry) {
                 if ([string]::IsNullOrWhiteSpace($txtNonce.Text)) { Throw "Enter the nonce, or pick a vault secret name." }
@@ -419,22 +433,17 @@ function Reset-IDBridgeADPassword {
         }
         catch {
             [System.Windows.Forms.MessageBox]::Show($form, "Keysmith settings error: $($_.Exception.Message)", "IDBridge", 'OK', 'Error') | Out-Null
-            return
+            return $null
         }
 
         $rev = 0
         if (-not [string]::IsNullOrWhiteSpace($txtRev.Text)) {
             if (-not [int]::TryParse($txtRev.Text, [ref]$rev) -or $rev -lt 1 -or $rev -gt 99) {
                 [System.Windows.Forms.MessageBox]::Show($form, "Rev must be a number from 1 to 99, or blank for the server's latest.", "IDBridge", 'OK', 'Error') | Out-Null
-                return
+                return $null
             }
         }
 
-        $confirmText = "$($state.Users.Count) AD account password(s) will be RESET to their Keysmith passphrase.`n`nThis cannot be undone. Continue?"
-        $answer = [System.Windows.Forms.MessageBox]::Show($form, $confirmText, "IDBridge - Confirm Password Reset", 'YesNo', 'Warning', 'Button2')
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
-
-        #Decide: fetch every passphrase up front - any Keysmith failure aborts before a single write
         $passphraseAPI = @{
             Nonce = $nonce
             AuthToken = $token
@@ -443,6 +452,22 @@ function Reset-IDBridgeADPassword {
         }
         if ($rev -gt 0) { $passphraseAPI.Rev = $rev }
 
+        return $passphraseAPI
+    }
+    #endregion Resolve Keysmith Settings
+
+
+
+    #region Reset Passwords Handler
+    $btnReset.add_Click({
+        $passphraseAPI = & $getKeysmithApi
+        if (-not $passphraseAPI) { return }
+
+        $confirmText = "$($state.Users.Count) AD account password(s) will be RESET to their Keysmith passphrase.`n`nThis cannot be undone. Continue?"
+        $answer = [System.Windows.Forms.MessageBox]::Show($form, $confirmText, "IDBridge - Confirm Password Reset", 'YesNo', 'Warning', 'Button2')
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
+        #Decide: fetch every passphrase up front - any Keysmith failure aborts before a single write
         try {
             $resets = @(Get-ADUsersToResetPassword -UserList $state.Users -PassphraseAPI $passphraseAPI)
         }
@@ -495,7 +520,7 @@ function Reset-IDBridgeADPassword {
         if ($chkExport.Checked -and $succeededItems.Count -gt 0) {
             try {
                 $state.ExportPath = Join-Path $IDConfig.Paths.ExportsRoot ("ADPasswordReset_" + (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") + ".csv")
-                $succeededItems | Select-Object SamAccountName, Passphrase | Export-Csv -Path $state.ExportPath -NoTypeInformation
+                $succeededItems | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { $_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', '' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
                 Write-Log -Message "Reset: Exported $($succeededItems.Count) passphrase(s) to $($state.ExportPath). Delete the file after handout."
             }
             catch {
@@ -514,6 +539,48 @@ function Reset-IDBridgeADPassword {
         $btnReset.Enabled = $false
     })
     #endregion Reset Passwords Handler
+
+
+
+    #region Export Passphrases Handler
+    #Export-only: regenerate the loaded users' deterministic passphrases and write them to a
+    #CSV with each user's OU - NOTHING is written to AD. Matches the accounts' current
+    #passwords only when nonce/mode/word count/rev match what they were last set with.
+    $btnExport.add_Click({
+        $passphraseAPI = & $getKeysmithApi
+        if (-not $passphraseAPI) { return }
+
+        $confirmText = "$($state.Users.Count) passphrase(s) will be generated and written in PLAIN TEXT to the Exports folder.`n`nNo passwords are changed. Continue?"
+        $answer = [System.Windows.Forms.MessageBox]::Show($form, $confirmText, "IDBridge - Confirm Passphrase Export", 'YesNo', 'Warning', 'Button2')
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
+        try {
+            $resets = @(Get-ADUsersToResetPassword -UserList $state.Users -PassphraseAPI $passphraseAPI -ExportOnly)
+        }
+        catch {
+            [System.Windows.Forms.MessageBox]::Show($form, "Keysmith request failed - nothing was exported.`n`n$($_.Exception.Message)", "IDBridge", 'OK', 'Error') | Out-Null
+            return
+        }
+
+        try {
+            $state.ExportPath = Join-Path $IDConfig.Paths.ExportsRoot ("ADPasswordExport_" + (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") + ".csv")
+            $resets | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { $_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', '' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
+        }
+        catch {
+            Write-Log -Message ("Reset: Passphrase export failed: $($_.Exception.Message)") -Level Error
+            [System.Windows.Forms.MessageBox]::Show($form, "Passphrase export failed: $($_.Exception.Message)", "IDBridge", 'OK', 'Error') | Out-Null
+            return
+        }
+
+        foreach ($resetItem in $resets) {
+            $state.ItemByDN[$resetItem.DistinguishedName].SubItems[3].Text = "Exported"
+        }
+
+        Write-Log -Message "Reset: Exported $($resets.Count) passphrase(s) to $($state.ExportPath) without resetting. Delete the file after handout."
+
+        [System.Windows.Forms.MessageBox]::Show($form, "Exported $($resets.Count) passphrase(s) - no passwords were changed.`n`n$($state.ExportPath)", "IDBridge", 'OK', 'Information') | Out-Null
+    })
+    #endregion Export Passphrases Handler
 
 
 

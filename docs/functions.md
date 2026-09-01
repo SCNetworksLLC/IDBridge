@@ -290,7 +290,10 @@ blank rev = server's latest), and run options (include sub-OUs, enabled accounts
 ChangePasswordAtLogon, passphrase-CSV export — off by default). "Load Users" lists the matching
 accounts for review; "Reset Passwords" confirms with the exact count, fetches every passphrase
 up front (`Get-ADUsersToResetPassword` — any Keysmith failure aborts before a single write),
-then applies `Set-ADAccountPassword -Reset` per account. Writes to AD when confirmed
+then applies `Set-ADAccountPassword -Reset` per account. "Export Passphrases" instead writes
+the loaded users' regenerated passphrases as a username/passphrase/OU CSV to `Exports`
+**without touching AD** (matches current passwords only when nonce/mode/word count/rev match
+what they were last set with — pin the rev for older accounts). Writes to AD when confirmed
 **regardless of `Debug.readOnly`** — interactive, gated by its own confirmation dialog.
 Passphrases are never logged; the optional CSV lands in `Exports`. Requires Windows, an STA
 session, and the ActiveDirectory module. **Returns:** `@{ Total; Succeeded; Failed;
@@ -514,7 +517,8 @@ applied. **Returns:** `@{ UpdateList; RenameList; MoveList }` (items carry `CN` 
 ### `Get-ADUsersToResetPassword` 🔒 🧮🌐
 **Params:** `-UserList` (AD user objects: SamAccountName + DistinguishedName), `-PassphraseAPI`
 (hashtable — Nonce/AuthToken SecureStrings, Mode, WordCount, optional Rev; the `ADPassphraseAPI`
-shape, forwarded to `New-Passphrase`). Decide phase for `Reset-IDBridgeADPassword`: fetches a
+shape, forwarded to `New-Passphrase`), `-ExportOnly` (logs the proposed lines as exports, not
+resets; output identical). Decide phase for `Reset-IDBridgeADPassword`: fetches a
 deterministic passphrase per SamAccountName (one batched call per 500 users, the Keysmith
 per-request max; phrases pair with users by position) and builds a `Set-ADAccountPassword -Reset`
 splat each. An API failure or returned-count mismatch throws — no partial reset list. The

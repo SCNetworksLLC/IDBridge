@@ -18,6 +18,10 @@ The AD user objects to reset. Each needs SamAccountName and DistinguishedName.
 Hashtable with Nonce (SecureString), AuthToken (SecureString), Mode, WordCount, and optional
 Rev — the same shape as a source record's ADPassphraseAPI block, forwarded to New-Passphrase.
 
+.PARAMETER ExportOnly
+The caller is only exporting the passphrases, not resetting — the per-user proposed line logs
+"Export passphrase" instead of "Reset password". Output is identical either way.
+
 .OUTPUTS
 [object[]] of @{ SamAccountName; DistinguishedName; Passphrase; Splat } where Splat is the
 Set-ADAccountPassword parameter hashtable.
@@ -36,7 +40,9 @@ function Get-ADUsersToResetPassword {
         $UserList,
 
         [Parameter(Mandatory = $true)]
-        [hashtable]$PassphraseAPI
+        [hashtable]$PassphraseAPI,
+
+        [switch]$ExportOnly
     )
 
     $UserList = @($UserList)
@@ -71,10 +77,12 @@ function Get-ADUsersToResetPassword {
 
     $itemList = @()
 
+    $proposedAction = if ($ExportOnly) { "Export passphrase" } else { "Reset password" }
+
     for ($i = 0; $i -lt $UserList.Count; $i++) {
         $item = $UserList[$i]
 
-        Write-Log -Message ("AD: Proposed: Reset password for $($item.SamAccountName) ($($item.DistinguishedName)).")
+        Write-Log -Message ("AD: Proposed: $proposedAction for $($item.SamAccountName) ($($item.DistinguishedName)).")
 
         $itemList += [PSCustomObject]@{
             SamAccountName = $item.SamAccountName

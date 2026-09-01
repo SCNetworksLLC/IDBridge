@@ -88,6 +88,21 @@ Describe 'Get-ADUsersToResetPassword' {
         }
     }
 
+    It 'logs the proposed line as an export, not a reset, when -ExportOnly is set' {
+        $users = @(New-TestADUser)
+
+        InModuleScope IDBridge -Parameters @{ users = $users; api = $TestAPI } {
+            Mock Write-Log {}
+            Mock New-Passphrase { @($Username | ForEach-Object { 'p' }) }
+
+            $result = @(Get-ADUsersToResetPassword -UserList $users -PassphraseAPI $api -ExportOnly)
+
+            $result[0].Passphrase | Should -Be 'p'
+            Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like '*Proposed: Export passphrase*' }
+            Should -Invoke Write-Log -Times 0 -Exactly -ParameterFilter { $Message -like '*Proposed: Reset password*' }
+        }
+    }
+
     It 'throws without building any splat when the passphrase API fails' {
         $users = @(New-TestADUser)
 

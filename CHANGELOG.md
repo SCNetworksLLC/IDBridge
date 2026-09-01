@@ -5,9 +5,20 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
-## [Unreleased]
+## [26.9.1.1] - 2026-09-01
+
+### Added
+- **Export-only mode in `Reset-IDBridgeADPassword`.** A new "Export Passphrases" button
+  regenerates the loaded users' deterministic Keysmith passphrases and writes a
+  username/passphrase/OU CSV (`ADPasswordExport_<timestamp>.csv`) to `Exports` —
+  **without touching AD** — e.g. for printing login slips. Confirmed with the exact
+  count before generating; matches the accounts' current passwords only when the nonce,
+  mode, word count, and word-list rev match what the passwords were last set with (pin
+  the rev for accounts from an earlier era).
 
 ### Changed
+- The reset run's optional handout CSV now includes each user's `OrgUnit` column, the
+  same format as the export-only CSV.
 - **Docs:** `docs/secrets.md` secret-names note now mentions that
   `Reset-IDBridgeADPassword` reads `ApiKey-Passphrase` and the two nonce secrets as its
   defaults, so sites using the bulk reset GUI want them in the vault even when no
