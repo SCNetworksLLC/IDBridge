@@ -5,6 +5,24 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.9.1.0] - 2026-09-01
+
+### Added
+- **Bulk AD password reset GUI (`Reset-IDBridgeADPassword`).** Hand-run Windows Forms
+  tool: check any combination of OUs in the domain's OU tree (checking an OU checks
+  everything under it), pick the Keysmith nonce and API token by vault secret name
+  (defaults to the shipped-plugin names, with masked manual entry as a fallback), set
+  mode/word count and an optional word-list rev (blank = server's latest), then load
+  the matching accounts for review and reset each one's password to its deterministic
+  Keysmith passphrase (`Set-ADAccountPassword -Reset`, optional
+  ChangePasswordAtLogon). Options for sub-OU inclusion (on), enabled-accounts-only
+  (on), and a username/passphrase handout CSV to `Exports` (off). Every passphrase is
+  fetched up front via the new internal `Get-ADUsersToResetPassword` (batched 500 per
+  Keysmith request), so an API failure aborts before a single write; the run then asks
+  for explicit confirmation with the exact account count. Interactive and gated by its
+  own confirmation dialog, so `Debug.readOnly` does not apply. Passphrases are never
+  written to the log.
+
 ## [26.8.27.0] - 2026-08-27
 
 ### Added
