@@ -49,9 +49,10 @@ Each district gets its own Keysmith organization, API token, and nonce:
 - **Auth header.** The token is sent as `x-api-key` — the Static Web App proxy
   overwrites `Authorization` before it reaches the API. `New-Passphrase`
   handles this; don't hand-roll calls with Bearer headers.
-- **Bulk resets.** `Reset-IDBridgeADPassword` (GUI, run by hand) resets every AD
-  account in the checked OUs back to its deterministic passphrase using these same
-  vault secrets — see [functions.md](functions.md#reset-idbridgeadpassword).
+- **Bulk resets and handout exports.** `Reset-IDBridgeADPassword` (GUI, run by hand)
+  resets every AD account in the checked OUs back to its deterministic passphrase using
+  these same vault secrets, or just exports the regenerated passphrases to a CSV without
+  touching AD — see [functions.md](functions.md#reset-idbridgeadpassword).
 - **Annual renewal.** Keysmith users and tokens expire each August 1 by default.
   Token renewal/regeneration is done by SC Networks; a regenerated token must be
   re-provisioned into the school's vault.
