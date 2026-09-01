@@ -5,6 +5,14 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [Unreleased]
+
+### Changed
+- **Docs:** `docs/secrets.md` secret-names note now mentions that
+  `Reset-IDBridgeADPassword` reads `ApiKey-Passphrase` and the two nonce secrets as its
+  defaults, so sites using the bulk reset GUI want them in the vault even when no
+  password type is `API-PASSPHRASE`.
+
 ## [26.9.1.0] - 2026-09-01
 
 ### Added

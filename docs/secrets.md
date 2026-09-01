@@ -159,6 +159,8 @@ These names are used by the shipped code/plugins — store secrets under the **s
 
 > Plugins fetch the passphrase secrets **only when a password type actually uses the passphrase
 > API**, so a run that uses `WORD`/`RANDOM`/`FSPIN` passwords never needs them in the vault.
+> `Reset-IDBridgeADPassword` also reads these three names as its defaults (masked manual entry
+> is the fallback), so a site using the bulk reset GUI wants them in the vault either way.
 
 ## Hygiene
 
