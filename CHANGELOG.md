@@ -5,6 +5,13 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.9.1.3] - 2026-09-01
+
+### Changed
+- **`Reset-IDBridgeADPassword` CSVs now lead with `FirstName` and `LastName` columns**
+  (from AD GivenName/Surname), ahead of SamAccountName/Passphrase/OrgUnit — both the
+  reset run's handout CSV and the export-only CSV.
+
 ## [26.9.1.2] - 2026-09-01
 
 ### Changed

@@ -291,7 +291,7 @@ ChangePasswordAtLogon, passphrase-CSV export — off by default). "Load Users" l
 accounts for review; "Reset Passwords" confirms with the exact count, fetches every passphrase
 up front (`Get-ADUsersToResetPassword` — any Keysmith failure aborts before a single write),
 then applies `Set-ADAccountPassword -Reset` per account. "Export Passphrases" instead writes
-the loaded users' regenerated passphrases as a username/passphrase/OU CSV to `Exports`
+the loaded users' regenerated passphrases as a name/username/passphrase/OU CSV to `Exports`
 **without touching AD** (matches current passwords only when nonce/mode/word count/rev match
 what they were last set with — pin the rev for older accounts). Writes to AD when confirmed
 **regardless of `Debug.readOnly`** — interactive, gated by its own confirmation dialog.
@@ -523,7 +523,7 @@ deterministic passphrase per SamAccountName (one batched call per 500 users, the
 per-request max; phrases pair with users by position) and builds a `Set-ADAccountPassword -Reset`
 splat each. An API failure or returned-count mismatch throws — no partial reset list. The
 plaintext phrase rides on each item for the caller's optional export and is never logged.
-**Returns:** `@{ SamAccountName; DistinguishedName; Passphrase; Splat }[]`.
+**Returns:** `@{ SamAccountName; GivenName; Surname; DistinguishedName; Passphrase; Splat }[]`.
 
 ### `Get-ADUserGroupsToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-CurrentADGroups`. Diffs `GroupsProposed` vs `ADCurrentGroups`
