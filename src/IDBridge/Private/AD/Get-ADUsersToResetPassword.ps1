@@ -23,8 +23,8 @@ The caller is only exporting the passphrases, not resetting — the per-user pro
 "Export passphrase" instead of "Reset password". Output is identical either way.
 
 .OUTPUTS
-[object[]] of @{ SamAccountName; DistinguishedName; Passphrase; Splat } where Splat is the
-Set-ADAccountPassword parameter hashtable.
+[object[]] of @{ SamAccountName; GivenName; Surname; DistinguishedName; Passphrase; Splat }
+where Splat is the Set-ADAccountPassword parameter hashtable.
 
 .EXAMPLE
 $resets = Get-ADUsersToResetPassword -UserList $users -PassphraseAPI $api
@@ -86,6 +86,8 @@ function Get-ADUsersToResetPassword {
 
         $itemList += [PSCustomObject]@{
             SamAccountName = $item.SamAccountName
+            GivenName = $item.GivenName
+            Surname = $item.Surname
             DistinguishedName = $item.DistinguishedName
             Passphrase = $phrases[$i]
             Splat = @{

@@ -15,7 +15,7 @@ account, optionally also setting ChangePasswordAtLogon.
 
 Because Keysmith passphrases are deterministic, the phrases never need to be stored — anyone
 with the nonce can regenerate them at keysmith.scnlabs.net. Optionally the run can export a
-username/passphrase/OU CSV to the Exports folder for handout (off by default). "Export
+name/username/passphrase/OU CSV to the Exports folder for handout (off by default). "Export
 Passphrases" instead writes that same CSV for the loaded users WITHOUT touching AD —
 regenerating what the current passwords already are, e.g. for login slips. The exported
 phrases match the accounts' current passwords only when the nonce, mode, word count, and
@@ -520,7 +520,7 @@ function Reset-IDBridgeADPassword {
         if ($chkExport.Checked -and $succeededItems.Count -gt 0) {
             try {
                 $state.ExportPath = Join-Path $IDConfig.Paths.ExportsRoot ("ADPasswordReset_" + (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") + ".csv")
-                $succeededItems | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { [regex]::Match(($_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', ''), '^OU=((?:\\.|[^,\\])*)').Groups[1].Value -replace '\\(.)', '$1' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
+                $succeededItems | Select-Object @{n = 'FirstName'; e = { $_.GivenName }}, @{n = 'LastName'; e = { $_.Surname }}, SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { [regex]::Match(($_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', ''), '^OU=((?:\\.|[^,\\])*)').Groups[1].Value -replace '\\(.)', '$1' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
                 Write-Log -Message "Reset: Exported $($succeededItems.Count) passphrase(s) to $($state.ExportPath). Delete the file after handout."
             }
             catch {
@@ -564,7 +564,7 @@ function Reset-IDBridgeADPassword {
 
         try {
             $state.ExportPath = Join-Path $IDConfig.Paths.ExportsRoot ("ADPasswordExport_" + (Get-Date -Format "yyyy-MM-dd-HH.mm.ss") + ".csv")
-            $resets | Select-Object SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { [regex]::Match(($_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', ''), '^OU=((?:\\.|[^,\\])*)').Groups[1].Value -replace '\\(.)', '$1' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
+            $resets | Select-Object @{n = 'FirstName'; e = { $_.GivenName }}, @{n = 'LastName'; e = { $_.Surname }}, SamAccountName, Passphrase, @{n = 'OrgUnit'; e = { [regex]::Match(($_.DistinguishedName -replace '^CN=(?:\\.|[^,\\])*,', ''), '^OU=((?:\\.|[^,\\])*)').Groups[1].Value -replace '\\(.)', '$1' }} | Export-Csv -Path $state.ExportPath -NoTypeInformation
         }
         catch {
             Write-Log -Message ("Reset: Passphrase export failed: $($_.Exception.Message)") -Level Error

@@ -35,6 +35,8 @@ Describe 'Get-ADUsersToResetPassword' {
 
             $result.Count | Should -Be 2
             $result[0].SamAccountName | Should -Be 'alice'
+            $result[0].GivenName | Should -Be 'Test'
+            $result[0].Surname | Should -Be 'User'
             $result[0].Passphrase | Should -Be 'phrase-alice'
             $result[1].Passphrase | Should -Be 'phrase-bob'
 
