@@ -5,6 +5,21 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.9.9.0] - 2026-09-09
+
+### Added
+- **`Invoke-PluginPostRunBeacon` — a Beacon heartbeat PostRun plugin template.** POSTs one
+  `automation` envelope to SC Networks' Beacon dashboard after every run (failed and
+  ReadOnly runs included): `result` Success / Warning (a write did not stick) / Failed (the
+  run threw), a one-line message built from the counts, and the counts, flags, duration and
+  module version — no per-user data. Beacon's staleness model turns a nightly sync that
+  stops reporting amber on its own. Placeholders for the ingest URL and the district's
+  Beacon site id (throws until edited); the site key lives in the vault as
+  `ApiKey-Beacon`. Fire-and-forget like the webhook template: a send failure or a
+  rejection logs a `Warn` and never affects the run. The envelope builder is a pure helper
+  in the same file with tests under `tests\Templates\Plugins`. The config template gains
+  its descriptor (disabled) and moves to `TemplateVersion: 2`.
+
 ## [26.9.1.3] - 2026-09-01
 
 ### Changed
