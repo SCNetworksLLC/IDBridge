@@ -112,7 +112,7 @@ unrecognized `Tier` value fails safe to `Off`. `-DisableTelemetry` silences a si
 Array of plugin descriptors. `Source`/`Override` entries are executed in order by
 `Invoke-SourcePlugins` at the start of the run; `PostRun` entries by `Invoke-PostRunPlugins`
 at the end of the run (in the `finally` block, after telemetry — they fire on failed and
-ReadOnly runs too). The shipped config template lists all eight descriptors with
+ReadOnly runs too). The shipped config template lists all nine descriptors with
 `Enabled = $false`; a configured site looks like:
 
 ```powershell
@@ -124,6 +124,7 @@ ReadOnly runs too). The shipped config template lists all eight descriptors with
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunWebhook' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunExport' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunOrphanReport' }
+@{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunBeacon' }
 ```
 
 | Key | Effect |

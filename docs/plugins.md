@@ -288,6 +288,23 @@ throws until the placeholder URL is edited. Fire-and-forget: 10 s timeout, send 
 a `Warn` and never affect the run. The starting point for shipping your own telemetry or
 alerting ("tell me when the run breaks").
 
+### `Invoke-PluginPostRunBeacon` — PostRun *(disabled in config)*
+File: `C:\IDBridge\Plugins\Invoke-PluginPostRunBeacon.ps1`. POSTs one heartbeat envelope to
+[Beacon](https://github.com/SCNetworksLLC/Beacon), SC Networks' status dashboard, after every
+run — failed and ReadOnly runs included: `sourceType` `automation`, `sourceId`
+`idbridge-sync`, and a `data` block of `result` (`Success`; `Warning` when a write did not
+stick; `Failed` when the run threw), a one-line `message` built from the counts
+("412 managed: 3 created, 5 updated, 1 deactivated, 2 group changes, 0 write failures, 47s",
+prefixed `ReadOnly:` or `test run:` in those modes), and the counts, flags, duration and
+module version themselves. No per-user data. Beacon's staleness model does the rest: an
+automation source is expected every ~12 hours, so a nightly sync that stops reporting goes
+amber on its own and a `Failed` result goes red at once. Edit the ingest URL and the
+district's Beacon site id in the file (it throws until you do), store the site key Beacon
+minted for this automation with `Set-IDBridgeSecret -Name 'ApiKey-Beacon'`, then enable the
+descriptor. Fire-and-forget: 30 s timeout, a rejection or a send failure logs a `Warn` and
+never affects the run. The envelope builder (`ConvertTo-BeaconHeartbeat`, a helper in the
+same file) is pure and tested under `tests\Templates\Plugins`.
+
 ### `Invoke-PluginPostRunExport` — PostRun *(works as-is)*
 File: `C:\IDBridge\Plugins\Invoke-PluginPostRunExport.ps1`. Writes the user list CSVs
 defined in its `$exportFiles` map (file name → the `PersonTypeID`s it carries; one file

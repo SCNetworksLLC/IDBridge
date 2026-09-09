@@ -215,11 +215,12 @@ Flip one brake at a time, with a read-only-style review (`-ReadOnly` or `-Previe
   OneRoster plugins in
   [plugins.md](plugins.md#invoke-pluginskywardsmsstudents--source-disabled-in-config) are
   worked examples).
-- **Run reports, CSV exports, alerting:** the four PostRun templates consume each run's
+- **Run reports, CSV exports, alerting:** the five PostRun templates consume each run's
   results — `Invoke-PluginPostRunReport` (JSON run summary), `Invoke-PluginPostRunExport`
   (user-list CSVs), and `Invoke-PluginPostRunOrphanReport` (enabled accounts no source
   feeds anymore) work as-is once their descriptors are enabled;
-  `Invoke-PluginPostRunWebhook` POSTs a compact summary to your own endpoint.
+  `Invoke-PluginPostRunWebhook` POSTs a compact summary to your own endpoint, and
+  `Invoke-PluginPostRunBeacon` sends a heartbeat to SC Networks' Beacon dashboard.
   See [plugins.md](plugins.md#the-postrun-contract-invoke-postrunplugins).
 - **Run-history dashboard:** `Telemetry.Tier = 'Enhanced'`, then claim your SiteID
   (`Get-IDBridgeSiteID`) at [IDBridge Pulse](https://pulse.scnlabs.net).
