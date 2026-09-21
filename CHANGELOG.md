@@ -5,7 +5,7 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
-## [Unreleased]
+## [26.9.21.0] - 2026-09-21
 
 ### Added
 - **`Data\LastRun.json` — an end-of-run summary file a reader on the box can consume.**
