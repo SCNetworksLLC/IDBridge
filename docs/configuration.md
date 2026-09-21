@@ -112,7 +112,7 @@ unrecognized `Tier` value fails safe to `Off`. `-DisableTelemetry` silences a si
 Array of plugin descriptors. `Source`/`Override` entries are executed in order by
 `Invoke-SourcePlugins` at the start of the run; `PostRun` entries by `Invoke-PostRunPlugins`
 at the end of the run (in the `finally` block, after telemetry — they fire on failed and
-ReadOnly runs too). The shipped config template lists all nine descriptors with
+ReadOnly runs too). The shipped config template lists all eight descriptors with
 `Enabled = $false`; a configured site looks like:
 
 ```powershell
@@ -124,7 +124,6 @@ ReadOnly runs too). The shipped config template lists all nine descriptors with
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunWebhook' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunExport' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunOrphanReport' }
-@{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunBeacon' }
 ```
 
 | Key | Effect |
@@ -212,7 +211,7 @@ Derived from `-RootPath` (default `C:\IDBridge`); missing directories are create
 | `LogsRoot`        | `<Root>\Logs`                 | `IDBridge.log` (rotated at 5 MB) |
 | `ExportsRoot`     | `<Root>\Exports`              | Run reports and `UserList-<PersonType>.csv` exports |
 | `PluginsRoot`     | `<Root>\Plugins`              | Plugin `.ps1` files |
-| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward / Infinite Campus `LastSeen` CSVs) and name-mismatch approvals (`ApprovedNameMismatches.csv`) |
+| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward / Infinite Campus `LastSeen` CSVs), name-mismatch approvals (`ApprovedNameMismatches.csv`) and `LastRun.json` (the end-of-run summary) |
 | `VaultRoot`       | `<Root>\Vault`                | Secret vault (`*.secret.json` envelope files) |
 | `LogFile`         | `<LogsRoot>\IDBridge.log`     | Active log file |
 

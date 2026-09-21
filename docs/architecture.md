@@ -124,13 +124,17 @@ Invoke-IDBridge
  13. Send-IDBridgeTelemetry (unless Telemetry.Tier = 'Off') → one anonymous usage event
        (self-contained try/catch, 10s timeout, no retries — can never affect the run;
        counts are APPLIED work so ReadOnly runs report zeros; see PRIVACY.md)
+ 13b. Write-IDBridgeRunSummary → Data\LastRun.json, the end-of-run summary a reader on the
+       box consumes (counts, mode flags, timing, lastSuccessAt carried forward across
+       failures, and on a failure the error class/function only — never the message;
+       self-contained try/catch — can never affect the run; see PRIVACY.md)
  14. Invoke-PostRunPlugins → runs Type = 'PostRun' plugins with the RunResult
        (SecureStrings scrubbed first; per-plugin try/catch — can never affect the run;
        fires on failed and ReadOnly runs too; user list CSV exports live here in
        Invoke-PluginPostRunExport; see plugins.md)
  15. Push-LogsToSheet (if Logging.GoogleSheetLoggingEnabled) → writes $script:Logs to sheet
-     Preview runs stay quiet: steps 13-15 are all skipped under -Preview (the file log
-     still writes).
+     Preview runs stay quiet: steps 13-15 (13b included) are all skipped under -Preview
+     (the file log still writes).
 ```
 
 ## Data-object lifecycle

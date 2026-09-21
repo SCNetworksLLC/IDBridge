@@ -10,10 +10,11 @@ rows), matches person IDs to existing accounts, and computes every change list (
 deactivations, updates/renames/moves, creates, and group membership) read-only. Before any
 writes it runs the change-volume safety guard (ChangeThreshold). It then executes the AD and
 Google changes only when the directory is enabled and Debug.readOnly is $false, and (in the
-finally block) sends usage telemetry, runs the configured PostRun plugins with the RunResult
-object (user list CSV exports live in the Invoke-PluginPostRunExport plugin), and pushes the
-run log to a Google Sheet when configured. Per-user write errors are
-logged and skipped; startup/OU-creation failures and a tripped change threshold abort the run.
+finally block) sends usage telemetry, writes the run summary file (Data\LastRun.json), runs
+the configured PostRun plugins with the RunResult object (user list CSV exports live in the
+Invoke-PluginPostRunExport plugin), and pushes the run log to a Google Sheet when
+configured. Per-user write errors are logged and skipped; startup/OU-creation failures and
+a tripped change threshold abort the run.
 
 Only one run per RootPath executes at a time: a machine-wide mutex is taken before
 initialization and a second run aborts immediately, telling you a run is already in
@@ -846,6 +847,20 @@ function Invoke-IDBridge {
                 Write-Log -Message "Telemetry: Skipped ($($_.Exception.GetType().Name))." -Level Trace
             }
             #endregion Telemetry
+
+            #region Run Summary File
+            # The end-of-run summary a reader on the box consumes (Beacon's collector; see
+            # PRIVACY.md) - self-contained like telemetry, can never affect the run.
+            # Preview runs stay quiet.
+            try {
+                if ($runResult -and -not $Preview) {
+                    Write-IDBridgeRunSummary -RunResult $runResult
+                }
+            }
+            catch {
+                Write-Log -Message "Run summary: Skipped ($($_.Exception.GetType().Name))." -Level Warn
+            }
+            #endregion Run Summary File
 
             #region PostRun Plugins
             # SecureStrings (account keys, passphrase API secrets) are scrubbed from the report

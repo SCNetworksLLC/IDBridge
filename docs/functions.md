@@ -120,6 +120,19 @@ the run's per-write results), `-RunError` (ErrorRecord — Enhanced tier extract
 (missing = `Basic`, unrecognized = `Off`); logs the exact payload at Trace; sends with a
 10 s timeout, no retries, all errors swallowed — can never affect the run. **Returns:** nothing.
 
+### `Write-IDBridgeRunSummary` 🔒
+Writes `<DataRoot>\LastRun.json`, the end-of-run summary a reader on the same box consumes
+(SC Networks' Beacon collector where a district runs Beacon — see [PRIVACY.md](../PRIVACY.md)),
+from the `finally` block of `Invoke-IDBridge` after telemetry and before the PostRun plugins,
+on every run that is not a `-Preview`. **Params:** `-RunResult` (mandatory). Replaces the
+file whole with a versioned, additively-grown schema (`schemaVersion` 1): module version,
+run start/end and duration, `success`/`readOnly`/`testRun`, the enabled `directories`, the
+APPLIED counts (zeros in ReadOnly), `thresholdExceeded`, and `lastSuccessAt` — `runEnd` on a
+successful run, carried forward from the previous file on a failed one. A failed run adds the
+exception *class* and throwing *function* name only, never the message; no name, id, UPN, DN
+or group name is ever written. A write failure logs a `Warn` — it can never affect the run.
+**Returns:** nothing.
+
 ### `Invoke-PostRunPlugins` 🔒 🌐
 Discovers\runs the `Type = 'PostRun'` plugins from `$IDConfig.Plugins`, called from the
 `finally` block of `Invoke-IDBridge` after telemetry and before the log push — on every
