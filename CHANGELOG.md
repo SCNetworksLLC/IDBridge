@@ -5,6 +5,30 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [Unreleased]
+
+### Added
+- **`Data\LastRun.json` — an end-of-run summary file a reader on the box can consume.**
+  Written by `Write-IDBridgeRunSummary` from the `finally` block of `Invoke-IDBridge`, after
+  telemetry and before the PostRun plugins, on every run that is not a `-Preview`, replacing
+  the file whole. Versioned (`schemaVersion` 1) and grown additively only: module version,
+  run start/end and duration, `success`/`readOnly`/`testRun`, the enabled `directories`, the
+  applied counts (zeros in ReadOnly), `thresholdExceeded`, and `lastSuccessAt` — `runEnd` on
+  a successful run, carried forward from the previous file on a failed one, so a reader can
+  tell a sync that just broke from one that has been broken for a week. A failed run
+  contributes the exception class and throwing function name only, never the message; no
+  name, id, UPN, DN or group name is ever written (PRIVACY.md names the file and its keys).
+  Self-contained like telemetry: a write failure logs a `Warn` and never affects the run.
+
+### Removed
+- **`Invoke-PluginPostRunBeacon` — the Beacon heartbeat PostRun plugin template**, its
+  descriptor in the config template and its tests. Beacon reads IDBridge from the box now:
+  its collector takes the `IDBridge Sync` scheduled task and the `Data\LastRun.json` summary
+  above, so no plugin, no ingest URL and no site key are needed. A district that copied the
+  template can delete `Plugins\Invoke-PluginPostRunBeacon.ps1` and its descriptor from the
+  config, and remove the `ApiKey-Beacon` vault secret if one was set. The config template
+  moves to `TemplateVersion: 3`.
+
 ## [26.9.9.0] - 2026-09-09
 
 ### Added

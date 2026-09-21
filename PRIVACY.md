@@ -72,6 +72,26 @@ Telemetry is fire-and-forget with a 10-second timeout and no retries: an unreach
 endpoint (blocked egress, air-gapped network) is logged locally and never delays or
 fails a sync.
 
+## Not telemetry: the run summary file
+
+At the end of every run that is not a `-Preview`, IDBridge writes
+`<RootPath>\Data\LastRun.json` — a small local file describing how the run went, replaced
+whole each time. It holds exactly these keys and nothing else: `schemaVersion`,
+`moduleVersion`, `runStart`, `runEnd`, `durationSeconds`, `success`, `readOnly`, `testRun`,
+`directories`, `managed`, `created`, `updated`, `deactivated`, `groupAdds`, `groupRemoves`,
+`writeFailures`, `thresholdExceeded`, `errorType`, `errorFunction`, and `lastSuccessAt`.
+That is counts, mode flags, timing and the module version; on a failed run the exception
+**class** name and the throwing **function** name — never the exception message, which can
+contain UPNs/DNs. No name, username, email address, person ID, distinguished name or group
+name is ever written to it.
+
+IDBridge never sends this file anywhere: it is written to your own `Data` directory and
+read by whatever you point at it. Where a district runs [Beacon](https://github.com/SCNetworksLLC/Beacon),
+SC Networks' status dashboard, Beacon's collector on the same box reads it there — that
+collector, not IDBridge, is what leaves the machine. The file is written regardless of the
+telemetry tier (it isn't telemetry and sends nothing to SC Networks); `Preview` runs never
+write it, and a write failure logs a `Warn` and never affects the run.
+
 ## Not telemetry: the update check
 
 Separately from telemetry, `Invoke-IDBridge` queries the **PowerShell Gallery**
