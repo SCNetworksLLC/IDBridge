@@ -20,8 +20,8 @@ Repo: <https://github.com/SCNetworksLLC/IDBridge>
 ## Quick start
 
 ```powershell
-# Install from the PowerShell Gallery (Update-Module IDBridge to upgrade later)
-Install-Module IDBridge -Scope CurrentUser
+# Install from the PowerShell Gallery, elevated (Update-Module IDBridge -Scope AllUsers to upgrade later)
+Install-Module IDBridge -Scope AllUsers
 
 Import-Module IDBridge
 

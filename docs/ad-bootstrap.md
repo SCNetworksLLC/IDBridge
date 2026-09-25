@@ -62,8 +62,8 @@ single-DC lab).
 |------|-------|
 | Install + verify the gMSA on this host | `Install-ADServiceAccount` / `Test-ADServiceAccount`. Right after the account is created (or this host newly allowed), stale Kerberos tickets make this fail — the function purges the computer's tickets (`klist -li 0x3e7 purge`) and retries once on its own; only if that also fails does it ask for a reboot. |
 | Grant "Log on as a batch job" | `SeBatchLogonRight` in the local security policy (LSA API — no cmdlet exists), required to start a scheduled task. **GPO caveat:** if a GPO manages that right, the GPO's list overwrites the local grant on the next policy refresh — add the gMSA to the GPO instead. |
-| Grant filesystem rights | Read on the module folder and the runtime root (config, plugins, vault); modify on `Logs`, `Exports`, `Data`. |
-| Register the task | Every `-IntervalMinutes` (default 15, anchored to midnight so runs land on :00/:15/:30/:45), named `-TaskName` (default `IDBridge Sync`, replaced if present): `pwsh -NoProfile -NonInteractive -Command "Import-Module '<manifest>'; Invoke-IDBridge -RootPath '<root>'"` as the gMSA. A still-running run is never overlapped; a hung run is killed after 1 hour. **Created disabled** unless `-Enabled` is passed. |
+| Grant filesystem rights | Read on the runtime root (config, plugins, vault) and, for a pinned `-ModulePath` only, on that module folder (an all-users install is already readable by every account); modify on `Logs`, `Exports`, `Data`. |
+| Register the task | Every `-IntervalMinutes` (default 15, anchored to midnight so runs land on :00/:15/:30/:45), named `-TaskName` (default `IDBridge Sync`, replaced if present): `pwsh -NoProfile -NonInteractive -Command "Import-Module IDBridge; Invoke-IDBridge -RootPath '<root>'"` as the gMSA — by name, so every run loads the newest version installed for all users; a per-user install is refused, and `-ModulePath` pins the task to one manifest instead. A still-running run is never overlapped; a hung run is killed after 1 hour. **Created disabled** unless `-Enabled` is passed. |
 
 Task-vs-task overlap is Task Scheduler's job (above); an **interactive run vs. the
 task** is covered by `Invoke-IDBridge` itself, which takes a machine-wide single-run
@@ -100,6 +100,10 @@ The task is registered **disabled** so nothing runs before the config is reviewe
 - **Change the cadence:** re-run `Register-IDBridgeScheduledTask -IntervalMinutes <n>` —
   the task is replaced in place (pass `-Enabled` to keep it live, the replacement is
   otherwise disabled again).
+- **Updating IDBridge:** `Update-Module IDBridge -Scope AllUsers` (elevated) and nothing
+  else — the task imports IDBridge by name. A task registered before 26.9.25.0 imports one
+  pinned version: run `Register-IDBridgeScheduledTask -IntervalMinutes <n> -Enabled` once
+  after the update to stop pinning the old version.
 - **Offboarding:** disable or delete the task and the gMSA
   (`Remove-ADServiceAccount`); the OU ACEs name the account's SID and die with it
   (remove them from the OU's Security tab at leisure).

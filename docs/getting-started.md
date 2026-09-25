@@ -14,7 +14,8 @@ touching either directory. Step 9 turns writes on deliberately.
 - **Windows** with **PowerShell 7.5+** (`pwsh`).
 - **ActiveDirectory** module (RSAT) on a **domain-joined** machine — only if you're syncing
   AD. Google-only deployments skip this (run with `-SkipAD`, or leave `AD.enabled = $false`).
-- An **elevated** session for step 3 (the secret certificate goes in the machine store).
+- An **elevated** session for steps 2 and 3 (the module installs for all users, the secret
+  certificate goes in the machine store).
 - For step 4 (once, ever): sign-in as the district's **Google Workspace super admin**, and
   *Google Cloud Platform* turned **ON** for that admin (Admin console → Apps → Additional
   Google services). See [google-bootstrap.md](google-bootstrap.md#prerequisites).
@@ -22,11 +23,14 @@ touching either directory. Step 9 turns writes on deliberately.
 ## 2. Install and scaffold
 
 ```powershell
-Install-Module IDBridge -Scope CurrentUser   # Update-Module IDBridge to upgrade later
+Install-Module IDBridge -Scope AllUsers   # elevated; Update-Module IDBridge -Scope AllUsers to upgrade later
 Import-Module IDBridge
 
 Install-IDBridge                           # -RootPath 'D:\IDBridge' to relocate everything
 ```
+
+Install for all users: the scheduled task runs as a gMSA, which only sees modules
+installed for all users (a `-Scope CurrentUser` install lives in your own profile).
 
 `Install-IDBridge` creates the runtime tree under `C:\IDBridge`
 (`Config/Logs/Exports/Plugins/Data/Vault`), writes a default

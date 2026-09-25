@@ -5,6 +5,24 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.9.25.0] - 2026-09-25
+
+### Changed
+- **The `IDBridge Sync` scheduled task imports IDBridge by name, so `Update-Module` is the
+  whole update.** `Register-IDBridgeScheduledTask` used to write the loaded module's
+  manifest path into the task, and for a Gallery install that path is the version folder:
+  `Update-Module` installed the new release beside it and the task kept running the old one
+  forever (seen at a district running 26.9.9.0 with 26.9.21.0 installed). The task now runs
+  `Import-Module IDBridge`, so every run loads the newest version installed for all users,
+  and no read grant on the module folder is needed any more. Registration refuses a
+  per-user install, which the gMSA can never see, with a message saying how to install for
+  all users; `-ModulePath` still pins the task to one manifest (and grants read on its
+  folder) for anyone who wants that. The update-available log line now says
+  `Update-Module IDBridge -Scope AllUsers`, the README and getting-started install with
+  `-Scope AllUsers` (elevated), and the AD bootstrap doc gains the update step. A task registered before this release
+  still pins its version: after updating, run `Register-IDBridgeScheduledTask -Enabled`
+  (with your `-IntervalMinutes`) once and it follows new releases on its own.
+
 ## [26.9.21.0] - 2026-09-21
 
 ### Added

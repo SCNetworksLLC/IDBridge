@@ -76,15 +76,19 @@ sites). **Returns:** the gMSA.
 Host-side follow-up: installs + verifies the gMSA on this computer (auto-purging the
 computer's Kerberos tickets and retrying once when it was only just allowed), grants it
 'Log on as a batch job' (`Grant-IDBridgeBatchLogonRight`) and the filesystem rights a
-run needs (read on module + runtime root, modify on `Logs`/`Exports`/`Data`), and
-registers a Task Scheduler task running `Invoke-IDBridge -RootPath <root>` in pwsh as
-the gMSA every `-IntervalMinutes` (`-LogonType Password`, no stored credential; no
-overlap, hung runs killed after 1 h). **Created disabled unless `-Enabled`** — verify,
-then `Enable-ScheduledTask`. Idempotent — re-running replaces the task. Elevated
-session. **Params:** `-AccountName`, `-TaskName` (def `IDBridge Sync`),
-`-IntervalMinutes` (def 15, midnight-aligned), `-Enabled`, `-RootPath` (def
-`Paths.Root`), `-ModulePath` (def the loaded module's manifest). **Returns:** the
-registered task.
+run needs (read on the runtime root and a pinned `-ModulePath`'s folder, modify on
+`Logs`/`Exports`/`Data`), and registers a Task Scheduler task running
+`Import-Module IDBridge; Invoke-IDBridge -RootPath <root>` in pwsh as the gMSA every
+`-IntervalMinutes` (`-LogonType Password`, no stored credential; no overlap, hung runs
+killed after 1 h). The import is by name (`Get-IDBridgeTaskCommand`), so every run loads
+the newest version installed for all users and `Update-Module IDBridge -Scope AllUsers`
+alone updates the task; a per-user install is refused (`Test-IDBridgeSharedModulePath`).
+A task registered before 26.9.25.0 pins one version — re-register it once. **Created
+disabled unless `-Enabled`** — verify, then `Enable-ScheduledTask`. Idempotent —
+re-running replaces the task. Elevated session. **Params:** `-AccountName`, `-TaskName`
+(def `IDBridge Sync`), `-IntervalMinutes` (def 15, midnight-aligned), `-Enabled`,
+`-RootPath` (def `Paths.Root`), `-ModulePath` (pins the task to that manifest; def import
+by name). **Returns:** the registered task.
 
 ### `Grant-IDBridgeBatchLogonRight` 🔒
 **Params:** `-Identity` (mandatory account, e.g. `'DOMAIN\gMSA-IDBridge$'`). Grants
@@ -92,6 +96,20 @@ registered task.
 built-in P/Invoke wrapper over `advapi32.dll` (`LsaOpenPolicy`/`LsaAddAccountRights` —
 no cmdlet exists for user rights). Idempotent; local only (a GPO managing the right
 overwrites it on refresh); elevated session. No return.
+
+### `Test-IDBridgeSharedModulePath` 🔒 🧮
+**Params:** `-ModuleBase` (mandatory), `-SharedModulePaths` (def the machine-scope
+`PSModulePath` plus `$env:ProgramFiles\PowerShell\Modules`, pwsh's all-users folder).
+Whether the module folder sits under an all-users module path — case-insensitive, `\`
+and `/` alike, trailing separators ignored, whole path segments only (`...\ModulesX` is
+not under `...\Modules`). Decides between the import by name and the per-user refusal in
+`Register-IDBridgeScheduledTask`. **Returns:** `[bool]`.
+
+### `Get-IDBridgeTaskCommand` 🔒 🧮
+**Params:** `-RootPath` (mandatory), `-ModulePath`. The full pwsh argument string the
+scheduled task runs: `-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command
+"Import-Module IDBridge; Invoke-IDBridge -RootPath '<root>'"`, or `Import-Module
+'<ModulePath>'` in its place when pinned. **Returns:** `[string]`.
 
 ### `Get-IDBridgeConfig`
 Accessor for `$script:IDBridgeConfig`. Throws if called before `Initialize-IDBridge`.
@@ -150,9 +168,10 @@ the Pulse dashboard. Delete the file when cloning a config to a new install.
 
 ### `Test-IDBridgeUpdateAvailable` 🔒 🌐
 No params. Queries the PowerShell Gallery for the latest stable IDBridge release (10 s
-timeout) and logs a `Warn` when a newer one exists ("run `Update-Module IDBridge`"), Trace
-when current. Notify-only — never installs anything. Failures throw to the caller
-(`Invoke-IDBridge` swallows them at Trace). **Returns:** `[bool]`.
+timeout) and logs a `Warn` when a newer one exists ("run
+`Update-Module IDBridge -Scope AllUsers`", and re-register a task from before 26.9.25.0
+once), Trace when current. Notify-only — never installs anything. Failures throw to the
+caller (`Invoke-IDBridge` swallows them at Trace). **Returns:** `[bool]`.
 
 ### `Get-IDBridgeTemplateVersion` 🔒
 **Params:** `-Path`. Reads the `# TemplateVersion: <n>` marker from a template file.
