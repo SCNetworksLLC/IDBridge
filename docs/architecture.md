@@ -32,7 +32,7 @@ overrides** (`-ReadOnly/-TestRun/-SkipADCheck/-TraceLogging/-SkipAD/-SkipGoogle/
 (switches win over the config file; `-SkipADCheck` and `-SkipAD` are additionally
 forwarded into `Initialize-IDBridge` itself so they land before the AD module import),
 runs the **notify-only update check** (a newer Gallery release logs a `Warn`
-to run `Update-Module IDBridge`; offline/blocked environments log a Trace skip — nothing
+to run `Update-Module IDBridge -Scope AllUsers`; offline/blocked environments log a Trace skip — nothing
 is ever installed), and **acquires Google auth** (if `GoogleToken.Enabled`) via
 `Connect-IDBridgeGoogle`: reads the service-account key JSON from the secret vault
 (`Get-IDBridgeSecret -Name 'GoogleAuth-ServiceAccount'`; **no file fallback**), validates

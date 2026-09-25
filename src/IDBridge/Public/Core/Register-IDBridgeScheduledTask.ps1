@@ -16,16 +16,25 @@ interval) is safe. Steps:
      security policy — required to start a scheduled task. When a GPO manages that
      right, the GPO's list overwrites the local grant on the next policy refresh: add
      the gMSA to the GPO instead (the function reminds you).
-  3. Grants the gMSA the filesystem rights a run needs: read on the module folder and
-     the runtime root (config, plugins, vault), modify on Logs, Exports, and Data.
+  3. Grants the gMSA the filesystem rights a run needs: read on the runtime root
+     (config, plugins, vault) and, for a pinned -ModulePath only, on that module folder;
+     modify on Logs, Exports, and Data.
   4. Registers (or replaces) a Task Scheduler task that runs
-     'Invoke-IDBridge -RootPath <root>' in pwsh as the gMSA every -IntervalMinutes
-     (default 15, aligned to midnight so runs land on predictable clock times). The
+     'Import-Module IDBridge; Invoke-IDBridge -RootPath <root>' in pwsh as the gMSA every
+     -IntervalMinutes (default 15, aligned to midnight so runs land on predictable clock
+     times). Importing by name loads the newest installed version at every run, so
+     Update-Module alone picks up a new release; the gMSA only sees an all-users install,
+     so a per-user install is refused (-ModulePath pins the task to one manifest
+     instead). The
      principal uses -LogonType Password — Task Scheduler retrieves the gMSA's password
      from AD, nothing is stored. A still-running run is never overlapped (Task
      Scheduler's default), and a hung run is killed after 1 hour so the schedule
      recovers. The task is created DISABLED unless -Enabled is passed — review the
      config (Debug.ReadOnly first!), then Enable-ScheduledTask when ready.
+
+Updating: after Update-Module IDBridge -Scope AllUsers a task registered by this version
+needs nothing. A task registered before it imports one pinned version - run
+Register-IDBridgeScheduledTask -Enabled once to move it to the import by name.
 
 Requires an initialized session (Initialize-IDBridge) and the ActiveDirectory RSAT
 module.
@@ -51,8 +60,9 @@ Runtime root the task passes to Invoke-IDBridge -RootPath. Defaults to this sess
 root (Paths.Root).
 
 .PARAMETER ModulePath
-Path to the IDBridge.psd1 manifest the task imports. Defaults to the currently loaded
-module's manifest.
+Path to an IDBridge.psd1 manifest to pin the task to - it imports that one copy and the
+gMSA is granted read on its folder. Without it the task imports IDBridge by name, which
+requires an all-users install (Install-Module IDBridge -Scope AllUsers).
 
 .EXAMPLE
 Register-IDBridgeScheduledTask
@@ -62,7 +72,7 @@ Register-IDBridgeScheduledTask -IntervalMinutes 60 -Enabled
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-27
+   Modified: 2026-09-25
 #>
 function Register-IDBridgeScheduledTask {
     [CmdletBinding()]
@@ -92,8 +102,18 @@ function Register-IDBridgeScheduledTask {
     $IDConfig = Get-IDBridgeConfig
 
     if (-not $RootPath) { $RootPath = $IDConfig.Paths.Root }
-    if (-not $ModulePath) { $ModulePath = Join-Path (Get-Module -Name IDBridge).ModuleBase "IDBridge.psd1" }
-    if (-not (Test-Path $ModulePath)) { Throw "Module manifest not found at '$ModulePath' - pass -ModulePath explicitly." }
+    $loadedModule = $MyInvocation.MyCommand.Module
+    if ($ModulePath) {
+        if (-not (Test-Path $ModulePath)) { Throw "Module manifest not found at '$ModulePath'." }
+        $taskArgument = Get-IDBridgeTaskCommand -RootPath $RootPath -ModulePath $ModulePath
+    }
+    else {
+        #The gMSA's pwsh finds the module by name only when it is installed for all users.
+        if (-not (Test-IDBridgeSharedModulePath -ModuleBase $loadedModule.ModuleBase)) {
+            Throw "IDBridge is loaded from '$($loadedModule.ModuleBase)', a per-user install the gMSA cannot see. Install it for all users (elevated: Install-Module IDBridge -Scope AllUsers), Import-Module IDBridge -Force, and run this again - or pass -ModulePath to pin the task to this copy."
+        }
+        $taskArgument = Get-IDBridgeTaskCommand -RootPath $RootPath
+    }
 
     try { Import-Module -Name ActiveDirectory -ErrorAction Stop }
     catch { Throw "The ActiveDirectory PowerShell module (RSAT) is required: $($_)" }
@@ -127,14 +147,15 @@ function Register-IDBridgeScheduledTask {
     Grant-IDBridgeBatchLogonRight -Identity $gmsaIdentity
 
     #region Grant the filesystem rights a run needs
-    #Read the module and the whole runtime root (config, plugins, vault); write where a run writes.
+    #Read a pinned module and the whole runtime root (config, plugins, vault); write where a run writes.
     $fileSystemGrants = @(
-        @{ Path = (Split-Path $ModulePath -Parent); Rights = 'ReadAndExecute' }
+        if ($ModulePath) { @{ Path = (Split-Path $ModulePath -Parent); Rights = 'ReadAndExecute' } }
         @{ Path = $RootPath;                        Rights = 'ReadAndExecute' }
         @{ Path = (Join-Path $RootPath "Logs");     Rights = 'Modify' }
         @{ Path = (Join-Path $RootPath "Exports");  Rights = 'Modify' }
         @{ Path = (Join-Path $RootPath "Data");     Rights = 'Modify' }
     )
+    if (-not $ModulePath) { Write-Log -Message "Task: IDBridge is installed for all users ($($loadedModule.ModuleBase)) - every account reads it, no module grant needed." -Level Trace }
     foreach ($grant in $fileSystemGrants) {
         try {
             $acl = Get-Acl -Path $grant.Path
@@ -150,7 +171,7 @@ function Register-IDBridgeScheduledTask {
     $pwsh = (Get-Command -Name pwsh.exe -ErrorAction SilentlyContinue).Source
     if (-not $pwsh) { Throw "pwsh.exe was not found on the PATH - IDBridge requires PowerShell 7.5+." }
 
-    $action = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"Import-Module '$ModulePath'; Invoke-IDBridge -RootPath '$RootPath'`""
+    $action = New-ScheduledTaskAction -Execute $pwsh -Argument $taskArgument
     #Anchored to midnight so the runs land on predictable clock times; no repetition
     #duration = repeat indefinitely.
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
@@ -169,7 +190,8 @@ function Register-IDBridgeScheduledTask {
 
     $registeredVerb = if ($existing) { "Replaced" } else { "Registered" }
     $stateText = if ($Enabled) { "enabled" } else { "disabled" }
-    Write-Log -Message "Task: $registeredVerb scheduled task '$TaskName' ($stateText) - every $IntervalMinutes minutes as '$gmsaIdentity'."
+    $importText = if ($ModulePath) { "imports $ModulePath" } else { "imports IDBridge by name" }
+    Write-Log -Message "Task: $registeredVerb scheduled task '$TaskName' ($stateText) - every $IntervalMinutes minutes as '$gmsaIdentity' - $importText."
     #endregion Register the scheduled task
 
     Write-Host "Scheduled task '$TaskName' runs Invoke-IDBridge every $IntervalMinutes minutes as '$gmsaIdentity'." -ForegroundColor Green
