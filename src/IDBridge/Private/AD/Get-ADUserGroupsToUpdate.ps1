@@ -6,6 +6,8 @@ Diff proposed vs current AD group membership for active linked users.
 For each active, AD-provisioned, linked user, compares GroupsProposed against ADCurrentGroups and
 builds an Add list (proposed groups that exist in AD and the user isn't already in) and a Remove
 list (current groups no longer proposed). Adds are limited to groups present in CurrentADGroups.
+Users with ProcessGroupsAD = $false are skipped entirely (no adds, no removes) - an empty proposed
+list would otherwise strip all of their groups - and the skipped count is logged at Trace.
 
 .PARAMETER UserList
 The enriched source records.
@@ -21,7 +23,7 @@ $groups = Get-ADUserGroupsToUpdate -UserList $sourceData -CurrentADGroups $adDat
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-06-26
+   Modified: 2026-10-09
 #>
 function Get-ADUserGroupsToUpdate {
     [CmdletBinding()]
@@ -36,8 +38,15 @@ function Get-ADUserGroupsToUpdate {
 
     $itemListAdd = @()
     $itemListRemove = @()
+    $skippedCount = 0
 
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionAD -eq $true -and $_.ADCurrentUserID}) {
+        #Opted out of AD group processing - leave the user's groups untouched (no adds, no removes)
+        if ($item.ProcessGroupsAD -eq $false) {
+            $skippedCount++
+            continue
+        }
+
         #Create list for adding groups
         $userGroupsAdd = @()
 
@@ -73,6 +82,10 @@ function Get-ADUserGroupsToUpdate {
                 Groups = $userGroupsRemove
             }
         }
+    }
+
+    if ($skippedCount -gt 0) {
+        Write-Log -Message "AD: Group processing skipped for $($skippedCount) user(s) with ProcessGroupsAD = `$false." -Level Trace
     }
 
     return [PSCustomObject]@{

@@ -56,9 +56,19 @@ Override-driven flag (boolean) to skip the Google OU move. Defaults to $false.
 Whether this person should have an Active Directory account (per-user targeting). With
 IDBActive, drives create/update vs. deactivate for AD. Distinct from the global config switch.
 
+.PARAMETER ProcessGroupsAD
+Whether AD group processing applies to this person (boolean). Defaults to $true. When $false the
+user's AD group memberships are left untouched - no adds, no removes, and no strip on deactivate.
+Only narrows AD.enableGroupProcessing; it can never turn group processing on.
+
 .PARAMETER ProvisionGoogle
 Whether this person should have a Google Workspace account (per-user targeting). With
 IDBActive, drives create/update vs. deactivate for Google. Distinct from the global config switch.
+
+.PARAMETER ProcessGroupsGoogle
+Whether Google group processing applies to this person (boolean). Defaults to $true. When $false
+the user's Google group memberships are left untouched - no adds, no removes, and no strip on
+deactivate. Only narrows Google.enableGroupProcessing; it can never turn group processing on.
 
 .PARAMETER ADKey
 AD account password as a SecureString, or $null when using ADPassphraseAPI.
@@ -71,7 +81,7 @@ $record = New-IDBridgeSourceRecord @recordFields
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-06-25
+   Modified: 2026-10-09
 #>
 function New-IDBridgeSourceRecord {
     [CmdletBinding()]
@@ -104,6 +114,7 @@ function New-IDBridgeSourceRecord {
 
         # --- Active Directory ---
         [Parameter(Mandatory)][bool]$ProvisionAD,
+        [bool]$ProcessGroupsAD = $true,
         [string]$ADOrganizationalUnit = '',
         [string]$ADOrganizationalUnitTrash = '',
         [bool]$ADChangePasswordAtLogon = $false,
@@ -116,6 +127,7 @@ function New-IDBridgeSourceRecord {
 
         # --- Google Workspace ---
         [Parameter(Mandatory)][bool]$ProvisionGoogle,
+        [bool]$ProcessGroupsGoogle = $true,
         [string]$GoogleOrganizationalUnit = '',
         [string]$GoogleOrganizationalUnitTrash = '',
         [bool]$GoogleChangePasswordAtLogon = $false,
@@ -151,6 +163,7 @@ function New-IDBridgeSourceRecord {
         ForceDisable                  = $ForceDisable
         GoogleOUOverride              = $GoogleOUOverride
         ProvisionAD                   = $ProvisionAD
+        ProcessGroupsAD               = $ProcessGroupsAD
         ADOrganizationalUnit          = $ADOrganizationalUnit
         ADOrganizationalUnitTrash     = $ADOrganizationalUnitTrash
         ADChangePasswordAtLogon       = $ADChangePasswordAtLogon
@@ -161,6 +174,7 @@ function New-IDBridgeSourceRecord {
         ADPassphraseAPI               = $ADPassphraseAPI
         ADKey                         = $ADKey
         ProvisionGoogle               = $ProvisionGoogle
+        ProcessGroupsGoogle           = $ProcessGroupsGoogle
         GoogleOrganizationalUnit      = $GoogleOrganizationalUnit
         GoogleOrganizationalUnitTrash = $GoogleOrganizationalUnitTrash
         GoogleChangePasswordAtLogon   = $GoogleChangePasswordAtLogon

@@ -117,4 +117,45 @@ Describe 'Get-GoogleUserGroupsToUpdate' {
             @($result.Remove).Count | Should -Be 0
         }
     }
+
+    It 'leaves a user with ProcessGroupsGoogle = $false untouched - no adds and no removes' {
+        # Both records would add 'Staff' and remove the Grade-PK membership; only the opted-in one may.
+        $records = @(
+            (New-TestSourceRecord -PersonID '1' -ProcessGroupsGoogle $false -GroupsProposed 'Staff' -GoogleCurrentGroups 'studentsgradepk@example.org')
+            (New-TestSourceRecord -PersonID '2' -GroupsProposed 'Staff' -GoogleCurrentGroups 'studentsgradepk@example.org')
+        )
+
+        InModuleScope IDBridge -Parameters @{ records = $records; groups = $Groups } {
+            Mock Write-Log {}
+            $result = Get-GoogleUserGroupsToUpdate -UserList $records -GoogleGroups $groups
+
+            @($result.Add.PersonID) | Should -Be @('2')
+            @($result.Remove.PersonID) | Should -Be @('2')
+            Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like 'Google: Group processing skipped for 1 user(s)*' -and $Level -eq 'Trace' }
+        }
+    }
+
+    It 'treats an override-sheet string FALSE as opted out' {
+        $records = @(New-TestSourceRecord -ProcessGroupsGoogle 'FALSE' -GroupsProposed 'Staff' -GoogleCurrentGroups 'studentsgradepk@example.org')
+
+        InModuleScope IDBridge -Parameters @{ records = $records; groups = $Groups } {
+            Mock Write-Log {}
+            $result = Get-GoogleUserGroupsToUpdate -UserList $records -GoogleGroups $groups
+
+            @($result.Add).Count | Should -Be 0
+            @($result.Remove).Count | Should -Be 0
+        }
+    }
+
+    It 'is independent of ProcessGroupsAD - an AD-only opt-out is still processed in Google' {
+        $records = @(New-TestSourceRecord -ProcessGroupsAD $false -GroupsProposed 'Staff')
+
+        InModuleScope IDBridge -Parameters @{ records = $records; groups = $Groups } {
+            Mock Write-Log {}
+            $result = Get-GoogleUserGroupsToUpdate -UserList $records -GoogleGroups $groups
+
+            @($result.Add).Count | Should -Be 1
+            @($result.Add[0].Groups) | Should -Be @('Staff')
+        }
+    }
 }

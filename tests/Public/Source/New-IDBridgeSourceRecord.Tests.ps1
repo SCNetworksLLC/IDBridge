@@ -37,6 +37,15 @@ Describe 'New-IDBridgeSourceRecord' {
         $record.ADOrganizationalUnit | Should -Be ''
         $record.ADKey | Should -BeNullOrEmpty
         $record.GroupsProposed | Should -Be @()
+        $record.ProcessGroupsAD | Should -BeTrue
+        $record.ProcessGroupsGoogle | Should -BeTrue
+    }
+
+    It 'carries a per-directory group-processing opt-out through' {
+        $record = New-IDBridgeSourceRecord @BaseFields -ProcessGroupsAD $false
+
+        $record.ProcessGroupsAD | Should -BeFalse
+        $record.ProcessGroupsGoogle | Should -BeTrue
     }
 
     It 'normalizes a null GroupsProposed to an empty string array' {

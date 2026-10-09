@@ -97,7 +97,11 @@ logic gets tests alongside it.
    `Debug.readOnly = $false`. The shipped config defaults `ReadOnly = $true`.
 2. **Group writes are double-gated** by `enableGroupProcessing`, plus
    `enableGroupProcessingWhatIf` (log-only), `enableGroupProcessingRemove`
-   (allow removals), and `enableGroupProcessingTrash` (strip groups on deactivate).
+   (allow removals), and `enableGroupProcessingTrash` (strip groups on deactivate — only
+   with `enableGroupProcessing` on and WhatIf off, same gate in AD and Google).
+   Per person, a source record's `ProcessGroupsAD` / `ProcessGroupsGoogle = $false` (set by
+   the source plugin — per source type or per grade) leaves that user's groups in that
+   directory untouched: no adds, removes, or deactivate strips.
    `Google.groupsExcluded` / `AD.groupsExcluded` list wildcard patterns (email / name)
    for groups IDBridge must never touch — dropped at target-data retrieval, so no adds,
    removes, or deactivate strips ever reach them.

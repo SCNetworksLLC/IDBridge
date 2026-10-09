@@ -83,6 +83,7 @@ function New-TestSourceRecord {
 
         # AD provisioning + attached AD target state
         [bool]$ProvisionAD = $true,
+        $ProcessGroupsAD = $true,   # untyped: tests also pass an override-sheet string ('FALSE')
         [AllowNull()][string]$ADCurrentUserID = 'tuser',
         [bool]$ADCurrentUserEnabledStatus = $true,
         [AllowNull()][string[]]$ADCurrentGroups = @(),
@@ -94,6 +95,7 @@ function New-TestSourceRecord {
 
         # Google provisioning + attached Google target state
         [bool]$ProvisionGoogle = $true,
+        $ProcessGroupsGoogle = $true,
         [AllowNull()][string]$GoogleCurrentUserID = 'g-tuser',
         [bool]$GoogleCurrentUserSuspendedStatus = $false,
         [AllowNull()][string[]]$GoogleCurrentGroups = @(),
@@ -130,6 +132,7 @@ function New-TestSourceRecord {
         ForceDisable                     = $ForceDisable
         GroupsProposed                   = $GroupsProposed
         ProvisionAD                      = $ProvisionAD
+        ProcessGroupsAD                  = $ProcessGroupsAD
         ADCurrentUserID                  = $ADCurrentUserID
         ADCurrentUserEnabledStatus       = $ADCurrentUserEnabledStatus
         ADCurrentGroups                  = $ADCurrentGroups
@@ -139,6 +142,7 @@ function New-TestSourceRecord {
         ADPassphraseAPI                  = $ADPassphraseAPI
         ADKey                            = $ADKey
         ProvisionGoogle                  = $ProvisionGoogle
+        ProcessGroupsGoogle              = $ProcessGroupsGoogle
         GoogleCurrentUserID              = $GoogleCurrentUserID
         GoogleCurrentUserSuspendedStatus = $GoogleCurrentUserSuspendedStatus
         GoogleCurrentGroups              = $GoogleCurrentGroups

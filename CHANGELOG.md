@@ -5,6 +5,35 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [26.10.9.0] - 2026-10-09
+
+### Added
+- **Group processing per source type: `ProcessGroupsAD` / `ProcessGroupsGoogle`.** New
+  per-record `[bool]` flags on `New-IDBridgeSourceRecord` (default `$true`). When a record's
+  flag is `$false`, that directory's group processing leaves the person alone entirely — no
+  adds, no removes, and no deactivate strip (an empty proposed list would otherwise strip
+  everything). The flags only narrow `enableGroupProcessing`; they can never turn group
+  processing on. `Get-ADUserGroupsToUpdate` / `Get-GoogleUserGroupsToUpdate` log the skipped
+  count at Trace, and the groups-not-processed trace ignores opted-out users. Plugin
+  templates expose it: staff (TemplateVersion 2) via `$ADProcessGroups` /
+  `$GoogleProcessGroups`; Skyward (TemplateVersion 3) and Infinite Campus (TemplateVersion 2)
+  per grade via `AD/Google.ProcessGroups` in `GradeDefaultSettings` / `GradeOverrides`.
+  Installed plugins need no change — records built without the flags stay opted in. Covered
+  by new cases in the AD/Google group-diff and source-record tests (`New-TestSourceRecord`
+  gains the two flags).
+
+### Fixed
+- **The deactivate group strip now has one gate in both directories and honors WhatIf.**
+  AD stripped groups on deactivate whenever `enableGroupProcessingTrash` was on, even with
+  `AD.enableGroupProcessing = $false`, while Google also required `enableGroupProcessing`.
+  Neither checked `enableGroupProcessingWhatIf`, so with Trash on, deactivations stripped
+  groups for real in WhatIf mode — contradicting the documented "no group writes happen".
+  Both directories now strip only when `enableGroupProcessing` and
+  `enableGroupProcessingTrash` are on, `enableGroupProcessingWhatIf` is off, and the user's
+  `ProcessGroups<Dir>` flag isn't `$false`. **Behavior change:** a config with Trash on but
+  WhatIf on (either directory) or AD group processing off no longer strips groups on
+  deactivate.
+
 ## [26.9.25.0] - 2026-09-25
 
 ### Changed

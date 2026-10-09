@@ -62,8 +62,9 @@ Source plugins **must build each record with the `New-IDBridgeSourceRecord` fact
 your field hashtable: `New-IDBridgeSourceRecord @recordFields`) rather than hand-rolling a
 `PSCustomObject`. The factory guarantees one canonical, ordered shape and enforces required
 fields + types at construction (core fields are `Mandatory`; `PersonTypeID` is a
-`ValidateSet`; `IDBActive`/`ProvisionAD`/`ProvisionGoogle` are `[bool]`; `GroupsProposed` null is
-normalized to `@()`). Downstream `Get-*To*` functions depend on these exact property names:
+`ValidateSet`; `IDBActive`/`ProvisionAD`/`ProvisionGoogle`/`ProcessGroupsAD`/`ProcessGroupsGoogle`
+are `[bool]`; `GroupsProposed` null is normalized to `@()`). Downstream `Get-*To*` functions
+depend on these exact property names:
 
 | Property | Notes |
 |----------|-------|
@@ -82,6 +83,7 @@ normalized to `@()`). Downstream `Get-*To*` functions depend on these exact prop
 | `GoogleOUOverride` | `[bool]` (def `$false`) — override-driven skip of the Google OU move. |
 | `IDBActive` | Master "active in source" flag. `$false` ⇒ deactivate in **every** directory. |
 | `ProvisionAD` / `ProvisionGoogle` | Per-user directory targeting `[bool]`. With `IDBActive`: create/update when both true; deactivate when either is false. (A young student = `ProvisionAD=$false`.) |
+| `ProcessGroupsAD` / `ProcessGroupsGoogle` | Per-user group-processing scope `[bool]` (def `$true`). `$false` leaves that directory's group memberships untouched for the person — no adds, no removes, no deactivate strip. Only narrows the directory's `enableGroupProcessing`; it never turns group processing on. This is how group processing is enabled per source type (staff vs. students) or per grade. |
 | `ADOrganizationalUnit` / `GoogleOrganizationalUnit` | Target OU (DN / path). |
 | `ADOrganizationalUnitTrash` / `GoogleOrganizationalUnitTrash` | Deactivation OU. |
 | `ADChangePasswordAtLogon` / `GoogleChangePasswordAtLogon` | Force change flag. |
@@ -203,6 +205,9 @@ File: `C:\IDBridge\Plugins\Invoke-PluginGSheetStaff.ps1`. Pulls staff from a Goo
   comma-split `ApplicationGroups` **+** `EmailGroups`, de-duplicated. The bundled helper is
   a starting point (`All Staff`, `<building> Staff`, and `All Professional Staff` via a
   person-type allow-list) — extend it to encode your district's group policy.
+- **Group-processing scope:** `$ADProcessGroups` / `$GoogleProcessGroups` (default `$true`) set
+  `ProcessGroupsAD` / `ProcessGroupsGoogle` on every staff record — set one `$false` to leave
+  staff group memberships untouched in that directory while students are still processed.
 
 ### `Invoke-PluginStaffOverride` — Override *(disabled in config)*
 File: `C:\IDBridge\Plugins\Invoke-PluginStaffOverride.ps1`. Reads `Get-GoogleSheetData`
@@ -228,6 +233,10 @@ File: `C:\IDBridge\Plugins\Invoke-PluginSkywardSMSStudents.ps1`. Pulls students 
 - **Per-directory provisioning:** `ProvisionAD = [bool]$GradeSettings.<grade>.AD.Provision` and
   `ProvisionGoogle = [bool]…Google.Provision` — so "younger grades = Google only" is set by adding
   a `GradeOverrides` entry with `AD = @{ Provision = $false }`.
+- **Per-directory group scope:** `ProcessGroupsAD/Google = <grade>.AD/Google.ProcessGroups -ne $false`
+  (default `$true`) — so students can be left out of a directory's group processing entirely
+  (set it in `GradeDefaultSettings`) or per grade (`'01' = @{ AD = @{ ProcessGroups = $false } }`).
+  Read as `-ne $false` rather than `[bool]` so a settings block without the key stays opted in.
 - **Name casing:** `NameFirst`/`NameLast` are run through the module's `Format-IDBridgeName`
   (Skyward returns ALL-CAPS → Title Case). Because the update functions compare names
   case-sensitively (`-cne`), existing accounts get the casing fix too, not just new ones.
@@ -248,7 +257,7 @@ secret `ApiKey-InfiniteCampus`; optional school exclusion by identifier; safety 
 - **Per-grade settings** work exactly as in the Skyward plugin (`GradeDefaultSettings` +
   `GradeOverrides` merged across `ValidGrades`), but password types are limited to
   `RANDOM`/`API-PASSPHRASE` — Infinite Campus OneRoster exposes no food-service PIN or
-  password word.
+  password word. Group-processing scope (`AD/Google.ProcessGroups`) works the same way too.
 - `IDBActive`: false if not seen within `DaysLastSeen` (14), if IC reports the student as
   not `active`/account-disabled (`Status`, `ActiveUserAccount`), if the primary enrollment's
   `RoleEndDate` is in the past, or if the grade is missing/disabled in settings. Grade-12

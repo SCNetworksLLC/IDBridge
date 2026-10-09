@@ -1,5 +1,5 @@
 #Skyward SMS Student Plugin — IDBridge plugin template
-# TemplateVersion: 2
+# TemplateVersion: 3
 <#
 Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 A minimal starting point for pulling students from the Skyward SMS OneRoster API. Edit every
@@ -76,12 +76,14 @@ function Invoke-PluginSkywardSMSStudents {
         Provision = $true
         AD = @{
             Provision = $true
+            ProcessGroups = $true   # $false leaves the grade's AD group memberships untouched (no adds, removes, or deactivate strips)
             passPrefix = 'Temp'
             ChangePasswordAtLogon = $false
             PasswordType = 'RANDOM'
         }
         Google = @{
             Provision = $true
+            ProcessGroups = $true   # $false leaves the grade's Google group memberships untouched
             passPrefix = 'Temp'
             ChangePasswordAtLogon = $false
             PasswordType = 'RANDOM'
@@ -99,6 +101,8 @@ function Invoke-PluginSkywardSMSStudents {
         # }
         # Example: younger grades Google-only
         # 'KG' = @{ AD = @{ Provision = $false } }
+        # Example: leave a grade's AD groups alone (Google groups still processed)
+        # '01' = @{ AD = @{ ProcessGroups = $false } }
         # Example: if 9-12 used passphrases instead
         # '09' = @{ AD = @{ PasswordType = 'API-PASSPHRASE' }; Google = @{ PasswordType = 'API-PASSPHRASE' } }
     }
@@ -277,6 +281,7 @@ function Invoke-PluginSkywardSMSStudents {
             PersonType     = "Student - Grade $($Grade)"
 
             ProvisionAD               = [bool]$GradeSettings.$($Grade).AD.Provision
+            ProcessGroupsAD           = ($GradeSettings.$($Grade).AD.ProcessGroups -ne $false)
             ADOrganizationalUnit      = "OU=Grade-$($Grade),OU=$($PersonTypeGeneric),$($ADUserRootOU)"
             ADOrganizationalUnitTrash = "OU=$(Get-Date -Format yyyy),OU=$($PersonTypeGeneric),OU=Trash,$($ADUserRootOU)"
             ADChangePasswordAtLogon   = $GradeSettings.$($Grade).AD.ChangePasswordAtLogon
@@ -284,6 +289,7 @@ function Invoke-PluginSkywardSMSStudents {
             ADKey                     = if ($keyAD) { ConvertTo-SecureString -String $keyAD -AsPlainText -Force } else { $null }
 
             ProvisionGoogle           = [bool]$GradeSettings.$($Grade).Google.Provision
+            ProcessGroupsGoogle       = ($GradeSettings.$($Grade).Google.ProcessGroups -ne $false)
             GoogleOrganizationalUnit      = "$($GoogleUserRootOU)/$($PersonTypeGeneric)/Grade-$($Grade)"
             GoogleOrganizationalUnitTrash = "/Trash/$($PersonTypeGeneric)/$(Get-Date -Format yyyy)"
             GoogleChangePasswordAtLogon   = $GradeSettings.$($Grade).Google.ChangePasswordAtLogon

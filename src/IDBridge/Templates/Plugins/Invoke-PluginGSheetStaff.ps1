@@ -1,5 +1,5 @@
 #Spreadsheet Data Staff — IDBridge plugin template
-# TemplateVersion: 1
+# TemplateVersion: 2
 <#
 Shipped with the IDBridge module and copied to <RootPath>\Plugins by Install-IDBridge.
 Every placeholder value below must be edited for your district before enabling the plugin
@@ -43,6 +43,7 @@ function Invoke-PluginGSheetStaff {
 
     #AD Config
     $ADProvision = $true
+    $ADProcessGroups = $true #Set $false to leave staff AD group memberships untouched (no adds, removes, or deactivate strips)
     $ADUserRootOU = "OU=YourDistrict,DC=yourdomain,DC=local"
     $ADPassPrefix = 'Temp-'
     $ADChangePasswordAtLogon = $true
@@ -50,6 +51,7 @@ function Invoke-PluginGSheetStaff {
 
     #Google Config
     $GoogleProvision = $true
+    $GoogleProcessGroups = $true #Set $false to leave staff Google group memberships untouched (no adds, removes, or deactivate strips)
     $GoogleUserRootOU = "/YourDistrict"
     $GooglePassPrefix = 'Temp-'
     $GoogleChangePasswordAtLogon = $false
@@ -162,6 +164,7 @@ function Invoke-PluginGSheetStaff {
             PersonType     = $item.PersonType
 
             ProvisionAD               = $ADProvision
+            ProcessGroupsAD           = $ADProcessGroups
             ADOrganizationalUnit      = "OU=$($item.PersonType),OU=$($PersonTypeGeneric),$($ADUserRootOU)"
             ADOrganizationalUnitTrash = "OU=$(Get-Date -Format yyyy),OU=$($PersonTypeGeneric),OU=Trash,$($ADUserRootOU)"
             ADChangePasswordAtLogon   = $ADChangePasswordAtLogon
@@ -169,6 +172,7 @@ function Invoke-PluginGSheetStaff {
             ADKey                     = if ($keyAD) { ConvertTo-SecureString -String $keyAD -AsPlainText -Force } else { $null }
 
             ProvisionGoogle           = $GoogleProvision
+            ProcessGroupsGoogle       = $GoogleProcessGroups
             GoogleOrganizationalUnit      = "$($GoogleUserRootOU)/$($PersonTypeGeneric)/$($item.PersonType)"
             GoogleOrganizationalUnitTrash = "/Trash/$($PersonTypeGeneric)/$(Get-Date -Format yyyy)"
             GoogleChangePasswordAtLogon   = $GoogleChangePasswordAtLogon
