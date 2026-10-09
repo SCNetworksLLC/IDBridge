@@ -5,7 +5,10 @@ Select linked AD users that should be deactivated.
 .DESCRIPTION
 Returns each source record that is inactive or no longer AD-provisioned (IDBActive = $false OR
 ProvisionAD = $false) while its current AD account is still enabled. Each is logged (with its
-current groups) for the subsequent disable + move-to-trash step.
+current groups) for the subsequent disable + move-to-trash step. Accounts that were matched by
+username+name (no EmployeeID on the AD account yet) are also flagged: the disable step will set the
+EmployeeID so the link persists - the update list only covers active users, so without this the
+disabled account would be re-matched every run.
 
 .PARAMETER UserList
 The enriched source records.
@@ -18,7 +21,7 @@ $toDeactivate = Get-ADUsersToDeactivate -UserList $sourceData
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-06-26
+   Modified: 2026-10-09
 #>
 function Get-ADUsersToDeactivate {
     [CmdletBinding()]
@@ -36,6 +39,10 @@ function Get-ADUsersToDeactivate {
 
         if ($item.ADCurrentGroups) {
             Write-Log -Message ("AD: Current groups for " + $item.PersonID + ": " + ($item.ADCurrentGroups -join ", "))
+        }
+
+        if ($item.ADObject.EmployeeID -ne $item.PersonID) {
+            Write-Log -Message "AD: Proposed: Deactivation will also set EmployeeID $($item.PersonID) on the AD account (matched by name, EmployeeID not set yet)"
         }
     }
 

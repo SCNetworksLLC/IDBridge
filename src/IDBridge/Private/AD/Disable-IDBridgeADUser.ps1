@@ -3,7 +3,8 @@
 Disable an AD user, stamp it, move it to trash, and optionally strip its groups.
 
 .DESCRIPTION
-Disables the account (recording the timestamp in Division), moves it to its
+Disables the account (recording the timestamp in Division, and setting EmployeeID when the account
+was matched by name and doesn't carry it yet, so the link persists), moves it to its
 ADOrganizationalUnitTrash, and logs its current group memberships. When
 GroupRemovalProcessingStatus is $true, also removes the user from all of its current groups —
 each removal is recorded as its own GroupRemove write result (Add-IDBridgeWriteResult), and a
@@ -12,8 +13,8 @@ returns the error record rather than throwing (the caller records it as the Deac
 write result).
 
 .PARAMETER User
-The source record for the user to deactivate (uses ADCurrentUserID, ADOrganizationalUnitTrash,
-ADCurrentGroups, and PersonID).
+The source record for the user to deactivate (uses ADCurrentUserID, ADObject.EmployeeID,
+ADOrganizationalUnitTrash, ADCurrentGroups, and PersonID).
 
 .PARAMETER GroupRemovalProcessingStatus
 When $true, remove the user from all current groups as part of deactivation. Invoke-IDBridge passes
@@ -40,7 +41,18 @@ function Disable-IDBridgeADUser {
     #Disable the account
     try {
         Write-Log -Message ("AD: Applying: Disabling account for " + $User.PersonID)
-        Set-ADUser -Identity $User.ADCurrentUserID -Division (Get-Date -format yyyy-MM-dd-HH:mm) -Enabled $false
+        $disableSplat = @{
+            Identity = $User.ADCurrentUserID
+            Division = (Get-Date -format yyyy-MM-dd-HH:mm)
+            Enabled  = $false
+        }
+
+        #Persist the EmployeeID link on accounts matched by name - the update list only covers active users, so without this the account is re-matched every run
+        if ($User.ADObject.EmployeeID -ne $User.PersonID) {
+            $disableSplat['EmployeeID'] = $User.PersonID
+        }
+
+        Set-ADUser @disableSplat
     }
     catch {
         return $_

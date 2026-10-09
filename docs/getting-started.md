@@ -158,15 +158,16 @@ Edit `C:\IDBridge\Config\IDBridgeConfig.psd1` (schema: [configuration.md](config
 | `GoogleToken.Enabled` | `$true` — the key secret exists now (step 4) |
 | `Google.enabled` | `$true` |
 | `Google.customerID` | Workspace customer ID (Admin console → Account settings) |
-| `Google.userRootOU` | the root OU IDBridge manages, e.g. `/YourDistrict` |
 | `AD.enabled` | `$true` if syncing AD |
 | `AD.userRootOU` | managed root OU DN, e.g. `OU=YourDistrict,DC=yourdomain,DC=local` |
 | `Logging.*` | log-sheet ID from step 5, if using sheet logging |
 | `Telemetry.Tier` | keep `'Basic'`, or `'Enhanced'`/`'Off'` (see [PRIVACY.md](../PRIVACY.md)) |
 
 Leave `Debug.ReadOnly = $true` and both `enableGroupProcessingWhatIf = $true` — that's the
-point of step 8. The `userRootOU` values matter beyond OU placement: they anchor the
-`ChangeThreshold` guard's managed-population count.
+point of step 8. `AD.userRootOU` is the OU the IDBridge service account is delegated rights on
+(see [ad-bootstrap.md](ad-bootstrap.md)), so every OU your plugins place users in must sit under
+it. The `ChangeThreshold` guard needs no OU setting in either directory — its population is the
+active accounts IDBridge has linked.
 
 ## 8. First run (read-only)
 
@@ -199,8 +200,8 @@ Flip one brake at a time, with a read-only-style review (`-ReadOnly` or `-Previe
 1. `Debug.ReadOnly = $false` — user lifecycle writes (create/update/deactivate/move/rename)
    go live. Group changes are still log-only (`WhatIf`), and the `ChangeThreshold` guard
    still aborts any run whose proposed changes exceed `Percentage` (default 25%) of a
-   directory's managed population. A fresh/empty root OU is skipped with a `Warn`, so a
-   legitimate first population isn't blocked.
+   directory's managed population (the active accounts IDBridge has linked). A directory with
+   nothing linked yet is skipped with a `Warn`, so a legitimate first population isn't blocked.
 2. `enableGroupProcessing = $true` (per directory) with `WhatIf` still `$true` — review the
    group diffs in the log. Add patterns to `groupsExcluded` for any group IDBridge must
    never touch (manually curated clubs, committees). To keep a whole source type (e.g. staff)

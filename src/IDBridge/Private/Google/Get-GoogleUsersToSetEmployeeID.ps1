@@ -10,7 +10,10 @@ deprovisioned accounts be reconciled and, if inactive, deactivated. A primaryEma
 different name is logged as an error and skipped — unless that exact mismatch was approved via
 Approve-IDBridgeNameMismatch (persisted in <DataRoot>\ApprovedNameMismatches.csv), in which case
 it links; an approval whose recorded account/name no longer matches the current Google account is
-logged as a warning and skipped.
+logged as a warning and skipped. A match for a user who is inactive or not Google-provisioned whose
+account is already suspended or archived is still returned, but logged at Trace ("nothing to
+reconcile") instead of Info: nothing writes the link for it (updates cover active users, the
+deactivate step not-yet-deactivated accounts), so it recurs every run.
 
 .PARAMETER UserList
 The source records (the in-progress user list).
@@ -26,7 +29,7 @@ $matches = Get-GoogleUsersToSetEmployeeID -UserList $sourceData -GoogleUsers $go
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-19
+   Modified: 2026-10-09
 #>
 function Get-GoogleUsersToSetEmployeeID {
     [CmdletBinding()]
@@ -56,9 +59,10 @@ function Get-GoogleUsersToSetEmployeeID {
             $googleUser = ($GoogleUsers | Where-Object {$_.primaryEmail -eq $item.UPN})
 
             $link = $false
+            $matchedBy = $null
 
             if ($googleUser.Name.familyName -eq $item.NameLast -and $googleUser.Name.givenName -eq $item.NameFirst) {
-                Write-Log -Message ("Google: No user with EmployeeID: $($item.personID) - matched existing $($googleUser.primaryEmail) by username+name; will link EmployeeID.")
+                $matchedBy = "by username+name"
                 $link = $true
             } else {
                 #Name differs - honor a recorded approval only while both sides still match
@@ -66,7 +70,7 @@ function Get-GoogleUsersToSetEmployeeID {
                 $approval = $approvedMismatches["Google|$($item.personID)"]
 
                 if ($approval -and $approval.Account -eq $item.UPN -and $approval.DirectoryName -eq ($googleUser.Name.givenName + " " + $googleUser.Name.familyName)) {
-                    Write-Log -Message ("Google: No user with EmployeeID: $($item.personID) - matched existing $($googleUser.primaryEmail) by username with name mismatch approved on $($approval.ApprovedDate); will link EmployeeID.")
+                    $matchedBy = "by username with name mismatch approved on $($approval.ApprovedDate)"
                     $link = $true
                 } elseif ($approval) {
                     Write-Log -Message ("Google: Username: " + $item.UPN + " for " + $item.personID + " has an approval from " + $approval.ApprovedDate + " but the account no longer matches it (approved: " + $approval.Account + " / " + $approval.DirectoryName + ", current: " + $item.UPN + " / " + $googleUser.Name.givenName + " " + $googleUser.Name.familyName + ") - not linked; re-approve with Approve-IDBridgeNameMismatch.") -Level Warn
@@ -76,6 +80,14 @@ function Get-GoogleUsersToSetEmployeeID {
             }
 
             if ($link) {
+                #Not active in Google and the account is already suspended/archived: neither the update step (active
+                #users) nor the deactivate step (not-yet-deactivated accounts) writes the link, so it re-matches every run - Trace, not Info
+                if (($item.IDBActive -eq $false -or $item.ProvisionGoogle -eq $false) -and ($googleUser.Suspended -or $googleUser.Archived)) {
+                    Write-Log -Message ("Google: No user with EmployeeID: $($item.personID) - matched existing $($googleUser.primaryEmail) $matchedBy, but the source user is inactive or not Google-provisioned and the account is already deactivated - nothing to reconcile.") -Level Trace
+                } else {
+                    Write-Log -Message ("Google: No user with EmployeeID: $($item.personID) - matched existing $($googleUser.primaryEmail) $matchedBy; will link EmployeeID.")
+                }
+
                 $itemUpdateList[$item.personID] = [PSCustomObject]@{
                     ID = $googleUser.ID
                     Groups = $googleUser.CurrentGroups

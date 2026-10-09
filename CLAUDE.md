@@ -115,8 +115,11 @@ logic gets tests alongside it.
 4. **Change-volume guard.** After the change lists are computed and before any writes, the
    `ChangeThreshold` config block aborts the whole run if a directory's proposed lifecycle
    changes (create/update/rename/move/deactivate) exceed a percentage (default `25`) of its
-   managed root-OU population — protection against a broken source feed mass-changing the
-   directory. Bypass with `ChangeThreshold.Enabled = $false` or `-SkipChangeThreshold`.
+   managed population — the active accounts IDBridge has linked (AD: enabled with an
+   `EmployeeID`; Google: not suspended/archived with a personID `organization` externalId), with
+   no OU setting in either directory (`AD.userRootOU` is only the service account's delegation
+   OU) — protection against a broken source feed mass-changing the directory. Bypass with
+   `ChangeThreshold.Enabled = $false` or `-SkipChangeThreshold`.
 5. **Single-run lock.** `Invoke-IDBridge` takes a machine-wide mutex (per RootPath, before
    initialization) and a second concurrent run aborts immediately — ReadOnly/Preview runs
    included, since they still write the shared log and `Data` state files. Process-bound,

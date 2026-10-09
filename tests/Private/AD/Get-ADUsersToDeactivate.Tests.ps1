@@ -60,4 +60,28 @@ Describe 'Get-ADUsersToDeactivate' {
             Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like '*Current groups for 10001: Staff, Math Dept*' }
         }
     }
+
+    It 'flags a name-matched account whose EmployeeID is not set yet' {
+        # Matched by username+name: the AD account has no EmployeeID, so the deactivate step
+        # must also set it or the disabled account is re-matched every run.
+        $records = @(New-TestSourceRecord -IDBActive $false -ADObject (New-TestADUser -EmployeeID $null))
+
+        InModuleScope IDBridge -Parameters @{ records = $records } {
+            Mock Write-Log {}
+            Get-ADUsersToDeactivate -UserList $records | Out-Null
+
+            Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like '*will also set EmployeeID 10001*' }
+        }
+    }
+
+    It 'does not flag an account already carrying the EmployeeID' {
+        $records = @(New-TestSourceRecord -IDBActive $false -ADObject (New-TestADUser))
+
+        InModuleScope IDBridge -Parameters @{ records = $records } {
+            Mock Write-Log {}
+            Get-ADUsersToDeactivate -UserList $records | Out-Null
+
+            Should -Invoke Write-Log -Times 0 -ParameterFilter { $Message -like '*will also set EmployeeID*' }
+        }
+    }
 }

@@ -32,17 +32,31 @@ vault under `C:\IDBridge\Vault\` (see [Secrets](#secrets-not-in-the-config-file)
 Optional block. After the change lists are computed (read-only) and **before any writes**,
 `Invoke-IDBridge` compares each enabled directory's proposed lifecycle changes
 (create/update/rename/move/deactivate — group churn excluded) against that directory's existing
-**managed** population (users under `AD.userRootOU` / `Google.userRootOU`). If the percentage
-exceeds `Percentage`, the run **aborts before writing anything**. Omit the whole block to leave
-the guard off (older configs keep working).
+**managed** population. If the percentage exceeds `Percentage`, the run **aborts before writing
+anything**. Omit the whole block to leave the guard off (older configs keep working).
+
+The managed population is the **active accounts IDBridge has linked**, wherever they sit — no OU
+setting in either directory:
+
+- **AD:** enabled accounts with an `EmployeeID` (`Get-ADManagedUserCount`). Assumes nothing else
+  in the domain writes `EmployeeID` (an HR sync, for example) — those accounts would count too.
+- **Google:** accounts that are neither suspended nor archived and carry a personID in the
+  `organization` externalId (`Get-GoogleManagedUserCount`).
+
+Accounts IDBridge never linked (admins, service accounts, kiosks, hand-made accounts) and
+deactivated accounts (disabled in the AD trash OU, archived in Google) don't count, and the count
+comes from directory state only, so a broken source feed can't shrink it. A new source type's
+existing accounts join the population once their first run links them, so that onboarding run is
+measured against the accounts already linked — review it with `-Preview` and run it once with
+`-SkipChangeThreshold` if it trips.
 
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `Enabled`    | bool   | Master switch for the guard. `$false` (or `-SkipChangeThreshold`) bypasses it. | `Invoke-IDBridge` |
 | `Percentage` | number | Max allowed change % of the managed population, per directory. Required when `Enabled` — there is no code fallback (the shipped config sets `25`). | `Invoke-IDBridge` → `Test-IDBridgeChangeThreshold` |
 
-> A directory whose managed population is **0** (fresh tenant / empty root OU) is skipped with a
-> `Warn` rather than tripping the guard, so a legitimate first run isn't blocked by a zero
+> A directory whose managed population is **0** (a fresh tenant — nothing linked yet) is skipped
+> with a `Warn` rather than tripping the guard, so a legitimate first run isn't blocked by a zero
 > denominator. The `-SkipChangeThreshold` switch sets `Enabled = $false` for that run. Under
 > `Invoke-IDBridge -Preview` a breach logs a `Warn` and continues instead of aborting — a
 > preview exists to review exactly those changes.
@@ -67,7 +81,6 @@ the guard off (older configs keep working).
 |-----|------|--------|---------|
 | `enabled`                     | bool   | Master switch for Google processing (an auth failure throws — see behavioral notes). | `Initialize-IDBridge` (cascade), `Invoke-IDBridge` |
 | `customerID`                  | string | Workspace customer ID. | Google target/API calls |
-| `userRootOU`                  | string | Root OU path, e.g. `/YourDistrict`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
 | `enableGroupProcessing`       | bool   | Enable Google group sync. Per person, a source record with `ProcessGroupsGoogle = $false` is left out (see behavioral notes). | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
@@ -85,7 +98,7 @@ the guard off (older configs keep working).
 | Key | Type | Effect | Read by |
 |-----|------|--------|---------|
 | `enabled`                     | bool   | Master switch for AD processing. | `Initialize-IDBridge`, `Invoke-IDBridge` |
-| `userRootOU`                  | string | Root OU DN, e.g. `OU=YourDistrict,DC=yourdomain,DC=local`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
+| `userRootOU`                  | string | Root OU DN, e.g. `OU=YourDistrict,DC=yourdomain,DC=local` — the OU the IDBridge service account is delegated rights on (`Initialize-IDBridgeADServiceAccount`'s default `-TargetOU`). Every OU your source plugins place users in, trash included, must sit under it, or the service account can't write there. Not read by the sync itself (the change-volume guard counts linked accounts, not an OU). | `Initialize-IDBridgeADServiceAccount` |
 | `enableGroupProcessing`       | bool   | Enable AD group sync. Per person, a source record with `ProcessGroupsAD = $false` is left out (see behavioral notes). | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals. | `Invoke-IDBridge` |

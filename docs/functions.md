@@ -515,7 +515,10 @@ and can then be deactivated. A name mismatch is an error and skipped, unless app
 `Approve-IDBridgeNameMismatch` (honored only while the account still matches the approval;
 drifted ⇒ Warn + skip). Unlinked users with no AD account at all are logged at Trace only
 (inactive ones with an explicit "nothing to reconcile" message, mirroring
-`Get-GoogleUsersToSetEmployeeID`). **Returns:** hashtable
+`Get-GoogleUsersToSetEmployeeID`). A match for a user who is inactive or not AD-provisioned
+whose account is **already disabled** is still returned but logged at Trace ("nothing to
+reconcile") instead of the Info "will link" line — no step writes its EmployeeID (updates cover
+active users, deactivation enabled accounts), so it would otherwise recur every run. **Returns:** hashtable
 `personID → @{ ID(ObjectGUID); Groups; EnabledStatus; User }`. `Groups` reuses the target
 snapshot's exclusion-filtered `CurrentGroups`, so `AD.groupsExcluded` applies to linked
 users too (matching the Google side).
@@ -546,7 +549,10 @@ applied. **Returns:** `@{ UpdateList; RenameList; MoveList }` (items carry `CN` 
 
 ### `Get-ADUsersToDeactivate` 🔒 🧮
 **Params:** `-UserList`. **Predicate:** `(IDBActive=false OR ProvisionAD=false)` AND
-`ADCurrentUserEnabledStatus=true`. **Returns:** user objects to disable.
+`ADCurrentUserEnabledStatus=true`. Also logs when the disable step will set the EmployeeID:
+accounts matched by username+name have none yet, and the update list only covers active users,
+so the disable write persists the link (mirrors `Get-GoogleUsersToDeactivate`).
+**Returns:** user objects to disable.
 
 ### `Get-ADUsersToResetPassword` 🔒 🧮🌐
 **Params:** `-UserList` (AD user objects: SamAccountName + DistinguishedName), `-PassphraseAPI`
@@ -565,13 +571,21 @@ plaintext phrase rides on each item for the caller's optional export and is neve
 and no removes (an empty diff would otherwise strip all their groups); the skipped count is
 logged at Trace. **Returns:** `@{ Add; Remove }` (each `@{PersonID; ADCurrentUserID; Groups}`).
 
+### `Get-ADManagedUserCount` 🔒 🧮
+**Params:** `-Users` (nullable). The change-volume guard's AD denominator: counts enabled
+accounts with an `EmployeeID` (the personID link IDBridge writes), anywhere in the domain —
+`AD.userRootOU` plays no part. Disabled accounts in the trash OU and never-linked accounts don't
+count; reads directory state only; 0 on a fresh domain (the guard then skips with a Warn).
+Assumes nothing else writes `EmployeeID`. Mirrors `Get-GoogleManagedUserCount`. **Returns:** `[int]`.
+
 ### `New-IDBridgeADOrgUnit` 🔒 🌐
 **Params:** `-OrgUnit` (DN). Parses DN → `New-ADOrganizationalUnit`. Throws on failure —
 `Invoke-IDBridge` treats a failed OU creation as fatal and aborts the run.
 
 ### `Disable-IDBridgeADUser` 🔒 🌐
 **Params:** `-User`, `-GroupRemovalProcessingStatus`. Disables account, stamps `Division`
-with timestamp, moves to trash OU, and (if flag) removes all current groups. `Invoke-IDBridge`
+with timestamp (and sets `EmployeeID` in the same write when the account doesn't carry it yet —
+a name-matched account), moves to trash OU, and (if flag) removes all current groups. `Invoke-IDBridge`
 sets the flag only when `enableGroupProcessing` + `enableGroupProcessingTrash` are on, WhatIf is
 off, and the user's `ProcessGroupsAD` isn't `$false` (the same gate as Google). Each removal
 recorded as its own `GroupRemove` write result; a failed group is logged and skipped.
@@ -613,7 +627,10 @@ to existing Google users by primaryEmail+name. A name mismatch is an error and s
 approved via `Approve-IDBridgeNameMismatch` (honored only while the account still matches the
 approval; drifted ⇒ Warn + skip). Unlinked users with no Google account at all are
 logged at Trace only (inactive ones with an explicit "nothing to reconcile" message — inactive
-source rows with no account are expected and recur until the row leaves the source feed).
+source rows with no account are expected and recur until the row leaves the source feed). A
+match for a user who is inactive or not Google-provisioned whose account is **already suspended
+or archived** is still returned but logged at Trace ("nothing to reconcile") instead of the Info
+"will link" line — no step writes its externalId, so it would otherwise recur every run.
 **Returns:** hashtable `personID → @{ ID; Groups; SuspendedStatus; User }`.
 
 ### `Get-GoogleOrgUnitsForProcessing` 🔒 🧮
@@ -664,6 +681,12 @@ account would be re-matched every run). **Returns:** user objects.
 `GoogleGroups` — a group's email does not always match its name). Users with
 `ProcessGroupsGoogle = $false` are skipped entirely — no adds and no removes; the skipped count
 is logged at Trace. **Returns:** `@{ Add; Remove }`.
+
+### `Get-GoogleManagedUserCount` 🔒 🧮
+**Params:** `-Users` (nullable). The change-volume guard's Google denominator: counts accounts
+that carry an IDBridge personID link (an `organization` externalId with a value) and are
+neither suspended nor archived, in any OU. Reads directory state only — a broken source feed
+can't shrink it; 0 on a fresh tenant (the guard then skips with a Warn). **Returns:** `[int]`.
 
 ### `Get-GoogleUsersOrphaned` 🧮
 **Params:** `-UserList`, `-GoogleUsers`, `-TrashOU`. Finds Google users whose ID isn't in

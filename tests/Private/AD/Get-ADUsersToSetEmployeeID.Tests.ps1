@@ -32,6 +32,44 @@ Describe 'Get-ADUsersToSetEmployeeID' {
         }
     }
 
+    It 'logs at Trace (nothing to reconcile) when the user is not active in AD and the matched account is already disabled' {
+        # Neither the update step (active users) nor the deactivate step (enabled accounts) will
+        # write the link, so an Info "will link" line would repeat on every run.
+        $records = @(
+            (New-TestSourceRecord -PersonID '1' -Username 'inactive' -IDBActive $false -ADCurrentUserID $null)
+            (New-TestSourceRecord -PersonID '2' -Username 'unprovisioned' -ProvisionAD $false -ADCurrentUserID $null)
+        )
+        $adUsers = @(
+            (New-TestADUser -SamAccountName 'inactive' -EmployeeID $null -Enabled $false)
+            (New-TestADUser -SamAccountName 'unprovisioned' -EmployeeID $null -Enabled $false)
+        )
+
+        InModuleScope IDBridge -Parameters @{ records = $records; adUsers = $adUsers } {
+            Mock Write-Log {}
+            Mock Get-IDBridgeApprovedNameMismatches { @{} }
+            $result = Get-ADUsersToSetEmployeeID -UserList $records -CurrentADUsers $adUsers
+
+            $result.Count | Should -Be 2
+            Should -Invoke Write-Log -Times 2 -Exactly -ParameterFilter { $Level -eq 'Trace' -and $Message -like '*already disabled - nothing to reconcile*' }
+            Should -Invoke Write-Log -Times 0 -ParameterFilter { $Message -like '*will link EmployeeID*' }
+        }
+    }
+
+    It 'keeps the Info "will link" line for an inactive user whose matched account is still enabled' {
+        # The deactivate step will disable this account and write the link.
+        $records = @(New-TestSourceRecord -IDBActive $false -ADCurrentUserID $null)
+        $adUsers = @(New-TestADUser -EmployeeID $null -Enabled $true)
+
+        InModuleScope IDBridge -Parameters @{ records = $records; adUsers = $adUsers } {
+            Mock Write-Log {}
+            Mock Get-IDBridgeApprovedNameMismatches { @{} }
+            Get-ADUsersToSetEmployeeID -UserList $records -CurrentADUsers $adUsers | Out-Null
+
+            # Write-Log is called without -Level (Info default), so assert "not demoted to Trace"
+            Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Level -ne 'Trace' -and $Message -like '*will link EmployeeID*' }
+        }
+    }
+
     It 'does not link when the username matches but the name differs (no approval) - logs an error' {
         $records = @(New-TestSourceRecord -ADCurrentUserID $null)
         $adUsers = @(New-TestADUser -EmployeeID $null -GivenName 'Somebody' -Surname 'Else')
