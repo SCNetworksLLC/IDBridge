@@ -68,10 +68,10 @@ the guard off (older configs keep working).
 | `enabled`                     | bool   | Master switch for Google processing (an auth failure throws — see behavioral notes). | `Initialize-IDBridge` (cascade), `Invoke-IDBridge` |
 | `customerID`                  | string | Workspace customer ID. | Google target/API calls |
 | `userRootOU`                  | string | Root OU path, e.g. `/YourDistrict`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
-| `enableGroupProcessing`       | bool   | Enable Google group sync. | `Invoke-IDBridge` |
+| `enableGroupProcessing`       | bool   | Enable Google group sync. Per person, a source record with `ProcessGroupsGoogle = $false` is left out (see behavioral notes). | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals (not just adds). | `Invoke-IDBridge` |
-| `enableGroupProcessingTrash`  | bool   | Strip group memberships when deactivating. | `Invoke-IDBridge` |
+| `enableGroupProcessingTrash`  | bool   | Strip group memberships when deactivating. Only takes effect with `enableGroupProcessing = $true` and `enableGroupProcessingWhatIf = $false`; never strips a user with `ProcessGroupsGoogle = $false`. | `Invoke-IDBridge` |
 | `groupsExcluded`              | array  | Group **email** wildcard patterns IDBridge never touches — matching groups are dropped at target-data retrieval, so no adds, removes, or deactivate strips ever reach them (exclusion wins even over a proposed group). Key absent = `@('classroom_teachers@*')` (the previous hardcoded behavior); if you set the key, include that pattern yourself. | `Get-TargetDataGoogle` |
 | `enableLicenseRemoval`        | bool   | Remove a user's discovered **paid** license assignments on the **full deactivate (trash) step only** — never on a `ForceDisable` update. The base Education Fundamentals license self-releases when the deactivate step archives the user. **On when the key is absent** (code default), but the shipped config template sets `$false` — so a scaffolded install starts with it off; setting `$false` also drops the `apps.licensing` scope from token requests. | `Invoke-IDBridge`, `Get-TargetDataGoogle`, `Get-IDBridgeGoogleScope` |
 | `licenseProductIds`           | array  | Products searched for a user's assignments (SKUs are discovered, not configured). Default `@('101031','101037')` (Education Standard/Plus + Teaching and Learning Upgrade) — paid products only; the base license is not touched by API (archiving releases it, and API removal fights OU auto-licensing). IDs: [Google's product list](https://developers.google.com/workspace/admin/licensing/how-to/products). | `Get-TargetDataGoogle` |
@@ -86,10 +86,10 @@ the guard off (older configs keep working).
 |-----|------|--------|---------|
 | `enabled`                     | bool   | Master switch for AD processing. | `Initialize-IDBridge`, `Invoke-IDBridge` |
 | `userRootOU`                  | string | Root OU DN, e.g. `OU=YourDistrict,DC=yourdomain,DC=local`. Managed-population anchor for the change-volume guard. | `Invoke-IDBridge` (`ChangeThreshold`) |
-| `enableGroupProcessing`       | bool   | Enable AD group sync. | `Invoke-IDBridge` |
+| `enableGroupProcessing`       | bool   | Enable AD group sync. Per person, a source record with `ProcessGroupsAD = $false` is left out (see behavioral notes). | `Invoke-IDBridge` |
 | `enableGroupProcessingWhatIf` | bool   | While `$true`, group diffs are computed and logged but **no group writes happen** (even with `enableGroupProcessing = $true`). | `Invoke-IDBridge` |
 | `enableGroupProcessingRemove` | bool   | Allow removals. | `Invoke-IDBridge` |
-| `enableGroupProcessingTrash`  | bool   | Strip groups on deactivate (passed to `Disable-IDBridgeADUser`). | `Invoke-IDBridge` |
+| `enableGroupProcessingTrash`  | bool   | Strip groups on deactivate (passed to `Disable-IDBridgeADUser`). Only takes effect with `enableGroupProcessing = $true` and `enableGroupProcessingWhatIf = $false`; never strips a user with `ProcessGroupsAD = $false`. | `Invoke-IDBridge` |
 | `groupsExcluded`              | array  | Group **name** wildcard patterns IDBridge never touches — matching groups are dropped at target-data retrieval, so no adds, removes, or deactivate strips ever reach them (exclusion wins even over a proposed group). Default `@()`. | `Get-TargetDataAD` |
 
 ### `Logging`
@@ -242,6 +242,13 @@ key. **Only names/locations are documented here — never values.** See [secrets
   (config or `-SkipGoogle`/`-SkipAD`) also disables that side's `enableGroupProcessing`.
 - **WhatIf vs. ReadOnly:** `Debug.ReadOnly` blocks *all* writes; `enableGroupProcessingWhatIf`
   scopes only group changes to log-only while other writes still happen (when not ReadOnly).
+  That includes the deactivate strip (`enableGroupProcessingTrash`).
+- **Group processing per source type:** the `AD`/`Google` switches above are directory-wide;
+  each source record's `ProcessGroupsAD` / `ProcessGroupsGoogle` (default `$true`, set by the
+  source plugin) narrows them per person. `$false` leaves that person's memberships in that
+  directory untouched — no adds, removes, or deactivate strips. The shipped staff plugin sets
+  it for all staff (`$ADProcessGroups`/`$GoogleProcessGroups`); the student plugins set it per
+  grade (`GradeSettings.<grade>.AD/Google.ProcessGroups`). See [plugins.md](plugins.md).
 - **Safe default:** the shipped config has `Debug.ReadOnly = $true` and AD/Google group
   `WhatIf = $true` — a fresh run reports intended changes without modifying anything.
 - **Change-volume guard:** `ChangeThreshold` aborts the whole run (before any writes) if a

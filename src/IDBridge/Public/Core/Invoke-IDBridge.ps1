@@ -87,7 +87,7 @@ Invoke-IDBridge -Preview -ShowPasswords | Where-Object Action -eq 'Create' | For
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-21
+   Modified: 2026-10-09
 #>
 function Invoke-IDBridge {
     [CmdletBinding()]
@@ -193,17 +193,19 @@ function Invoke-IDBridge {
 
 
         #region Groups Not Processed
+        # Users opted out of a directory's group processing (ProcessGroups<Dir> = $false) are left out -
+        # their proposed groups are never processed there, so a missing group is not worth reporting.
         if ($IDConfig.Debug.TraceLogging -eq $true) {
             #AD Checks
             if ($IDConfig.AD.enabled -eq $true -and ($IDConfig.AD.enableGroupProcessing -eq $true -or $IDConfig.AD.enableGroupProcessingWhatIf -eq $true)) {
                 Write-Log -Message "AD: Checking for Groups Proposed for Processing that do not exist in the Target Data." -Level Trace
-                Show-GroupsNotProcessed -ProposedGroups $sourceData.GroupsProposed -TargetGroups $adData.Groups -Directory 'AD'
+                Show-GroupsNotProcessed -ProposedGroups ($sourceData | Where-Object { $_.ProcessGroupsAD -ne $false }).GroupsProposed -TargetGroups $adData.Groups -Directory 'AD'
             }
 
             #Google Checks
             if ($IDConfig.Google.enabled -eq $true -and ($IDConfig.Google.enableGroupProcessing -eq $true -or $IDConfig.Google.enableGroupProcessingWhatIf -eq $true)) {
                 Write-Log -Message "Google: Checking for Groups Proposed for Processing that do not exist in the Target Data." -Level Trace
-                Show-GroupsNotProcessed -ProposedGroups $sourceData.GroupsProposed -TargetGroups $googleData.Groups.name -Directory 'Google'
+                Show-GroupsNotProcessed -ProposedGroups ($sourceData | Where-Object { $_.ProcessGroupsGoogle -ne $false }).GroupsProposed -TargetGroups $googleData.Groups.name -Directory 'Google'
             }
         }
         #endregion Groups Not Processed
@@ -386,10 +388,13 @@ function Invoke-IDBridge {
             }
 
             #Disable Users
+            #Groups are stripped on deactivate only while group processing is live (enabled + Trash, not WhatIf)
+            #and the user hasn't opted out (ProcessGroupsAD = $false) - same gate as Google
+            $adGroupTrashEnabled = ($IDConfig.AD.enableGroupProcessing -eq $true -and $IDConfig.AD.enableGroupProcessingTrash -eq $true -and $IDConfig.AD.enableGroupProcessingWhatIf -ne $true)
             foreach ($item in $ADUsersToDeactivate) {
                 try {
                     #Disable-IDBridgeADUser returns the ErrorRecord on failure instead of throwing
-                    $disableResult = Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash
+                    $disableResult = Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus ($adGroupTrashEnabled -and $item.ProcessGroupsAD -ne $false)
                     Add-IDBridgeWriteResult -Directory AD -Action Deactivate -PersonID $item.PersonID -Target $item.UPN -Success ($null -eq $disableResult) -ErrorMessage "$($disableResult)"
                 }
                 catch {
@@ -561,10 +566,13 @@ function Invoke-IDBridge {
             }
 
             #Strip group memberships on deactivate (batched) and remove licenses
+            #Groups are stripped only while group processing is live (enabled + Trash, not WhatIf)
+            #and the user hasn't opted out (ProcessGroupsGoogle = $false) - same gate as AD
+            $googleGroupTrashEnabled = ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true -and $IDConfig.Google.enableGroupProcessingWhatIf -ne $true)
             $googleBatchRequests = @()
             $identityMap = @{}
             foreach ($item in $GoogleUsersToDeactivate) {
-                if ($IDConfig.Google.enableGroupProcessing -eq $true -and $IDConfig.Google.enableGroupProcessingTrash -eq $true) {
+                if ($googleGroupTrashEnabled -and $item.ProcessGroupsGoogle -ne $false) {
                     foreach ($group in $item.GoogleCurrentGroups) {
                         try {
                             Write-Log -Message ("Google: Applying: Removing Group: $group from $($item.personID)")

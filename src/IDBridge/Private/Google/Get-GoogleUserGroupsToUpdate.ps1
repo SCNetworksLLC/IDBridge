@@ -8,7 +8,9 @@ GoogleCurrentGroups and builds an Add list (proposed groups that exist in Google
 already in) and a Remove list (current memberships no longer proposed). Membership is compared by
 each group's real email from GoogleGroups (a group's email does not always match its name), so a
 group named Grade-PK with email studentsgradepk@domain diffs correctly. Adds are limited to groups
-present in GoogleGroups.
+present in GoogleGroups. Users with ProcessGroupsGoogle = $false are skipped entirely (no adds, no
+removes) - an empty proposed list would otherwise strip all of their groups - and the skipped
+count is logged at Trace.
 
 .PARAMETER UserList
 The enriched source records.
@@ -24,7 +26,7 @@ $groups = Get-GoogleUserGroupsToUpdate -UserList $sourceData -GoogleGroups $goog
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-07-21
+   Modified: 2026-10-09
 #>
 function Get-GoogleUserGroupsToUpdate {
     [CmdletBinding()]
@@ -39,6 +41,7 @@ function Get-GoogleUserGroupsToUpdate {
 
     $itemListAdd = @()
     $itemListRemove = @()
+    $skippedCount = 0
 
     #Map group names to emails (and back) so membership is compared by each group's real email
     $groupEmailByName = @{}
@@ -49,6 +52,12 @@ function Get-GoogleUserGroupsToUpdate {
     }
 
     foreach ($item in $UserList | Where-Object {$_.IDBActive -eq $true -and $_.ProvisionGoogle -eq $true -and $_.GoogleCurrentUserID}) {
+        #Opted out of Google group processing - leave the user's groups untouched (no adds, no removes)
+        if ($item.ProcessGroupsGoogle -eq $false) {
+            $skippedCount++
+            continue
+        }
+
         #Create list for adding groups
         $userGroupsAdd = @()
 
@@ -88,6 +97,10 @@ function Get-GoogleUserGroupsToUpdate {
                 Groups = $userGroupsRemove
             }
         }
+    }
+
+    if ($skippedCount -gt 0) {
+        Write-Log -Message "Google: Group processing skipped for $($skippedCount) user(s) with ProcessGroupsGoogle = `$false." -Level Trace
     }
 
     return [PSCustomObject]@{

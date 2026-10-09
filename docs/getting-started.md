@@ -203,7 +203,9 @@ Flip one brake at a time, with a read-only-style review (`-ReadOnly` or `-Previe
    legitimate first population isn't blocked.
 2. `enableGroupProcessing = $true` (per directory) with `WhatIf` still `$true` — review the
    group diffs in the log. Add patterns to `groupsExcluded` for any group IDBridge must
-   never touch (manually curated clubs, committees).
+   never touch (manually curated clubs, committees). To keep a whole source type (e.g. staff)
+   or a grade out of a directory's group processing, set that plugin's `ProcessGroups` flag
+   to `$false` (see [plugins.md](plugins.md#source-plugin-output-schema)).
 3. `enableGroupProcessingWhatIf = $false` — group **adds** go live.
 4. Later, as trust builds: `enableGroupProcessingRemove`, `enableGroupProcessingTrash`, and
    `Google.enableLicenseRemoval` (see [configuration.md](configuration.md#google-workspace-processing)).

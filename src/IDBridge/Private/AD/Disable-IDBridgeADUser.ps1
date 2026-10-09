@@ -16,15 +16,16 @@ The source record for the user to deactivate (uses ADCurrentUserID, ADOrganizati
 ADCurrentGroups, and PersonID).
 
 .PARAMETER GroupRemovalProcessingStatus
-When $true, remove the user from all current groups as part of deactivation (driven by the AD
-enableGroupProcessingTrash setting).
+When $true, remove the user from all current groups as part of deactivation. Invoke-IDBridge passes
+$true only when AD enableGroupProcessing and enableGroupProcessingTrash are on, WhatIf is off, and
+the user's ProcessGroupsAD is not $false.
 
 .EXAMPLE
-Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus $IDConfig.AD.enableGroupProcessingTrash
+Disable-IDBridgeADUser -User $item -GroupRemovalProcessingStatus ($adGroupTrashEnabled -and $item.ProcessGroupsAD -ne $false)
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-06-26
+   Modified: 2026-10-09
 #>
 function Disable-IDBridgeADUser {
     [CmdletBinding()]

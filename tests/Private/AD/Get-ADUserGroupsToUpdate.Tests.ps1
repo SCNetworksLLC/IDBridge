@@ -101,4 +101,47 @@ Describe 'Get-ADUserGroupsToUpdate' {
             @($result.Remove).Count | Should -Be 0
         }
     }
+
+    It 'leaves a user with ProcessGroupsAD = $false untouched - no adds and no removes' {
+        # Both records would add 'Math Dept' and remove 'Old Team'; only the opted-in one may.
+        $records = @(
+            (New-TestSourceRecord -PersonID '1' -ProcessGroupsAD $false -GroupsProposed 'Staff', 'Math Dept' -ADCurrentGroups 'Staff', 'Old Team')
+            (New-TestSourceRecord -PersonID '2' -GroupsProposed 'Staff', 'Math Dept' -ADCurrentGroups 'Staff', 'Old Team')
+        )
+
+        InModuleScope IDBridge -Parameters @{ records = $records } {
+            Mock Write-Log {}
+            $result = Get-ADUserGroupsToUpdate -UserList $records -CurrentADGroups @('Staff', 'Math Dept', 'Old Team')
+
+            @($result.Add.PersonID) | Should -Be @('2')
+            @($result.Remove.PersonID) | Should -Be @('2')
+            Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Message -like 'AD: Group processing skipped for 1 user(s)*' -and $Level -eq 'Trace' }
+        }
+    }
+
+    It 'treats an override-sheet string FALSE as opted out' {
+        $records = @(New-TestSourceRecord -ProcessGroupsAD 'FALSE' -GroupsProposed 'Staff' -ADCurrentGroups 'Old Team')
+
+        InModuleScope IDBridge -Parameters @{ records = $records } {
+            Mock Write-Log {}
+            $result = Get-ADUserGroupsToUpdate -UserList $records -CurrentADGroups @('Staff', 'Old Team')
+
+            @($result.Add).Count | Should -Be 0
+            @($result.Remove).Count | Should -Be 0
+        }
+    }
+
+    It 'still processes a record with no ProcessGroupsAD property (built outside the factory)' {
+        $record = New-TestSourceRecord -GroupsProposed 'Staff' -ADCurrentGroups 'Old Team'
+        $record.PSObject.Properties.Remove('ProcessGroupsAD')
+
+        InModuleScope IDBridge -Parameters @{ records = @($record) } {
+            Mock Write-Log {}
+            $result = Get-ADUserGroupsToUpdate -UserList $records -CurrentADGroups @('Staff', 'Old Team')
+
+            @($result.Add).Count | Should -Be 1
+            @($result.Remove).Count | Should -Be 1
+            Should -Invoke Write-Log -Times 0 -ParameterFilter { $Message -like '*skipped*' }
+        }
+    }
 }

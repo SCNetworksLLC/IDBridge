@@ -427,9 +427,11 @@ Canonical factory for a source record — the shape plugins must emit. **Params:
 `JobTitle`, `Company`, `PersonType`, `PersonTypeID` [ValidateSet `1`/`2`/`3`], `IDBActive`
 [bool], `ProvisionAD`/`ProvisionGoogle` [bool]); optional/defaulted everything else
 (`Department`/`InternalID` → `$null`, `GroupsProposed` → `@()`, the AD/Google OU/password
-fields). **Returns:** an ordered `PSCustomObject` with the full 35-field contract (incl. optional
-AD attributes `Description`/`TelephoneNumber`/`EmailAddress`/`PasswordNeverExpires`/
-`ExtensionAttribute2-4`, and the override flags `ForceDisable`/`GoogleOUOverride`). Construction
+fields, `ProcessGroupsAD`/`ProcessGroupsGoogle` → `$true`). **Returns:** an ordered
+`PSCustomObject` with the full 37-field contract (incl. optional AD attributes
+`Description`/`TelephoneNumber`/`EmailAddress`/`PasswordNeverExpires`/`ExtensionAttribute2-4`,
+the per-user group-processing scope `ProcessGroupsAD`/`ProcessGroupsGoogle`, and the override
+flags `ForceDisable`/`GoogleOUOverride`). Construction
 enforces presence + type; cross-field rules live in `Test-IDBridgeSourceData`.
 
 ### `Test-IDBridgeSourceData` 🧮
@@ -559,8 +561,9 @@ plaintext phrase rides on each item for the caller's optional export and is neve
 
 ### `Get-ADUserGroupsToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-CurrentADGroups`. Diffs `GroupsProposed` vs `ADCurrentGroups`
-(adds must exist in AD). **Returns:** `@{ Add; Remove }` (each `@{PersonID; ADCurrentUserID;
-Groups}`).
+(adds must exist in AD). Users with `ProcessGroupsAD = $false` are skipped entirely — no adds
+and no removes (an empty diff would otherwise strip all their groups); the skipped count is
+logged at Trace. **Returns:** `@{ Add; Remove }` (each `@{PersonID; ADCurrentUserID; Groups}`).
 
 ### `New-IDBridgeADOrgUnit` 🔒 🌐
 **Params:** `-OrgUnit` (DN). Parses DN → `New-ADOrganizationalUnit`. Throws on failure —
@@ -568,7 +571,9 @@ Groups}`).
 
 ### `Disable-IDBridgeADUser` 🔒 🌐
 **Params:** `-User`, `-GroupRemovalProcessingStatus`. Disables account, stamps `Division`
-with timestamp, moves to trash OU, and (if flag) removes all current groups — each removal
+with timestamp, moves to trash OU, and (if flag) removes all current groups. `Invoke-IDBridge`
+sets the flag only when `enableGroupProcessing` + `enableGroupProcessingTrash` are on, WhatIf is
+off, and the user's `ProcessGroupsAD` isn't `$false` (the same gate as Google). Each removal
 recorded as its own `GroupRemove` write result; a failed group is logged and skipped.
 Disable/move failures return the ErrorRecord (the caller records the `Deactivate` result).
 
@@ -656,7 +661,9 @@ account would be re-matched every run). **Returns:** user objects.
 ### `Get-GoogleUserGroupsToUpdate` 🔒 🧮
 **Params:** `-UserList`, `-GoogleGroups` (nullable). Diffs proposed vs current groups
 (adds must exist in Google; membership compared by each group's real email from
-`GoogleGroups` — a group's email does not always match its name). **Returns:** `@{ Add; Remove }`.
+`GoogleGroups` — a group's email does not always match its name). Users with
+`ProcessGroupsGoogle = $false` are skipped entirely — no adds and no removes; the skipped count
+is logged at Trace. **Returns:** `@{ Add; Remove }`.
 
 ### `Get-GoogleUsersOrphaned` 🧮
 **Params:** `-UserList`, `-GoogleUsers`, `-TrashOU`. Finds Google users whose ID isn't in
