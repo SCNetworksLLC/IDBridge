@@ -10,7 +10,10 @@ previously unlinked or deprovisioned accounts be reconciled and, if inactive, de
 username that matches a different name is logged as an error and skipped — unless that exact
 mismatch was approved via Approve-IDBridgeNameMismatch (persisted in
 <DataRoot>\ApprovedNameMismatches.csv), in which case it links; an approval whose recorded
-account/name no longer matches the current AD account is logged as a warning and skipped.
+account/name no longer matches the current AD account is logged as a warning and skipped. A match
+for a user who is inactive or not AD-provisioned whose account is already disabled is still
+returned, but logged at Trace ("nothing to reconcile") instead of Info: nothing writes the link for
+it (updates cover active users, the deactivate step enabled accounts), so it recurs every run.
 
 .PARAMETER UserList
 The source records (the in-progress user list).
@@ -26,7 +29,7 @@ $matches = Get-ADUsersToSetEmployeeID -UserList $sourceData -CurrentADUsers $adD
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-20
+   Modified: 2026-10-09
 #>
 function Get-ADUsersToSetEmployeeID {
     [CmdletBinding()]
@@ -57,9 +60,10 @@ function Get-ADUsersToSetEmployeeID {
                 $ADUser = ($CurrentADUsers | Where-Object {$_.SamAccountName -eq $item.username})
 
                 $link = $false
+                $matchedBy = $null
 
                 if ($ADUser.Surname -eq $item.NameLast -and $ADUser.GivenName -eq $item.NameFirst) {
-                    Write-Log -Message ("AD: No user with EmployeeID: $($item.personID) - matched existing $($ADUser.UserPrincipalName) by username+name; will link EmployeeID.")
+                    $matchedBy = "by username+name"
                     $link = $true
                 } else {
                     #Name differs - honor a recorded approval only while both sides still match
@@ -67,7 +71,7 @@ function Get-ADUsersToSetEmployeeID {
                     $approval = $approvedMismatches["AD|$($item.personID)"]
 
                     if ($approval -and $approval.Account -eq $item.username -and $approval.DirectoryName -eq ($ADUser.GivenName + " " + $ADUser.Surname)) {
-                        Write-Log -Message ("AD: No user with EmployeeID: $($item.personID) - matched existing $($ADUser.UserPrincipalName) by username with name mismatch approved on $($approval.ApprovedDate); will link EmployeeID.")
+                        $matchedBy = "by username with name mismatch approved on $($approval.ApprovedDate)"
                         $link = $true
                     } elseif ($approval) {
                         Write-Log -Message ("AD: Username " + $item.username + " for " + $item.personID + " has an approval from " + $approval.ApprovedDate + " but the account no longer matches it (approved: " + $approval.Account + " / " + $approval.DirectoryName + ", current: " + $item.username + " / " + $ADUser.GivenName + " " + $ADUser.Surname + ") - not linked; re-approve with Approve-IDBridgeNameMismatch.") -Level Warn
@@ -77,6 +81,14 @@ function Get-ADUsersToSetEmployeeID {
                 }
 
                 if ($link) {
+                    #Not active in AD and the account is already disabled: neither the update step (active users)
+                    #nor the deactivate step (enabled accounts) writes the link, so it re-matches every run - Trace, not Info
+                    if (($item.IDBActive -eq $false -or $item.ProvisionAD -eq $false) -and $ADUser.Enabled -eq $false) {
+                        Write-Log -Message ("AD: No user with EmployeeID: $($item.personID) - matched existing $($ADUser.UserPrincipalName) $matchedBy, but the source user is inactive or not AD-provisioned and the account is already disabled - nothing to reconcile.") -Level Trace
+                    } else {
+                        Write-Log -Message ("AD: No user with EmployeeID: $($item.personID) - matched existing $($ADUser.UserPrincipalName) $matchedBy; will link EmployeeID.")
+                    }
+
                     $itemUpdateList[$item.personID] = [PSCustomObject]@{
                         ID = $ADUser.ObjectGUID
                         #CurrentGroups is the AD.groupsExcluded-filtered name list built by

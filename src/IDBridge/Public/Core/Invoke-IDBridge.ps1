@@ -291,13 +291,15 @@ function Invoke-IDBridge {
 
         #region Change Threshold Safety Check
         # Guard against a broken source feed mass-changing a directory: if the proposed lifecycle
-        # changes exceed a percentage of the existing managed (root-OU) population, abort before any
-        # writes. Bypassed by ChangeThreshold.Enabled = $false in config or the -SkipChangeThreshold switch.
+        # changes exceed a percentage of the existing managed population (the active accounts IDBridge
+        # has linked - AD: enabled with an EmployeeID; Google: not suspended/archived with a personID
+        # externalId), abort before any writes. Bypassed by ChangeThreshold.Enabled = $false in
+        # config or the -SkipChangeThreshold switch.
         if ($IDConfig.ContainsKey('ChangeThreshold') -and $IDConfig.ChangeThreshold.Enabled -eq $true) {
             $thresholdResults = [System.Collections.Generic.List[object]]::new()
 
             if ($IDConfig.AD.enabled -eq $true) {
-                $adManagedPopulation = @($adData.Users | Where-Object { $_.DistinguishedName -like "*,$($IDConfig.AD.userRootOU)" }).Count
+                $adManagedPopulation = Get-ADManagedUserCount -Users $adData.Users
                 # Count distinct affected users: a single user needing update+rename+move is one change,
                 # not three (so the ratio is comparable to Google's per-user count). CN uniquely identifies the user.
                 # Wrap each list in @() so a single-element list (scalar string) concatenates as an
@@ -310,7 +312,10 @@ function Invoke-IDBridge {
             }
 
             if ($IDConfig.Google.enabled -eq $true) {
-                $googleManagedPopulation = @($googleData.Users | Where-Object { $_.orgUnitPath -eq $IDConfig.Google.userRootOU -or $_.orgUnitPath -like "$($IDConfig.Google.userRootOU)/*" }).Count
+                if ($IDConfig.Google.ContainsKey('userRootOU')) {
+                    Write-Log -Message "Google: Config key Google.userRootOU is no longer used - the change threshold counts the active Google accounts IDBridge has linked. It can be removed from IDBridgeConfig.psd1." -Level Trace
+                }
+                $googleManagedPopulation = Get-GoogleManagedUserCount -Users $googleData.Users
                 $googleChangeCount = @($GoogleUsersToCreate).Count + @($GoogleUsersToDeactivate).Count + @($GoogleUsersToUpdate).Count
                 $thresholdResults.Add( (Test-IDBridgeChangeThreshold -Directory 'Google' -ChangeCount $googleChangeCount -PopulationCount $googleManagedPopulation -ThresholdPercent $IDConfig.ChangeThreshold.Percentage) )
             }

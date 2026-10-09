@@ -32,6 +32,44 @@ Describe 'Get-GoogleUsersToSetEmployeeID' {
         }
     }
 
+    It 'logs at Trace (nothing to reconcile) when the user is not active in Google and the matched account is already deactivated' {
+        # Neither the update step (active users) nor the deactivate step (not-yet-deactivated
+        # accounts) will write the link, so an Info "will link" line would repeat on every run.
+        $records = @(
+            (New-TestSourceRecord -PersonID '1' -UPN 'inactive@example.org' -IDBActive $false -GoogleCurrentUserID $null)
+            (New-TestSourceRecord -PersonID '2' -UPN 'unprovisioned@example.org' -ProvisionGoogle $false -GoogleCurrentUserID $null)
+        )
+        $googleUsers = @(
+            (New-TestGoogleUser -PrimaryEmail 'inactive@example.org' -ExternalIdValue $null -archived $true)
+            (New-TestGoogleUser -PrimaryEmail 'unprovisioned@example.org' -ExternalIdValue $null -suspended $true)
+        )
+
+        InModuleScope IDBridge -Parameters @{ records = $records; googleUsers = $googleUsers } {
+            Mock Write-Log {}
+            Mock Get-IDBridgeApprovedNameMismatches { @{} }
+            $result = Get-GoogleUsersToSetEmployeeID -UserList $records -GoogleUsers $googleUsers
+
+            $result.Count | Should -Be 2
+            Should -Invoke Write-Log -Times 2 -Exactly -ParameterFilter { $Level -eq 'Trace' -and $Message -like '*already deactivated - nothing to reconcile*' }
+            Should -Invoke Write-Log -Times 0 -ParameterFilter { $Message -like '*will link EmployeeID*' }
+        }
+    }
+
+    It 'keeps the Info "will link" line for an inactive user whose matched account is not yet deactivated' {
+        # The deactivate step will archive this account and write the externalId.
+        $records = @(New-TestSourceRecord -IDBActive $false -GoogleCurrentUserID $null)
+        $googleUsers = @(New-TestGoogleUser -ExternalIdValue $null)
+
+        InModuleScope IDBridge -Parameters @{ records = $records; googleUsers = $googleUsers } {
+            Mock Write-Log {}
+            Mock Get-IDBridgeApprovedNameMismatches { @{} }
+            Get-GoogleUsersToSetEmployeeID -UserList $records -GoogleUsers $googleUsers | Out-Null
+
+            # Write-Log is called without -Level (Info default), so assert "not demoted to Trace"
+            Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Level -ne 'Trace' -and $Message -like '*will link EmployeeID*' }
+        }
+    }
+
     It 'does not link when the primaryEmail matches but the name differs (no approval) - logs an error' {
         $records = @(New-TestSourceRecord -GoogleCurrentUserID $null)
         $googleUsers = @(New-TestGoogleUser -GivenName 'Somebody' -FamilyName 'Else')

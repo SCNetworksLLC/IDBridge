@@ -92,6 +92,7 @@ function New-TestSourceRecord {
         [bool]$ADChangePasswordAtLogon = $true,
         $ADPassphraseAPI = $null,
         $ADKey = $null,
+        $ADObject = $null,
 
         # Google provisioning + attached Google target state
         [bool]$ProvisionGoogle = $true,
@@ -141,6 +142,7 @@ function New-TestSourceRecord {
         ADChangePasswordAtLogon          = $ADChangePasswordAtLogon
         ADPassphraseAPI                  = $ADPassphraseAPI
         ADKey                            = $ADKey
+        ADObject                         = $ADObject
         ProvisionGoogle                  = $ProvisionGoogle
         ProcessGroupsGoogle              = $ProcessGroupsGoogle
         GoogleCurrentUserID              = $GoogleCurrentUserID

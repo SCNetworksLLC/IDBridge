@@ -91,8 +91,9 @@ Invoke-IDBridge
        Get-GoogleUserGroupsToUpdate (if group processing on) ┘
         │
 9b. Change-threshold guard (if ChangeThreshold.Enabled): per directory, count proposed
-       lifecycle changes (create/update/rename/move/deactivate) vs the managed root-OU
-       population via Test-IDBridgeChangeThreshold; Throw (abort before any writes) if any
+       lifecycle changes (create/update/rename/move/deactivate) vs the managed population
+       (the active accounts IDBridge has linked: Get-ADManagedUserCount /
+       Get-GoogleManagedUserCount) via Test-IDBridgeChangeThreshold; Throw (abort before any writes) if any
        directory exceeds ChangeThreshold.Percentage. Bypass: -SkipChangeThreshold.
        Under -Preview a breach logs a Warn and continues (a preview exists to review
        exactly those changes).

@@ -5,6 +5,60 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [Unreleased]
+
+### Changed
+- **The change-volume guard counts the accounts IDBridge manages, not an OU, in both
+  directories; `Google.userRootOU` is retired and `AD.userRootOU` is now only the service
+  account's delegation OU.** Each directory's population was the users at or below its
+  `userRootOU`, which miscounted in both:
+  - **Google:** the key was used for nothing else, and its name suggested it controlled
+    placement or scope. It could name only one OU, so a district with students under
+    `/Students` and staff under `/Staff` had to undercount, or use `''` and count every admin,
+    kiosk, trashed and archived account. A root that doesn't exist silently turned the guard
+    off.
+  - **AD:** the shipped templates put the trash OU inside the root, so every disabled,
+    trashed account counted and the population grew every year. Accounts under the root that
+    IDBridge doesn't sync (e.g. staff at a students-only site) counted too, which diluted the
+    guard.
+
+  The population is now the active accounts carrying IDBridge's personID link, wherever they
+  sit:
+  - **AD:** enabled, with an `EmployeeID`.
+  - **Google:** not suspended or archived, with a personID in the `organization` externalId.
+
+  Nothing to configure, and it's read from directory state only, so a broken source feed can't
+  shrink it. New internal `Get-ADManagedUserCount` / `Get-GoogleManagedUserCount`, with tests.
+  The AD count assumes nothing else in the domain writes `EmployeeID` (e.g. an HR sync).
+  `AD.userRootOU` stays as `Initialize-IDBridgeADServiceAccount`'s default delegation OU. A
+  config that still sets `Google.userRootOU` keeps working (the key is ignored, with a Trace
+  line saying it can be removed); the config template drops it and re-describes
+  `AD.userRootOU` (`TemplateVersion: 4`).
+
+  **Behavior change:** the guard's percentages change at every site. Usually the guard gets
+  stricter, since trashed, unmanaged and unlinked accounts no longer pad the population. A
+  fresh tenant has nothing linked yet, so the guard skips with a `Warn` until the first run
+  links accounts. Onboarding a new source type is measured against the accounts already
+  linked: review it with `-Preview`, and run it once with `-SkipChangeThreshold` if it trips.
+
+### Fixed
+- **Linking no longer logs "will link EmployeeID" every run for accounts that are already
+  deactivated.** EmployeeID linking matches every unlinked source user by username+name, but
+  the link is only written by the update step (active users) or the deactivate step (accounts
+  still enabled / not yet archived). A user who is inactive or not provisioned in a directory
+  and whose account there is already disabled (AD) or suspended/archived (Google) — e.g. a
+  student in the AD trash OU — was re-matched with an Info "will link" line on every run, and
+  nothing ever linked it. `Get-ADUsersToSetEmployeeID` / `Get-GoogleUsersToSetEmployeeID` now
+  log that case at Trace as "nothing to reconcile"; the match is still returned, and every
+  other case keeps its Info line unchanged.
+- **AD deactivation now persists the EmployeeID on name-matched accounts.** The Google
+  deactivate step already set the personID externalId on an account matched by name;
+  `Disable-IDBridgeADUser` disabled the AD account without writing `EmployeeID`, so the
+  account stayed unlinked forever after. The disable write now sets `EmployeeID` when the
+  account doesn't carry it yet, and `Get-ADUsersToDeactivate` logs it at plan time ("will
+  also set EmployeeID"), so ReadOnly runs show it. Accounts disabled before this change stay
+  unlinked; the fix above quiets them.
+
 ## [26.10.9.0] - 2026-10-09
 
 ### Added
