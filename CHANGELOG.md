@@ -8,9 +8,29 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 ## [Unreleased]
 
 ### Added
+- **A run has an ID.** `Invoke-IDBridge` makes a GUID as the run starts. It is on the
+  run's opening log line (`######## Begin of Script Run: <stamp> Run ID: <guid> ########`),
+  on the RunResult as `RunId` (an additive property; `SchemaVersion` stays 1) and in
+  `Data\LastRun.json` as `runId` (an additive key; `schemaVersion` stays 1), so a receiver
+  can keep a run posted twice once and a person can find a run's log from what a plugin
+  sent. Not in telemetry. `Initialize-IDBridge` gains an optional `-RunId` for the marker;
+  the setup callers pass none and their marker is unchanged.
+  **Where a district runs Beacon, the box's Beacon collector must be on a release that
+  knows `runId` before this one arrives:** it refuses a `LastRun.json` key it does not
+  know, and would report the file as unreadable in place of the run.
+- **`Invoke-PluginPostRunAccountHistory`** — a PostRun plugin template (shipped disabled;
+  throws until your site's address is set) that posts each run and every write it
+  attempted to your own site's account history, with what an update, a rename or a move
+  changed (new and old values; never a password). Per-person data, sent only to the
+  address you set, over HTTPS, with the vault secret `AccountHistory-Token`. Posts wait in
+  `Data\AccountHistory` until the site takes them (30 days, 3,000 posts at most), so a
+  run made while the site is down is sent later; one post gets 10 seconds and a run's
+  sending 30. See docs/plugins.md and PRIVACY.md. The config template lists its
+  descriptor, disabled, and moves to `TemplateVersion: 5`.
 - **docs/roadmap.md** — work planned and not built yet: a timeout for plugins (a PostRun
-  plugin that hangs holds the single-run lock until the task's 1-hour limit), a run ID on
-  the RunResult, and the webhook template's error text.
+  plugin that hangs holds the single-run lock until the task's 1-hour limit), the webhook
+  template's error text, a UTC time on a write's record, and the move check when a name
+  holds a comma.
 
 ### Fixed
 - **Docs: the scheduled task runs every 15 minutes by default, not daily.**

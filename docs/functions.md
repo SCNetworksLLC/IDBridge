@@ -24,7 +24,8 @@ Top-level orchestrator. **Params:** `-RootPath` (def `C:\IDBridge`), switches `-
 time: a machine-wide mutex is taken before initialization (ReadOnly/Preview runs hold it
 too — they share the log and `Data` state files) and a second run throws immediately;
 the OS releases the lock if a run dies holding it, so it never goes stale. Calls
-`Initialize-IDBridge`, applies switch overrides, runs the notify-only Gallery update
+`Initialize-IDBridge` with the run's ID (a GUID made as the run starts — on the run-start
+log line, the RunResult's `RunId` and `Data\LastRun.json`), applies switch overrides, runs the notify-only Gallery update
 check (a newer release logs a `Warn`; failures are skipped at Trace), then runs the full
 pipeline: the shared gather phase (`Get-IDBridgePipelineData` — includes the Google auth
 from the vault secret `GoogleAuth-ServiceAccount` → `$script:GoogleHeaders`), personID
@@ -41,7 +42,9 @@ Loads config, builds/validates `Paths.*`, sets up logging (+5 MB rotation), impo
 module, applies feature cascade. No Google auth — that happens in `Invoke-IDBridge`, so a
 fresh install initializes cleanly before any secrets exist. **Params:** `-RootPath`,
 `-SkipADCheck`/`-SkipAD` (applied to the config before the AD module import — forwarded by
-the matching `Invoke-IDBridge` switches, whose other overrides land after initialization).
+the matching `Invoke-IDBridge` switches, whose other overrides land after initialization),
+`-RunId` (the run's own ID, written on the run-start marker; `Invoke-IDBridge` passes it,
+the setup callers do not and their marker carries none).
 **Returns:** nothing; sets `$script:IDBridgeConfig`, `$script:Logs`.
 
 ### `Install-IDBridge` 🌐(filesystem)
@@ -148,7 +151,9 @@ run start/end and duration, `success`/`readOnly`/`testRun`, the enabled `directo
 APPLIED counts (zeros in ReadOnly), `thresholdExceeded`, and `lastSuccessAt` — `runEnd` on a
 successful run, carried forward from the previous file on a failed one. A failed run adds the
 exception *class* and throwing *function* name only, never the message; no name, id, UPN, DN
-or group name is ever written. A write failure logs a `Warn` — it can never affect the run.
+or group name is ever written. `runId` is the run's own GUID (`RunResult.RunId`), the
+newest key: its reader refuses a key it does not know, so a box's Beacon collector must be
+on a release that knows `runId` before this one arrives. A write failure logs a `Warn` — it can never affect the run.
 **Returns:** nothing.
 
 ### `Invoke-PostRunPlugins` 🔒 🌐

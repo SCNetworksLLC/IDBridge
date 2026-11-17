@@ -137,6 +137,7 @@ ReadOnly runs too). The shipped config template lists all eight descriptors with
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunWebhook' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunExport' }
 @{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunOrphanReport' }
+@{ Enabled = $false; Type = "PostRun";  Function = 'Invoke-PluginPostRunAccountHistory' }
 ```
 
 | Key | Effect |
@@ -224,7 +225,7 @@ Derived from `-RootPath` (default `C:\IDBridge`); missing directories are create
 | `LogsRoot`        | `<Root>\Logs`                 | `IDBridge.log` (rotated at 5 MB) |
 | `ExportsRoot`     | `<Root>\Exports`              | Run reports and `UserList-<PersonType>.csv` exports |
 | `PluginsRoot`     | `<Root>\Plugins`              | Plugin `.ps1` files |
-| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward / Infinite Campus `LastSeen` CSVs), name-mismatch approvals (`ApprovedNameMismatches.csv`) and `LastRun.json` (the end-of-run summary) |
+| `DataRoot`        | `<Root>\Data`                 | Plugin state (e.g. Skyward / Infinite Campus `LastSeen` CSVs), name-mismatch approvals (`ApprovedNameMismatches.csv`), `LastRun.json` (the end-of-run summary) and `AccountHistory\` (run posts the account history plugin has not sent yet, when it is enabled) |
 | `VaultRoot`       | `<Root>\Vault`                | Secret vault (`*.secret.json` envelope files) |
 | `LogFile`         | `<LogsRoot>\IDBridge.log`     | Active log file |
 

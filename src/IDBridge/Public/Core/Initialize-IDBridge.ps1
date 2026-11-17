@@ -30,6 +30,11 @@ initialization, too late to affect the import).
 Set AD.enabled = $false before the AD module import, skipping it entirely (the feature
 cascade then also disables AD group processing). Forwarded by Invoke-IDBridge -SkipAD.
 
+.PARAMETER RunId
+The run's own identifier (a GUID made by Invoke-IDBridge as the run starts), written on the
+run-start marker so a run's log can be found from its ID. Omitted by the setup callers,
+whose marker carries no ID.
+
 .OUTPUTS
 None. Populates the script-scoped IDBridgeConfig and Logs state.
 
@@ -38,7 +43,7 @@ Initialize-IDBridge -RootPath 'C:\IDBridge'
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-08-20
+   Modified: 2026-11-17
 #>
 function Initialize-IDBridge {
     [CmdletBinding()]
@@ -47,7 +52,9 @@ function Initialize-IDBridge {
 
         [switch]$SkipADCheck,
 
-        [switch]$SkipAD
+        [switch]$SkipAD,
+
+        [string]$RunId
     )
 
     Write-Host "Importing config file from $RootPath"
@@ -104,7 +111,11 @@ function Initialize-IDBridge {
         Rename-Item $script:IDBridgeConfig.Paths.LogFile ((Get-Item $script:IDBridgeConfig.Paths.LogFile).BaseName + "_" + $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) + ".log")
     }
 
-    Write-Log -Message "######## Begin of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
+    if ($RunId) {
+        Write-Log -Message "######## Begin of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) Run ID: $RunId ########"
+    } else {
+        Write-Log -Message "######## Begin of Script Run: $((Get-Date -Format "yyyy-MM-dd-HH.mm.ss")) ########"
+    }
 
     if ($script:IDBridgeConfig.Debug.TraceLogging -eq $true) {
         Write-Log -Message "Trace logging is ENABLED" -Level Trace
