@@ -11,7 +11,7 @@ time later.
 Import-Module IDBridge
 Initialize-IDBridge                    # loads config/paths/logging
 Initialize-IDBridgeADServiceAccount    # gMSA + OU delegation + cert private-key read
-Register-IDBridgeScheduledTask         # install account on this host + daily task
+Register-IDBridgeScheduledTask         # install account on this host + the task (every 15 minutes)
 ```
 
 The account is a **group Managed Service Account** (default `gMSA-IDBridge`): no

@@ -215,8 +215,8 @@ Flip one brake at a time, with a read-only-style review (`-ReadOnly` or `-Previe
 
 - **Unattended/scheduled runs:** `Initialize-IDBridgeADServiceAccount` (creates the
   gMSA, delegates its rights on the managed root OU, grants it the Cms certificate's
-  private key) then `Register-IDBridgeScheduledTask` (daily `Invoke-IDBridge` task as
-  the gMSA). See [ad-bootstrap.md](ad-bootstrap.md) — and [secrets.md](secrets.md) for
+  private key) then `Register-IDBridgeScheduledTask` (an `Invoke-IDBridge` task every
+  15 minutes as the gMSA). See [ad-bootstrap.md](ad-bootstrap.md) — and [secrets.md](secrets.md) for
   the `DpapiNG` provider alternative.
 - **Students from a SIS:** a second source plugin (the Skyward and Infinite Campus
   OneRoster plugins in

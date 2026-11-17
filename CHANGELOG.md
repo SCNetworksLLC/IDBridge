@@ -5,6 +5,19 @@ All notable changes to IDBridge are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions use
 a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioning--releases)).
 
+## [Unreleased]
+
+### Added
+- **docs/roadmap.md** — work planned and not built yet: a timeout for plugins (a PostRun
+  plugin that hangs holds the single-run lock until the task's 1-hour limit), a run ID on
+  the RunResult, and the webhook template's error text.
+
+### Fixed
+- **Docs: the scheduled task runs every 15 minutes by default, not daily.**
+  `Register-IDBridgeScheduledTask` has always repeated every `-IntervalMinutes` (default
+  15); getting-started.md, ad-bootstrap.md's quick-start comment and CLAUDE.md's docs index
+  called it a daily task.
+
 ## [26.10.9.1] - 2026-10-09
 
 ### Changed
