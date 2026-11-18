@@ -158,6 +158,7 @@ ones won't be renamed. Check `SchemaVersion` if you depend on shape.
 |----------|-------|
 | `SchemaVersion` | `1`. |
 | `ModuleVersion` | The IDBridge module version that produced the run. |
+| `RunId` | The run's own ID: a GUID made as the run starts, also on the run's opening log line and in `Data\LastRun.json` (`runId`). What lets a receiver keep a run posted twice once, and a person find a run's log from what a plugin sent. |
 | `Success` | `$false` when the run threw a fatal error. |
 | `RunError` | The full `ErrorRecord` of a failed run (message + stack — nothing is stripped locally), or `$null`. |
 | `RunStart` / `RunEnd` / `DurationSeconds` | Run timing. |
@@ -296,6 +297,35 @@ File: `C:\IDBridge\Plugins\Invoke-PluginPostRunWebhook.ps1`. POSTs a compact JSO
 throws until the placeholder URL is edited. Fire-and-forget: 10 s timeout, send failures log
 a `Warn` and never affect the run. The starting point for shipping your own telemetry or
 alerting ("tell me when the run breaks").
+
+### `Invoke-PluginPostRunAccountHistory` — PostRun *(disabled in config)*
+File: `C:\IDBridge\Plugins\Invoke-PluginPostRunAccountHistory.ps1`. Posts each run, and
+every write it attempted, to your own site's account history at
+`<your site's address>/api/accounts/runs` — **per-person data**, unlike the webhook (see
+[PRIVACY.md](../PRIVACY.md)). Throws until the placeholder address is edited; the address
+must be `https://`. Needs the vault secret `AccountHistory-Token`, an API token your site
+issued for account history (`Set-IDBridgeSecret -Name 'AccountHistory-Token'`), sent as a
+Bearer token and never logged or written to a file.
+
+What it sends, for every run that is not a `-Preview` (failed and ReadOnly runs too): the
+run's `RunId`, the install's SiteID, the module version, start and end in UTC, success,
+the run's error text, the mode flags and `Counts`; and one event per `Applied` record, in
+the run's order: when (UTC), directory, action, person ID, target, success and error. An
+`Update`, a `Rename` or a `Move` also carries what changed — each attribute's name, its
+new value from the change list and its old value from the matched `ADObject` /
+`GoogleObject`. Never a password: a key whose name holds "password" (the
+`PasswordNeverExpires` flag excepted) and any SecureString value are left out. A run with
+more than 10,000 writes, or more than about 6 MB of them, is sent in parts.
+
+Each post is written to `Paths.DataRoot\AccountHistory` first and sent oldest first, so a
+run made while the site is down is sent by a later run, and a run posted twice is kept
+once by its `RunId`. `200` deletes the post; `400` or `413` (the site, or a proxy in front
+of it, will refuse it every time) sets it aside in `AccountHistory\refused` for 30 days
+with a `Warn`; anything else — the site down, the token revoked, account history switched
+off, a redirect, which is never followed — keeps the post and stops until the next run.
+Unsent posts are kept 30 days and at most 3,000 of them. One post gets 10 seconds and one
+run's sending 30, answer included, so a slow site cannot hold the run or its lock; send
+failures log a `Warn` and never affect the run.
 
 ### `Invoke-PluginPostRunExport` — PostRun *(works as-is)*
 File: `C:\IDBridge\Plugins\Invoke-PluginPostRunExport.ps1`. Writes the user list CSVs

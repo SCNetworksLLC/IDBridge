@@ -19,7 +19,8 @@ BeforeAll {
         'schemaVersion', 'moduleVersion', 'runStart', 'runEnd', 'durationSeconds',
         'success', 'readOnly', 'testRun', 'directories',
         'managed', 'created', 'updated', 'deactivated', 'groupAdds', 'groupRemoves',
-        'writeFailures', 'thresholdExceeded', 'errorType', 'errorFunction', 'lastSuccessAt'
+        'writeFailures', 'thresholdExceeded', 'errorType', 'errorFunction', 'lastSuccessAt',
+        'runId'
     )
 
     function New-TestRunResult {
@@ -34,6 +35,7 @@ BeforeAll {
         [PSCustomObject]@{
             SchemaVersion    = 1
             ModuleVersion    = '26.9.1.3'
+            RunId            = '3f2b8c1e-6d1a-4f0e-9b7a-2c5d8e9f0a1b'
             Success          = $Success
             RunError         = $RunError
             RunStart         = [DateTime]::new(2026, 9, 9, 3, 0, 0, [DateTimeKind]::Utc)
@@ -95,6 +97,7 @@ Describe 'Write-IDBridgeRunSummary' {
         $summary.thresholdExceeded | Should -BeFalse
         $summary.errorType | Should -Be ''
         $summary.errorFunction | Should -Be ''
+        $summary.runId | Should -Be '3f2b8c1e-6d1a-4f0e-9b7a-2c5d8e9f0a1b'
 
         # Stamps go out ISO-8601 UTC (ConvertFrom-Json reads them back as [datetime], so the
         # text is what pins the format), and a successful run IS the last success.

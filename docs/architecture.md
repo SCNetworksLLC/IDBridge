@@ -16,7 +16,8 @@ which prepares all global state:
 3. **Logging** — sets `Paths.LogFile = <LogsRoot>\IDBridge.log`, inits the in-memory
    buffer `$script:Logs` (and resets the per-write buffer `$script:WriteResults` that the
    RunResult's `Applied` list is built from), and **rotates the log if it exceeds 5 MB**
-   (renames with a timestamp). Writes the run-start marker.
+   (renames with a timestamp). Writes the run-start marker, which names the run's ID
+   (a GUID `Invoke-IDBridge` makes as the run starts, also the RunResult's `RunId`).
 4. **AD module** (if `AD.enabled`) — `Import-Module ActiveDirectory`. On failure it
    throws **unless** `Debug.skipADCheck` is set.
 5. **Feature-dependency cascade** — disabling Google/AD also disables their group
@@ -126,7 +127,7 @@ Invoke-IDBridge
        (self-contained try/catch, 10s timeout, no retries — can never affect the run;
        counts are APPLIED work so ReadOnly runs report zeros; see PRIVACY.md)
  13b. Write-IDBridgeRunSummary → Data\LastRun.json, the end-of-run summary a reader on the
-       box consumes (counts, mode flags, timing, lastSuccessAt carried forward across
+       box consumes (counts, mode flags, timing, the run's ID, lastSuccessAt carried forward across
        failures, and on a failure the error class/function only — never the message;
        self-contained try/catch — can never affect the run; see PRIVACY.md)
  14. Invoke-PostRunPlugins → runs Type = 'PostRun' plugins with the RunResult

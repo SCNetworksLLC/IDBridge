@@ -9,12 +9,15 @@ the run's counts, mode flags, timing and module version, so a monitor on the sam
 see how the last sync went without reading the log.
 
 The schema is versioned (schemaVersion 1) and grows additively only - a reader typed to
-this schema refuses a key it does not know. Counts are APPLIED work, so a ReadOnly run
+this schema refuses a key it does not know, which is why a box's collector must be on a
+release that knows runId before this one arrives. Counts are APPLIED work, so a ReadOnly run
 writes zeros alongside readOnly = true. lastSuccessAt is runEnd on a successful run and
 CARRIED FORWARD from the previous file on a failed one (empty when there has never been
 one) - the one field a single run cannot supply. A failed run contributes only the
 exception CLASS name and the throwing FUNCTION name, never the message, which can contain
-UPNs/DNs; no name, id, UPN, DN or group name is ever written.
+UPNs/DNs; no name, id, UPN, DN or group name is ever written. runId is the run's own
+random GUID (RunResult.RunId), so the file can be tied to the run's log - it names a run,
+never a person.
 
 The reader is SC Networks' Beacon collector on the same box where a district runs Beacon;
 nothing here leaves the machine by IDBridge's doing (see PRIVACY.md). The write is
@@ -31,7 +34,7 @@ Write-IDBridgeRunSummary -RunResult $runResult
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-09-21
+   Modified: 2026-11-17
 #>
 function Write-IDBridgeRunSummary {
     [CmdletBinding()]
@@ -96,6 +99,7 @@ function Write-IDBridgeRunSummary {
         errorType         = ''
         errorFunction     = ''
         lastSuccessAt     = if ($success) { $runEnd } else { $previousSuccessAt }
+        runId             = "$($RunResult.RunId)"
     }
 
     if ($RunResult.RunError) {

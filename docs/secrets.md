@@ -154,6 +154,7 @@ These names are used by the shipped code/plugins — store secrets under the **s
 | `ApiKey-SkywardSMS`            | Skyward SMS OneRoster client secret (always required by the students plugin) |
 | `ApiKey-InfiniteCampus`        | Infinite Campus OneRoster client secret (always required by the students plugin) |
 | `ApiKey-Passphrase`            | Passphrase-API bearer token (only when a password type is `API-PASSPHRASE`) |
+| `AccountHistory-Token`         | API token your site issued for account history (only when the `Invoke-PluginPostRunAccountHistory` plugin is enabled) |
 | `ApiKey-PassphraseNonceStaff`  | Passphrase nonce for staff (only when staff use `API-PASSPHRASE`) |
 | `ApiKey-PassphraseNonceStudent`| Passphrase nonce for students (only when a grade uses `API-PASSPHRASE`) |
 

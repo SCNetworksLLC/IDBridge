@@ -87,7 +87,7 @@ Invoke-IDBridge -Preview -ShowPasswords | Where-Object Action -eq 'Create' | For
 
 .NOTES
    Created by: Sam Cattanach
-   Modified: 2026-10-09
+   Modified: 2026-11-17
 #>
 function Invoke-IDBridge {
     [CmdletBinding()]
@@ -107,6 +107,9 @@ function Invoke-IDBridge {
     )
 
     $runStart = Get-Date
+    #The run's own identifier - on its opening log line, the RunResult and Data\LastRun.json,
+    #so a run's log can be found from what a PostRun plugin sent
+    $runId = [guid]::NewGuid().ToString()
 
     #region Single-Run Lock
     # One run per root at a time, machine-wide ('Global\' spans the console and the scheduled
@@ -134,7 +137,7 @@ function Invoke-IDBridge {
         #region Import Configuration
         #-SkipADCheck/-SkipAD are forwarded so they land before the AD module import;
         #the remaining switch overrides are applied after initialization below
-        $initializeSplat = @{ RootPath = $RootPath }
+        $initializeSplat = @{ RootPath = $RootPath; RunId = $runId }
         if ($SkipADCheck) { $initializeSplat.SkipADCheck = $true }
         if ($SkipAD)      { $initializeSplat.SkipAD = $true }
         try { Initialize-IDBridge @initializeSplat } catch { Throw }
@@ -790,6 +793,7 @@ function Invoke-IDBridge {
                 $runResult = [PSCustomObject]@{
                     SchemaVersion    = 1
                     ModuleVersion    = "$($MyInvocation.MyCommand.Module.Version)"
+                    RunId            = $runId
                     Success          = (-not $runError)
                     RunError         = $runError
                     RunStart         = $runStart

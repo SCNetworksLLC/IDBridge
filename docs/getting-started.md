@@ -215,18 +215,20 @@ Flip one brake at a time, with a read-only-style review (`-ReadOnly` or `-Previe
 
 - **Unattended/scheduled runs:** `Initialize-IDBridgeADServiceAccount` (creates the
   gMSA, delegates its rights on the managed root OU, grants it the Cms certificate's
-  private key) then `Register-IDBridgeScheduledTask` (daily `Invoke-IDBridge` task as
-  the gMSA). See [ad-bootstrap.md](ad-bootstrap.md) — and [secrets.md](secrets.md) for
+  private key) then `Register-IDBridgeScheduledTask` (an `Invoke-IDBridge` task every
+  15 minutes as the gMSA). See [ad-bootstrap.md](ad-bootstrap.md) — and [secrets.md](secrets.md) for
   the `DpapiNG` provider alternative.
 - **Students from a SIS:** a second source plugin (the Skyward and Infinite Campus
   OneRoster plugins in
   [plugins.md](plugins.md#invoke-pluginskywardsmsstudents--source-disabled-in-config) are
   worked examples).
-- **Run reports, CSV exports, alerting:** the four PostRun templates consume each run's
+- **Run reports, CSV exports, alerting:** the PostRun templates consume each run's
   results — `Invoke-PluginPostRunReport` (JSON run summary), `Invoke-PluginPostRunExport`
   (user-list CSVs), and `Invoke-PluginPostRunOrphanReport` (enabled accounts no source
   feeds anymore) work as-is once their descriptors are enabled;
-  `Invoke-PluginPostRunWebhook` POSTs a compact summary to your own endpoint.
+  `Invoke-PluginPostRunWebhook` POSTs a compact summary to your own endpoint, and
+  `Invoke-PluginPostRunAccountHistory` posts every write a run made to your own site's
+  account history (per-person data; an address and a vault token to set first).
   See [plugins.md](plugins.md#the-postrun-contract-invoke-postrunplugins).
   SC Networks' Beacon dashboard needs no plugin — its collector reads each run from the
   box, out of the `Data\LastRun.json` summary every run writes.

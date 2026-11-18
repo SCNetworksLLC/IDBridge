@@ -152,8 +152,9 @@ logic gets tests alongside it.
 - [docs/plugins.md](docs/plugins.md) — plugin contract (Source/Override/PostRun) + output schemas, with the shipped plugins as worked examples.
 - [docs/secrets.md](docs/secrets.md) — secret vault providers (Cms/DPAPI-NG/AzKeyVault), certificate setup, secret names, migration.
 - [docs/google-bootstrap.md](docs/google-bootstrap.md) — one-command Google service-account bootstrap (custom admin role, no domain-wide delegation) + the manual finish steps.
-- [docs/ad-bootstrap.md](docs/ad-bootstrap.md) — AD service-account bootstrap: gMSA creation, least-privilege OU delegation, cert private-key access, and the daily scheduled task.
+- [docs/ad-bootstrap.md](docs/ad-bootstrap.md) — AD service-account bootstrap: gMSA creation, least-privilege OU delegation, cert private-key access, and the scheduled task (every 15 minutes by default).
 - [docs/keysmith.md](docs/keysmith.md) — Keysmith passphrase integration: district registration, vault secrets, `New-Passphrase` operational rules.
+- [docs/roadmap.md](docs/roadmap.md) — work planned and not built yet.
 - [README.md](README.md) — public-facing overview, quick start, and publishing pointers.
 
 
