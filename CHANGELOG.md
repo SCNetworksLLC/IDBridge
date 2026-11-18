@@ -7,6 +7,8 @@ a calendar scheme `YY.M.D.build` (see [CONTRIBUTING.md](CONTRIBUTING.md#versioni
 
 ## [Unreleased]
 
+## [26.11.18.0] - 2026-11-18
+
 ### Added
 - **A run has an ID.** `Invoke-IDBridge` makes a GUID as the run starts. It is on the
   run's opening log line (`######## Begin of Script Run: <stamp> Run ID: <guid> ########`),
